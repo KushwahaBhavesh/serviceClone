@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -6,18 +6,31 @@ import {
     Pressable,
     ActivityIndicator,
     Alert,
+    Dimensions,
+    Keyboard,
+    TouchableWithoutFeedback,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import MapView, { Marker, Circle } from 'react-native-maps';
+import * as Location from 'expo-location';
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import { MapPin, Navigation, ChevronLeft, Search, CheckCircle } from 'lucide-react-native';
 
-import { Colors, Spacing, FontSize, BorderRadius } from '../../constants/theme';
+import { Colors, Spacing } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import type { UserRole } from '../../types/auth';
+
+const INITIAL_REGION = {
+    latitude: 28.6273928,
+    longitude: 77.3725807,
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.01,
+};
 
 export default function LocationScreen() {
     const router = useRouter();
@@ -32,42 +45,107 @@ export default function LocationScreen() {
         panNumber?: string;
         gstNumber?: string;
     }>();
+    
     const { completeOnboarding, isLoading, user } = useAuthStore();
 
     const [locationName, setLocationName] = useState('');
+    const [region, setRegion] = useState(INITIAL_REGION);
+    const [markerCoord, setMarkerCoord] = useState({
+        latitude: INITIAL_REGION.latitude,
+        longitude: INITIAL_REGION.longitude,
+    });
     const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+    const [permissionStatus, setPermissionStatus] = useState<Location.PermissionStatus | null>(null);
+
+    // Fetch address from coordinates
+    const reverseGeocode = async (coords: { latitude: number, longitude: number }) => {
+        try {
+            const result = await Location.reverseGeocodeAsync(coords);
+            if (result && result.length > 0) {
+                const item = result[0];
+                const address = [item.name, item.street, item.city, item.region]
+                    .filter(Boolean)
+                    .join(', ');
+                setLocationName(address);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+        } catch (error) {
+            console.error('Reverse geocode error:', error);
+        }
+    };
 
     const handleAutoDetect = async () => {
         setIsFetchingLocation(true);
-        // Simulate GPS fetching delay for UI feedback
-        setTimeout(() => {
-            setLocationName('Sector 62, Noida, India');
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            setPermissionStatus(status);
+
+            if (status !== 'granted') {
+                Alert.alert('Permission denied', 'We need location access to find your business area.');
+                setIsFetchingLocation(false);
+                return;
+            }
+
+            const location = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+            });
+
+            const newRegion = {
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+            };
+
+            setRegion(newRegion);
+            setMarkerCoord({
+                latitude: location.coords.latitude,
+                longitude: location.coords.longitude,
+            });
+            
+            await reverseGeocode(location.coords);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch (error) {
+            Alert.alert('Error', 'Could not detect location. Please try manually.');
+        } finally {
             setIsFetchingLocation(false);
-        }, 1500);
+        }
+    };
+
+    const handleMapPress = (e: any) => {
+        const coords = e.nativeEvent.coordinate;
+        setMarkerCoord(coords);
+        reverseGeocode(coords);
     };
 
     const handleFinishOnboarding = async () => {
         if (!locationName.trim()) {
-            Alert.alert('Location Required', 'Please enter your service location.');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            Alert.alert('Location Required', 'Please set your service location on the map.');
             return;
         }
 
         try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
             await completeOnboarding({
                 role: role || 'CUSTOMER',
                 email,
-                businessName,
-                businessCategory,
-                description,
-                panNumber,
-                gstNumber,
+                businessName: businessName || undefined,
+                businessCategory: businessCategory || undefined,
+                description: description || undefined,
+                panNumber: panNumber ? panNumber.trim() : undefined,
+                gstNumber: gstNumber ? gstNumber.trim() : undefined,
                 skills: skills ? skills.split(',') : undefined,
                 name: user?.name,
                 locationName: locationName.trim(),
-                latitude: 28.6273928, // Mock GPS coords
-                longitude: 77.3725807,
+                latitude: markerCoord.latitude,
+                longitude: markerCoord.longitude,
             });
 
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            
             if (role === 'MERCHANT') {
                 router.replace('/(merchant)/dashboard');
             } else if (role === 'AGENT') {
@@ -81,242 +159,306 @@ export default function LocationScreen() {
     };
 
     return (
-        <View style={styles.container}>
-            <StatusBar style="dark" />
-            <View style={styles.bgContainer}>
-                <LinearGradient
-                    colors={['#FFFFFF', '#F8FAFC', '#F1F5F9']}
-                    style={StyleSheet.absoluteFill}
-                />
-            </View>
-
-            <View style={[styles.content, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <Pressable
-                        onPress={() => router.back()}
-                        style={styles.backButton}
-                        hitSlop={12}
-                    >
-                        <Ionicons name="arrow-back" size={24} color="#0F172A" />
-                    </Pressable>
-                    <View style={styles.stepContainer}>
-                        <Text style={styles.stepText}>Step 2 of 2</Text>
-                    </View>
-                    <Text style={styles.title}>Service Area</Text>
-                    <Text style={styles.subtitle}>
-                        We use your location to connect you with services and providers in your area.
-                    </Text>
-                </View>
-
-                {/* Main Content */}
-                <View style={styles.body}>
-                    <Pressable
-                        style={({ pressed }) => [
-                            styles.autoDetectButton,
-                            pressed && { opacity: 0.8 }
-                        ]}
-                        onPress={handleAutoDetect}
-                        disabled={isFetchingLocation || isLoading}
-                    >
-                        <LinearGradient
-                            colors={['rgba(59, 130, 246, 0.08)', 'rgba(59, 130, 246, 0.03)']}
-                            style={styles.autoDetectGradient}
-                        >
-                            {isFetchingLocation ? (
-                                <ActivityIndicator color={Colors.primary} size="small" />
-                            ) : (
-                                <Ionicons name="navigate" size={24} color={Colors.primary} />
-                            )}
-                            <Text style={styles.autoDetectText}>
-                                {isFetchingLocation ? 'Locating...' : 'Use current location'}
-                            </Text>
-                        </LinearGradient>
-                    </Pressable>
-
-                    <View style={styles.divider}>
-                        <View style={styles.dividerLine} />
-                        <Text style={styles.dividerText}>or manual entry</Text>
-                        <View style={styles.dividerLine} />
-                    </View>
-
-                    <View style={styles.inputWrapper}>
-                        <Input
-                            value={locationName}
-                            onChangeText={setLocationName}
-                            placeholder="e.g. Sector 62, Noida"
-                            autoComplete="street-address"
-                        />
-                    </View>
-                </View>
-
-                {/* Map Illustration / Placeholder */}
-                <View style={styles.mapContainer}>
-                    <View style={styles.mapPlaceholder}>
-                        <View style={styles.mapIconCircle}>
-                            <Ionicons name="map" size={40} color="#94A3B8" />
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.container}>
+                <StatusBar style="dark" />
+                
+                {/* Minimal Header */}
+                <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
+                    <View style={styles.navbar}>
+                        <Pressable onPress={() => router.back()} style={styles.minimalBackBtn}>
+                            <ChevronLeft size={24} color="#0F172A" />
+                        </Pressable>
+                        <View style={styles.headerInfo}>
+                            <Text style={styles.minimalTitle}>Service Area</Text>
+                            <Text style={styles.minimalSubtitle}>Where will you operate?</Text>
                         </View>
-                        <Text style={styles.mapText}>Map Preview</Text>
-                        <Text style={styles.mapSubtext}>Select area for service radius</Text>
                     </View>
                 </View>
 
-                {/* Footer Section */}
-                <View style={styles.footer}>
-                    <Button
-                        title="Start Exploring"
+                {/* Map Section */}
+                <View style={styles.mapWrapper}>
+                    <MapView
+                        style={styles.map}
+                        region={region}
+                        onRegionChangeComplete={setRegion}
+                        onPress={handleMapPress}
+                        showsUserLocation={permissionStatus === 'granted'}
+                    >
+                        <Marker coordinate={markerCoord}>
+                            <View style={styles.customMarker}>
+                                <LinearGradient
+                                    colors={[Colors.primary, Colors.primaryLight]}
+                                    style={styles.markerCircle}
+                                >
+                                    <MapPin size={24} color="#FFF" fill="#FFF" />
+                                </LinearGradient>
+                                <View style={styles.markerPointer} />
+                            </View>
+                        </Marker>
+                        
+                        {(role === 'MERCHANT' || role === 'AGENT') && (
+                            <Circle
+                                center={markerCoord}
+                                radius={500}
+                                fillColor={Colors.primary + '10'}
+                                strokeColor={Colors.primary + '20'}
+                                strokeWidth={2}
+                            />
+                        )}
+                    </MapView>
+
+                    {/* Minimal Silk Address Box */}
+                    <Animated.View 
+                        entering={FadeInUp.delay(300)} 
+                        style={[styles.addressCard, { top: 20 }]}
+                    >
+                        <View style={styles.addressRow}>
+                            <View style={styles.searchIconBox}>
+                                <Search size={18} color={Colors.primary} />
+                            </View>
+                            <Input
+                                value={locationName}
+                                onChangeText={setLocationName}
+                                placeholder="Detecting your location..."
+                                containerStyle={styles.minimalInputContainer}
+                            />
+                        </View>
+                    </Animated.View>
+
+                    {/* Minimal FAB */}
+                    <Pressable
+                        onPress={handleAutoDetect}
+                        style={({ pressed }) => [
+                            styles.fab,
+                            pressed && { transform: [{ scale: 0.95 }] }
+                        ]}
+                    >
+                        {isFetchingLocation ? (
+                            <ActivityIndicator color={Colors.primary} />
+                        ) : (
+                            <Navigation size={22} color={Colors.primary} strokeWidth={2.5} />
+                        )}
+                    </Pressable>
+                </View>
+
+                {/* Silk Footer */}
+                <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
+                    <View style={styles.infoRow}>
+                        <CheckCircle size={18} color={Colors.primary} strokeWidth={2.5} />
+                        <Text style={styles.infoText}>
+                            Address: {locationName ? locationName : "Drag map to select"}
+                        </Text>
+                    </View>
+
+                    <Pressable
                         onPress={handleFinishOnboarding}
                         disabled={!locationName.trim() || isLoading}
-                        loading={isLoading}
-                        variant="primary"
-                        style={styles.actionBtn}
-                    />
+                        style={({ pressed }) => [
+                            styles.silkBtn,
+                            (!locationName.trim() || isLoading) && styles.silkBtnDisabled,
+                            pressed && !isLoading && styles.silkBtnPressed
+                        ]}
+                    >
+                        <LinearGradient
+                            colors={!locationName.trim() || isLoading ? ['#CBD5E1', '#94A3B8'] : [Colors.primary, Colors.primaryLight]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.silkBtnGradient}
+                        >
+                            {isLoading ? (
+                                <ActivityIndicator color="#FFF" />
+                            ) : (
+                                <Text style={styles.silkBtnText}>Finish Registration</Text>
+                            )}
+                        </LinearGradient>
+                    </Pressable>
                 </View>
             </View>
-        </View>
+        </TouchableWithoutFeedback>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
-    },
-    bgContainer: {
-        ...StyleSheet.absoluteFillObject,
-    },
-    content: {
-        flex: 1,
-        paddingHorizontal: Spacing.xl,
+        backgroundColor: '#FAFAFA',
     },
     header: {
-        marginTop: 30,
-        marginBottom: 30,
+        backgroundColor: '#FAFAFA',
+        paddingBottom: 16,
     },
-    backButton: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: '#F1F5F9',
-        justifyContent: 'center',
+    navbar: {
+        flexDirection: 'row',
         alignItems: 'center',
+        paddingHorizontal: Spacing.xl,
+        gap: 16,
+    },
+    minimalBackBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        backgroundColor: '#FFF',
         borderWidth: 1,
-        borderColor: '#E2E8F0',
-        marginBottom: 20,
-    },
-    stepContainer: {
-        backgroundColor: Colors.primary + '10',
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 8,
-        alignSelf: 'flex-start',
-        marginBottom: 12,
-    },
-    stepText: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: Colors.primary,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-    title: {
-        fontSize: 32,
-        fontWeight: '900',
-        color: '#0F172A',
-        letterSpacing: -1,
-    },
-    subtitle: {
-        fontSize: 16,
-        color: '#64748B',
-        marginTop: 8,
-        lineHeight: 22,
-    },
-    body: {
-        gap: 20,
-    },
-    autoDetectButton: {
-        borderRadius: 20,
-        overflow: 'hidden',
-        borderWidth: 1.5,
-        borderColor: Colors.primary + '20',
-        borderStyle: 'dashed',
-    },
-    autoDetectGradient: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20,
-        gap: 12,
-    },
-    autoDetectText: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: Colors.primary,
-    },
-    divider: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        marginVertical: 4,
-    },
-    dividerLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: '#E2E8F0',
-    },
-    dividerText: {
-        color: '#94A3B8',
-        fontSize: 12,
-        fontWeight: '600',
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-    inputWrapper: {
-        marginBottom: 10,
-    },
-    mapContainer: {
-        flex: 1,
-        marginTop: 20,
-        marginBottom: 30,
-    },
-    mapPlaceholder: {
-        flex: 1,
-        borderRadius: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1.5,
         borderColor: '#F1F5F9',
-        backgroundColor: '#F8FAFC',
-    },
-    mapIconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: '#FFFFFF',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 16,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 5,
         elevation: 2,
     },
-    mapText: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#64748B',
+    headerInfo: {
+        flex: 1,
     },
-    mapSubtext: {
-        fontSize: 14,
-        color: '#94A3B8',
-        marginTop: 4,
+    minimalTitle: {
+        fontSize: 22,
+        fontWeight: '800',
+        color: '#0F172A',
+        letterSpacing: -0.5,
+    },
+    minimalSubtitle: {
+        fontSize: 13,
+        color: '#64748B',
+        fontWeight: '600',
+    },
+    mapWrapper: {
+        flex: 1,
+        backgroundColor: '#E2E8F0',
+    },
+    map: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    customMarker: {
+        alignItems: 'center',
+    },
+    markerCircle: {
+        width: 52,
+        height: 52,
+        borderRadius: 26,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 4,
+        borderColor: '#FFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 10,
+        elevation: 10,
+    },
+    markerPointer: {
+        width: 12,
+        height: 12,
+        backgroundColor: Colors.primary,
+        transform: [{ rotate: '45deg' }],
+        marginTop: -6,
+        borderBottomRightRadius: 2,
+    },
+    addressCard: {
+        position: 'absolute',
+        left: 20,
+        right: 20,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 20,
+        padding: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+        elevation: 15,
+    },
+    addressRow: {
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    searchIconBox: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        backgroundColor: Colors.primary + '10',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 6,
+    },
+    minimalInputContainer: {
+        flex: 1,
+        borderWidth: 0,
+        backgroundColor: 'transparent',
+    },
+    fab: {
+        position: 'absolute',
+        bottom: 25,
+        right: 20,
+        width: 56,
+        height: 56,
+        borderRadius: 18,
+        backgroundColor: '#FFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 8,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
     },
     footer: {
-        paddingTop: 10,
+        paddingHorizontal: Spacing.xl,
+        paddingTop: Spacing.xl,
+        backgroundColor: '#FFF',
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        marginTop: -30,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.05,
+        shadowRadius: 20,
+        elevation: 10,
     },
-    actionBtn: {
-        height: 56,
+    infoRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 12,
+        marginBottom: 24,
+        backgroundColor: '#F8FAFC',
+        padding: 16,
         borderRadius: 16,
+    },
+    infoText: {
+        flex: 1,
+        fontSize: 13,
+        color: '#475569',
+        fontWeight: '600',
+        lineHeight: 18,
+    },
+    silkBtn: {
+        borderRadius: 20,
+        overflow: 'hidden',
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.25,
+        shadowRadius: 15,
+        elevation: 8,
+    },
+    silkBtnDisabled: {
+        shadowOpacity: 0,
+        elevation: 0,
+    },
+    silkBtnPressed: {
+        transform: [{ scale: 0.98 }],
+    },
+    silkBtnGradient: {
+        height: 64,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    silkBtnText: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#FFF',
     },
 });

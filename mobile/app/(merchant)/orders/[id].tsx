@@ -1,32 +1,27 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    ActivityIndicator,
-    Alert,
-    Linking,
+    View, Text, StyleSheet, ScrollView, Pressable,
+    ActivityIndicator, Alert, Linking,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, FontSize, BorderRadius } from '../../../constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import {
+    ChevronLeft, User, Phone, Calendar, IndianRupee,
+    MapPin, UserPlus, Star, MessageCircle, X,
+} from 'lucide-react-native';
+
+import { Colors, Spacing } from '../../../constants/theme';
 import { merchantApi } from '../../../lib/merchant';
 import type { Agent, MerchantOrderEvent } from '../../../lib/merchant';
 import type { Booking } from '../../../lib/marketplace';
 
 const STATUS_COLORS: Record<string, string> = {
-    PENDING: Colors.warning,
-    ACCEPTED: Colors.secondary,
-    AGENT_ASSIGNED: '#9C27B0',
-    EN_ROUTE: '#00BCD4',
-    ARRIVED: '#FF9800',
-    IN_PROGRESS: Colors.primary,
-    COMPLETED: Colors.success,
-    CANCELLED: Colors.error,
-    REJECTED: Colors.textMuted,
+    PENDING: '#F59E0B', ACCEPTED: '#6366F1', AGENT_ASSIGNED: '#8B5CF6',
+    EN_ROUTE: '#0EA5E9', ARRIVED: '#F97316', IN_PROGRESS: Colors.primary,
+    COMPLETED: Colors.success, CANCELLED: '#EF4444', REJECTED: '#94A3B8',
 };
 
 type OrderDetail = Booking & { events: MerchantOrderEvent[]; agent: Agent | null };
@@ -34,6 +29,7 @@ type OrderDetail = Booking & { events: MerchantOrderEvent[]; agent: Agent | null
 export default function OrderDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const [order, setOrder] = useState<OrderDetail | null>(null);
     const [agents, setAgents] = useState<Agent[]>([]);
     const [loading, setLoading] = useState(true);
@@ -50,9 +46,7 @@ export default function OrderDetailScreen() {
             setAgents(agentsRes.data.agents.filter((a) => a.status === 'AVAILABLE'));
         } catch {
             Alert.alert('Error', 'Failed to load order details');
-        } finally {
-            setLoading(false);
-        }
+        } finally { setLoading(false); }
     }, [id]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
@@ -61,249 +55,352 @@ export default function OrderDetailScreen() {
         setAssigning(true);
         setShowAgentPicker(false);
         try {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             await merchantApi.assignAgent(id, agentId);
             await fetchData();
             Alert.alert('Success', 'Agent assigned successfully');
         } catch {
             Alert.alert('Error', 'Failed to assign agent');
-        } finally {
-            setAssigning(false);
-        }
+        } finally { setAssigning(false); }
     };
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.center}>
-                    <ActivityIndicator size="large" color={Colors.primary} />
-                </View>
-            </SafeAreaView>
+            <View style={[styles.center, { paddingTop: insets.top }]}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
         );
     }
 
     if (!order) return null;
 
     const canAssign = order.status === 'ACCEPTED' && !order.agent;
+    const statusColor = STATUS_COLORS[order.status] || '#94A3B8';
 
     return (
-        <SafeAreaView style={styles.container}>
-            <Stack.Screen options={{ title: order.bookingNumber, headerShown: true, headerStyle: { backgroundColor: Colors.backgroundAlt }, headerTintColor: Colors.text }} />
-            <ScrollView contentContainerStyle={styles.scroll}>
-                {/* Status Badge */}
-                <View style={[styles.statusBanner, { backgroundColor: STATUS_COLORS[order.status] + '18' }]}>
-                    <View style={[styles.statusDot, { backgroundColor: STATUS_COLORS[order.status] }]} />
-                    <Text style={[styles.statusLabel, { color: STATUS_COLORS[order.status] }]}>
-                        {order.status.replace(/_/g, ' ')}
-                    </Text>
-                </View>
+        <View style={styles.container}>
+            <Stack.Screen options={{ headerShown: false }} />
 
-                {/* Customer */}
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Customer</Text>
-                    <View style={styles.infoRow}>
-                        <Ionicons name="person-circle" size={36} color={Colors.primary} />
+            {/* Custom Header */}
+            <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
+                <Pressable
+                    onPress={() => router.back()}
+                    style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
+                >
+                    <ChevronLeft size={22} color="#1E293B" />
+                </Pressable>
+                <View style={styles.headerCenter}>
+                    <Text style={styles.headerTitle}>{order.bookingNumber}</Text>
+                    <View style={[styles.headerBadge, { backgroundColor: statusColor + '14' }]}>
+                        <View style={[styles.headerDot, { backgroundColor: statusColor }]} />
+                        <Text style={[styles.headerBadgeText, { color: statusColor }]}>
+                            {order.status.replace(/_/g, ' ')}
+                        </Text>
+                    </View>
+                </View>
+                <View style={{ width: 44 }} />
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+                {/* Customer Card */}
+                <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.card}>
+                    <Text style={styles.cardLabel}>CUSTOMER</Text>
+                    <View style={styles.customerRow}>
+                        <View style={styles.customerAvatar}>
+                            <User size={20} color={Colors.primary} strokeWidth={2} />
+                        </View>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.name}>{order.customer?.name ?? 'Customer'}</Text>
+                            <Text style={styles.customerName}>{order.customer?.name ?? 'Customer'}</Text>
                             {order.customer?.phone && (
-                                <TouchableOpacity onPress={() => Linking.openURL(`tel:${order.customer!.phone}`)}>
-                                    <Text style={styles.link}>{order.customer.phone}</Text>
-                                </TouchableOpacity>
+                                <Pressable onPress={() => Linking.openURL(`tel:${order.customer!.phone}`)}>
+                                    <View style={styles.phoneRow}>
+                                        <Phone size={12} color={Colors.primary} strokeWidth={2} />
+                                        <Text style={styles.phoneLink}>{order.customer.phone}</Text>
+                                    </View>
+                                </Pressable>
                             )}
                         </View>
                     </View>
-                </View>
+                </Animated.View>
 
-                {/* Schedule & Amount */}
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Booking Info</Text>
-                    <View style={styles.row}>
-                        <View style={styles.metaBlock}>
-                            <Text style={styles.metaLabel}>Scheduled</Text>
-                            <Text style={styles.metaValue}>
-                                {new Date(order.scheduledAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                {/* Booking Info */}
+                <Animated.View entering={FadeInDown.delay(150).springify()} style={styles.card}>
+                    <Text style={styles.cardLabel}>BOOKING INFO</Text>
+                    <View style={styles.infoGrid}>
+                        <View style={styles.infoBlock}>
+                            <View style={styles.infoIconRow}>
+                                <Calendar size={14} color="#64748B" strokeWidth={2} />
+                                <Text style={styles.infoBlockLabel}>Scheduled</Text>
+                            </View>
+                            <Text style={styles.infoBlockValue}>
+                                {new Date(order.scheduledAt).toLocaleDateString('en-IN', {
+                                    day: 'numeric', month: 'short', year: 'numeric',
+                                    hour: '2-digit', minute: '2-digit',
+                                })}
                             </Text>
                         </View>
-                        <View style={styles.metaBlock}>
-                            <Text style={styles.metaLabel}>Total</Text>
-                            <Text style={[styles.metaValue, { color: Colors.success }]}>₹{order.total.toLocaleString()}</Text>
+                        <View style={styles.infoBlock}>
+                            <View style={styles.infoIconRow}>
+                                <IndianRupee size={14} color="#64748B" strokeWidth={2} />
+                                <Text style={styles.infoBlockLabel}>Total</Text>
+                            </View>
+                            <Text style={[styles.infoBlockValue, { color: Colors.success }]}>
+                                ₹{order.total.toLocaleString()}
+                            </Text>
                         </View>
                     </View>
-                </View>
+                </Animated.View>
 
                 {/* Services */}
                 {order.items && order.items.length > 0 && (
-                    <View style={styles.card}>
-                        <Text style={styles.cardTitle}>Services</Text>
+                    <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.card}>
+                        <Text style={styles.cardLabel}>SERVICES</Text>
                         {order.items.map((item) => (
-                            <View key={item.id} style={styles.itemRow}>
-                                <Text style={styles.itemName}>{item.service?.name ?? 'Service'}</Text>
-                                <Text style={styles.itemMeta}>×{item.quantity}  ₹{item.price}</Text>
+                            <View key={item.id} style={styles.serviceRow}>
+                                <Text style={styles.serviceName}>{item.service?.name ?? 'Service'}</Text>
+                                <Text style={styles.serviceMeta}>×{item.quantity}  ₹{item.price}</Text>
                             </View>
                         ))}
-                    </View>
+                    </Animated.View>
                 )}
 
                 {/* Address */}
                 {order.address && (
-                    <View style={styles.card}>
-                        <Text style={styles.cardTitle}>Service Address</Text>
-                        <View style={styles.infoRow}>
-                            <Ionicons name="location" size={18} color={Colors.error} />
+                    <Animated.View entering={FadeInDown.delay(250).springify()} style={styles.card}>
+                        <Text style={styles.cardLabel}>SERVICE ADDRESS</Text>
+                        <View style={styles.addressRow}>
+                            <MapPin size={16} color="#EF4444" strokeWidth={2} />
                             <Text style={styles.addressText}>
                                 {[order.address.line1, order.address.city, order.address.state, order.address.zipCode].filter(Boolean).join(', ')}
                             </Text>
                         </View>
-                    </View>
+                    </Animated.View>
                 )}
 
-                {/* Assigned Agent */}
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Field Agent</Text>
+                {/* Agent */}
+                <Animated.View entering={FadeInDown.delay(300).springify()} style={styles.card}>
+                    <Text style={styles.cardLabel}>FIELD AGENT</Text>
                     {order.agent ? (
-                        <View style={styles.infoRow}>
-                            <Ionicons name="person" size={36} color={Colors.secondary} />
-                            <View>
-                                <Text style={styles.name}>{order.agent.user?.name ?? 'Agent'}</Text>
-                                <View style={[styles.agentStatusPill, { backgroundColor: order.agent.status === 'AVAILABLE' ? Colors.success + '20' : Colors.warning + '20' }]}>
-                                    <Text style={[styles.agentStatusText, { color: order.agent.status === 'AVAILABLE' ? Colors.success : Colors.warning }]}>{order.agent.status}</Text>
+                        <View style={styles.customerRow}>
+                            <View style={[styles.customerAvatar, { backgroundColor: '#EEF2FF' }]}>
+                                <User size={20} color="#6366F1" strokeWidth={2} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.customerName}>{order.agent.user?.name ?? 'Agent'}</Text>
+                                <View style={[styles.agentBadge, { backgroundColor: (order.agent.status === 'AVAILABLE' ? Colors.success : '#F59E0B') + '14' }]}>
+                                    <Text style={[styles.agentBadgeText, { color: order.agent.status === 'AVAILABLE' ? Colors.success : '#F59E0B' }]}>
+                                        {order.agent.status}
+                                    </Text>
                                 </View>
                             </View>
                         </View>
                     ) : (
-                        <Text style={styles.emptyText}>No agent assigned yet</Text>
+                        <Text style={styles.noAgent}>No agent assigned yet</Text>
                     )}
 
                     {canAssign && (
-                        <TouchableOpacity
-                            style={[styles.assignBtn, assigning && { opacity: 0.6 }]}
+                        <Pressable
                             onPress={() => setShowAgentPicker(true)}
                             disabled={assigning}
+                            style={({ pressed }) => [styles.assignBtn, pressed && { opacity: 0.8 }, assigning && { opacity: 0.5 }]}
                         >
-                            {assigning ? <ActivityIndicator size="small" color={Colors.textOnPrimary} /> :
-                                <><Ionicons name="person-add" size={16} color={Colors.textOnPrimary} /><Text style={styles.assignBtnText}>Assign Agent</Text></>
-                            }
-                        </TouchableOpacity>
+                            <LinearGradient
+                                colors={[Colors.primary, Colors.primaryLight]}
+                                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                                style={styles.assignGradient}
+                            >
+                                {assigning ? <ActivityIndicator size="small" color="#FFF" /> : (
+                                    <>
+                                        <UserPlus size={16} color="#FFF" strokeWidth={2.5} />
+                                        <Text style={styles.assignText}>Assign Agent</Text>
+                                    </>
+                                )}
+                            </LinearGradient>
+                        </Pressable>
                     )}
-                </View>
+                </Animated.View>
 
                 {/* Agent Picker */}
                 {showAgentPicker && (
-                    <View style={styles.card}>
-                        <Text style={styles.cardTitle}>Select Agent</Text>
+                    <Animated.View entering={FadeInDown.springify()} style={styles.card}>
+                        <View style={styles.pickerHeader}>
+                            <Text style={styles.cardLabel}>SELECT AGENT</Text>
+                            <Pressable onPress={() => setShowAgentPicker(false)}>
+                                <X size={18} color="#94A3B8" strokeWidth={2} />
+                            </Pressable>
+                        </View>
                         {agents.length === 0 ? (
-                            <Text style={styles.emptyText}>No available agents</Text>
+                            <Text style={styles.noAgent}>No available agents</Text>
                         ) : (
                             agents.map((agent) => (
-                                <TouchableOpacity
+                                <Pressable
                                     key={agent.id}
-                                    style={styles.agentOption}
                                     onPress={() => handleAssignAgent(agent.id)}
+                                    style={({ pressed }) => [styles.agentOption, pressed && { backgroundColor: '#EFF6FF' }]}
                                 >
                                     <View>
-                                        <Text style={styles.agentName}>{agent.user?.name ?? 'Agent'}</Text>
-                                        <Text style={styles.agentSkills}>{agent.skills.join(', ') || 'No skills listed'}</Text>
+                                        <Text style={styles.agentOptName}>{agent.user?.name ?? 'Agent'}</Text>
+                                        <Text style={styles.agentOptSkills}>{agent.skills.join(', ') || 'No skills'}</Text>
                                     </View>
-                                    <View style={styles.ratingBadge}>
-                                        <Ionicons name="star" size={12} color={Colors.warning} />
-                                        <Text style={styles.ratingText}>{agent.rating.toFixed(1)}</Text>
+                                    <View style={styles.ratingPill}>
+                                        <Star size={11} color="#F59E0B" fill="#F59E0B" />
+                                        <Text style={styles.ratingPillText}>{agent.rating.toFixed(1)}</Text>
                                     </View>
-                                </TouchableOpacity>
+                                </Pressable>
                             ))
                         )}
-                        <TouchableOpacity style={styles.cancelPickerBtn} onPress={() => setShowAgentPicker(false)}>
-                            <Text style={styles.cancelPickerText}>Cancel</Text>
-                        </TouchableOpacity>
-                    </View>
+                    </Animated.View>
                 )}
 
-                {/* Order Timeline */}
+                {/* Timeline */}
                 {order.events && order.events.length > 0 && (
-                    <View style={styles.card}>
-                        <Text style={styles.cardTitle}>Timeline</Text>
+                    <Animated.View entering={FadeInDown.delay(350).springify()} style={styles.card}>
+                        <Text style={styles.cardLabel}>TIMELINE</Text>
                         {order.events.map((event, idx) => (
-                            <View key={event.id} style={styles.timelineRow}>
-                                <View style={styles.timelineLine}>
-                                    <View style={[styles.timelineDot, { backgroundColor: idx === 0 ? Colors.primary : Colors.border }]} />
-                                    {idx < order.events.length - 1 && <View style={styles.timelineConnector} />}
+                            <View key={event.id} style={styles.tlRow}>
+                                <View style={styles.tlLeft}>
+                                    <View style={[styles.tlDot, { backgroundColor: idx === 0 ? Colors.primary : '#E2E8F0' }]} />
+                                    {idx < order.events.length - 1 && <View style={styles.tlLine} />}
                                 </View>
-                                <View style={styles.timelineContent}>
-                                    <Text style={styles.timelineStatus}>{event.status.replace(/_/g, ' ')}</Text>
-                                    <Text style={styles.timelineMeta}>
+                                <View style={styles.tlContent}>
+                                    <Text style={styles.tlStatus}>{event.status.replace(/_/g, ' ')}</Text>
+                                    <Text style={styles.tlMeta}>
                                         {event.actor?.name ?? 'System'} · {new Date(event.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                                     </Text>
-                                    {event.note && <Text style={styles.timelineNote}>{event.note}</Text>}
+                                    {event.note && <Text style={styles.tlNote}>{event.note}</Text>}
                                 </View>
                             </View>
                         ))}
-                    </View>
+                    </Animated.View>
                 )}
 
-                {/* Chat Action */}
+                {/* Chat CTA */}
                 {!['PENDING', 'COMPLETED', 'CANCELLED', 'REJECTED'].includes(order.status) && (
-                    <TouchableOpacity
-                        style={styles.chatBtn}
-                        onPress={() => router.push(`/(merchant)/chat/${order.id}` as never)}
-                    >
-                        <Ionicons name="chatbubbles" size={18} color={Colors.textOnPrimary} />
-                        <Text style={styles.chatBtnText}>Chat with Customer</Text>
-                    </TouchableOpacity>
+                    <Animated.View entering={FadeInDown.delay(400).springify()}>
+                        <Pressable
+                            onPress={() => router.push(`/(merchant)/chat/${order.id}` as never)}
+                            style={({ pressed }) => [styles.chatBtn, pressed && { transform: [{ scale: 0.98 }] }]}
+                        >
+                            <LinearGradient
+                                colors={['#6366F1', '#818CF8']}
+                                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                                style={styles.chatGradient}
+                            >
+                                <MessageCircle size={18} color="#FFF" strokeWidth={2} />
+                                <Text style={styles.chatBtnText}>Chat with Customer</Text>
+                            </LinearGradient>
+                        </Pressable>
+                    </Animated.View>
                 )}
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.backgroundAlt },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    scroll: { padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xxl },
+    container: { flex: 1, backgroundColor: '#F8FAFC' },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
 
-    statusBanner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, borderRadius: BorderRadius.md },
-    statusDot: { width: 10, height: 10, borderRadius: 5 },
-    statusLabel: { fontSize: FontSize.md, fontWeight: '800', letterSpacing: 0.5 },
+    // Header
+    header: {
+        flexDirection: 'row', alignItems: 'center',
+        paddingHorizontal: Spacing.lg, paddingBottom: 14, gap: 10,
+    },
+    backBtn: {
+        width: 44, height: 44, borderRadius: 14, backgroundColor: '#FFF',
+        borderWidth: 1, borderColor: '#F1F5F9',
+        justifyContent: 'center', alignItems: 'center',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2,
+    },
+    headerCenter: { flex: 1, alignItems: 'center' },
+    headerTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
+    headerBadge: {
+        flexDirection: 'row', alignItems: 'center', gap: 5,
+        paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10, marginTop: 4,
+    },
+    headerDot: { width: 6, height: 6, borderRadius: 3 },
+    headerBadgeText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.3 },
 
-    card: { backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.md, gap: Spacing.sm },
-    cardTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 },
+    scroll: { padding: Spacing.lg, gap: 12, paddingBottom: 40 },
 
-    infoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-    name: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
-    link: { fontSize: FontSize.sm, color: Colors.primary, marginTop: 2 },
+    // Cards
+    card: {
+        backgroundColor: '#FFF', borderRadius: 18, padding: 18,
+        borderWidth: 1, borderColor: '#F1F5F9',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2,
+    },
+    cardLabel: {
+        fontSize: 11, fontWeight: '800', color: '#94A3B8',
+        textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12,
+    },
 
-    row: { flexDirection: 'row', gap: Spacing.md },
-    metaBlock: { flex: 1 },
-    metaLabel: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '600', textTransform: 'uppercase' },
-    metaValue: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text, marginTop: 2 },
+    customerRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    customerAvatar: {
+        width: 44, height: 44, borderRadius: 14,
+        backgroundColor: Colors.primary + '12', justifyContent: 'center', alignItems: 'center',
+    },
+    customerName: { fontSize: 15, fontWeight: '800', color: '#0F172A' },
+    phoneRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+    phoneLink: { fontSize: 13, color: Colors.primary, fontWeight: '600' },
 
-    itemRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-    itemName: { fontSize: FontSize.sm, color: Colors.text, flex: 1 },
-    itemMeta: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '600' },
+    infoGrid: { flexDirection: 'row', gap: 12 },
+    infoBlock: {
+        flex: 1, backgroundColor: '#F8FAFC', borderRadius: 14, padding: 14,
+        borderWidth: 1, borderColor: '#F1F5F9',
+    },
+    infoIconRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+    infoBlockLabel: { fontSize: 11, fontWeight: '700', color: '#64748B', textTransform: 'uppercase' },
+    infoBlockValue: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
 
-    addressText: { fontSize: FontSize.sm, color: Colors.textSecondary, flex: 1, lineHeight: 20 },
+    serviceRow: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F8FAFC',
+    },
+    serviceName: { fontSize: 14, color: '#0F172A', fontWeight: '600', flex: 1 },
+    serviceMeta: { fontSize: 13, color: '#64748B', fontWeight: '700' },
 
-    agentStatusPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: BorderRadius.full, alignSelf: 'flex-start', marginTop: 4 },
-    agentStatusText: { fontSize: FontSize.xs, fontWeight: '700' },
-    emptyText: { fontSize: FontSize.sm, color: Colors.textMuted, fontStyle: 'italic' },
+    addressRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+    addressText: { fontSize: 13, color: '#64748B', fontWeight: '500', flex: 1, lineHeight: 20 },
 
-    assignBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.primary, borderRadius: BorderRadius.sm, paddingVertical: Spacing.sm, marginTop: Spacing.sm },
-    assignBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textOnPrimary },
+    noAgent: { fontSize: 13, color: '#94A3B8', fontWeight: '500', fontStyle: 'italic' },
+    agentBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, alignSelf: 'flex-start', marginTop: 4 },
+    agentBadgeText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
 
-    agentOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.sm, borderRadius: BorderRadius.sm, backgroundColor: Colors.backgroundAlt, marginBottom: 4 },
-    agentName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
-    agentSkills: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
-    ratingBadge: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: Colors.warning + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: BorderRadius.sm },
-    ratingText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.warning },
-    cancelPickerBtn: { alignItems: 'center', paddingTop: Spacing.sm },
-    cancelPickerText: { fontSize: FontSize.sm, color: Colors.textSecondary },
+    assignBtn: { marginTop: 14, borderRadius: 14, overflow: 'hidden' },
+    assignGradient: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        paddingVertical: 12, gap: 8,
+    },
+    assignText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
 
-    timelineRow: { flexDirection: 'row', gap: Spacing.sm },
-    timelineLine: { alignItems: 'center', width: 16 },
-    timelineDot: { width: 10, height: 10, borderRadius: 5 },
-    timelineConnector: { width: 2, flex: 1, backgroundColor: Colors.border, marginTop: 2 },
-    timelineContent: { flex: 1, paddingBottom: Spacing.md },
-    timelineStatus: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
-    timelineMeta: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
-    timelineNote: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2, fontStyle: 'italic' },
+    pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    agentOption: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        padding: 12, borderRadius: 12, backgroundColor: '#F8FAFC', marginBottom: 6,
+    },
+    agentOptName: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
+    agentOptSkills: { fontSize: 11, color: '#94A3B8', fontWeight: '500', marginTop: 2 },
+    ratingPill: {
+        flexDirection: 'row', alignItems: 'center', gap: 3,
+        backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
+    },
+    ratingPillText: { fontSize: 11, fontWeight: '800', color: '#D97706' },
 
-    chatBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.secondary, borderRadius: BorderRadius.md, paddingVertical: Spacing.md },
-    chatBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textOnPrimary },
+    // Timeline
+    tlRow: { flexDirection: 'row', gap: 12 },
+    tlLeft: { alignItems: 'center', width: 16 },
+    tlDot: { width: 10, height: 10, borderRadius: 5 },
+    tlLine: { width: 2, flex: 1, backgroundColor: '#E2E8F0', marginTop: 2 },
+    tlContent: { flex: 1, paddingBottom: 16 },
+    tlStatus: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
+    tlMeta: { fontSize: 11, color: '#94A3B8', fontWeight: '500', marginTop: 2 },
+    tlNote: { fontSize: 11, color: '#64748B', marginTop: 2, fontStyle: 'italic' },
+
+    // Chat CTA
+    chatBtn: { borderRadius: 16, overflow: 'hidden' },
+    chatGradient: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        paddingVertical: 16, gap: 8,
+    },
+    chatBtnText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
 });

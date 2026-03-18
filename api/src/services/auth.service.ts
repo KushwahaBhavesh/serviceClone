@@ -268,7 +268,7 @@ export async function getMe(userId: string) {
 
 export async function completeOnboarding(userId: string, data: CompleteOnboardingInput) {
     const { role, email, name, businessName, skills, avatarUrl, locationName, latitude, longitude, description, businessCategory, panNumber, gstNumber } = data;
-
+    console.log(data)
     return await prisma.$transaction(async (tx) => {
         // Update user core profile
         const user = await tx.user.update({

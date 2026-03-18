@@ -1,21 +1,27 @@
 import { Stack } from 'expo-router';
-import { Colors } from '../../constants/theme';
 
 export default function MerchantLayout() {
     return (
         <Stack
             screenOptions={{
                 headerShown: false,
-                contentStyle: { backgroundColor: Colors.background },
+                contentStyle: { backgroundColor: '#F8FAFC' },
+                animation: 'slide_from_right',
             }}
         >
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="analytics" options={{ title: 'Analytics', headerShown: true }} />
-            <Stack.Screen name="promotions" options={{ title: 'Promotions', headerShown: true }} />
-            <Stack.Screen name="schedule" options={{ title: 'Schedule', headerShown: true }} />
-            <Stack.Screen name="verification" options={{ title: 'Verification', headerShown: true }} />
-            <Stack.Screen name="earnings" options={{ title: 'Earnings', headerShown: true }} />
-            <Stack.Screen name="reviews" options={{ title: 'Reviews', headerShown: true }} />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="analytics" />
+            <Stack.Screen name="promotions" />
+            <Stack.Screen name="schedule" />
+            <Stack.Screen name="verification" />
+            <Stack.Screen name="earnings" />
+            <Stack.Screen name="reviews" />
+            <Stack.Screen name="profile" />
+            <Stack.Screen name="notifications" />
+            <Stack.Screen name="agents" />
+            <Stack.Screen name="agents/map" />
+            <Stack.Screen name="orders/[id]" />
+            <Stack.Screen name="chat/[id]" />
         </Stack>
     );
 }

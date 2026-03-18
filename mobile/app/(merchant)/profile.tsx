@@ -1,42 +1,35 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    RefreshControl,
-    TouchableOpacity,
-    ActivityIndicator,
-    TextInput,
-    Alert,
-    Image,
-    Dimensions,
+    View, Text, StyleSheet, ScrollView, RefreshControl,
+    Pressable, ActivityIndicator, TextInput, Alert, Image, Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { Colors, Spacing, FontSize, BorderRadius } from '../../constants/theme';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+    ChevronLeft, Pencil, Check, Camera, Store,
+    Phone, MapPin, ShieldCheck, Star, ChevronRight, AlertCircle,
+} from 'lucide-react-native';
+
+import { Colors, Spacing } from '../../constants/theme';
 import { merchantApi, MerchantSettings } from '../../lib/merchant';
 import { getImageUrl } from '../../lib/api';
 
 const { width } = Dimensions.get('window');
 
 export default function MerchantProfileScreen() {
+    const insets = useSafeAreaInsets();
     const [settings, setSettings] = useState<MerchantSettings | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [editing, setEditing] = useState(false);
     const [form, setForm] = useState({
-        businessName: '',
-        description: '',
-        phone: '',
-        address: '',
-        city: '',
-        state: '',
-        zipCode: '',
-        logoUrl: '',
-        coverImageUrl: '',
+        businessName: '', description: '', phone: '',
+        address: '', city: '', state: '', zipCode: '',
+        logoUrl: '', coverImageUrl: '',
     });
 
     const fetchSettings = useCallback(async () => {
@@ -45,22 +38,13 @@ export default function MerchantProfileScreen() {
             const s = response.data.settings;
             setSettings(s);
             setForm({
-                businessName: s.businessName || '',
-                description: s.description || '',
-                phone: s.phone || '',
-                address: s.address || '',
-                city: s.city || '',
-                state: s.state || '',
-                zipCode: s.zipCode || '',
-                logoUrl: s.logoUrl || '',
-                coverImageUrl: s.coverImageUrl || '',
+                businessName: s.businessName || '', description: s.description || '',
+                phone: s.phone || '', address: s.address || '', city: s.city || '',
+                state: s.state || '', zipCode: s.zipCode || '',
+                logoUrl: s.logoUrl || '', coverImageUrl: s.coverImageUrl || '',
             });
-        } catch (error) {
-            console.error('Error fetching settings:', error);
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
+        } catch { console.error('Error fetching settings'); }
+        finally { setLoading(false); setRefreshing(false); }
     }, []);
 
     useEffect(() => { fetchSettings(); }, [fetchSettings]);
@@ -69,42 +53,36 @@ export default function MerchantProfileScreen() {
     const handlePickImage = async (field: 'logoUrl' | 'coverImageUrl') => {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: field === 'logoUrl' ? [1, 1] : [16, 9],
-            quality: 0.8,
+            allowsEditing: true, aspect: field === 'logoUrl' ? [1,1] : [16,9], quality: 0.8,
         });
-
         if (!result.canceled) {
             try {
                 const uploadRes = await merchantApi.uploadFile(result.assets[0].uri);
                 setForm(p => ({ ...p, [field]: uploadRes.data.fileUrl }));
-            } catch (error) {
-                Alert.alert('Error', 'Failed to upload image');
-            }
+            } catch { Alert.alert('Error', 'Failed to upload image'); }
         }
     };
 
     const handleSave = async () => {
         try {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             await merchantApi.updateSettings(form);
             setEditing(false);
             fetchSettings();
             Alert.alert('Success', 'Settings updated');
-        } catch {
-            Alert.alert('Error', 'Failed to update settings');
-        }
+        } catch { Alert.alert('Error', 'Failed to update settings'); }
     };
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.center}>
+            <View style={[styles.center, { paddingTop: insets.top }]}>
                 <ActivityIndicator size="large" color={Colors.primary} />
-            </SafeAreaView>
+            </View>
         );
     }
 
     const verStatus = settings?.verificationStatus ?? 'NOT_SUBMITTED';
-    const verColor = verStatus === 'APPROVED' ? '#10B981' : verStatus === 'REJECTED' ? Colors.error : '#F59E0B';
+    const verColor = verStatus === 'APPROVED' ? '#10B981' : verStatus === 'REJECTED' ? '#EF4444' : '#F59E0B';
 
     return (
         <View style={styles.container}>
@@ -112,65 +90,68 @@ export default function MerchantProfileScreen() {
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
             >
-                {/* Header/Cover Section */}
-                <View style={styles.coverWrapper}>
-                    <TouchableOpacity
-                        disabled={!editing}
-                        onPress={() => handlePickImage('coverImageUrl')}
-                        activeOpacity={0.8}
+                {/* Cover Section */}
+                <Pressable
+                    disabled={!editing}
+                    onPress={() => handlePickImage('coverImageUrl')}
+                    style={styles.coverWrapper}
+                >
+                    {form.coverImageUrl ? (
+                        <Image source={{ uri: getImageUrl(form.coverImageUrl) || undefined }} style={styles.coverImage} />
+                    ) : (
+                        <LinearGradient
+                            colors={[Colors.primary, Colors.primaryLight]}
+                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                            style={[styles.coverImage, styles.coverPlaceholder]}
+                        >
+                            <Camera size={32} color="rgba(255,255,255,0.4)" strokeWidth={1.5} />
+                        </LinearGradient>
+                    )}
+                    {editing && (
+                        <View style={styles.imageEditOverlay}>
+                            <Camera size={24} color="white" strokeWidth={2} />
+                            <Text style={styles.overlayText}>Change Cover</Text>
+                        </View>
+                    )}
+                </Pressable>
+
+                {/* Floating Nav */}
+                <View style={[styles.navbar, { top: insets.top + 10 }]}>
+                    <Pressable
+                        onPress={() => router.back()}
+                        style={({ pressed }) => [styles.navCircle, pressed && { opacity: 0.7 }]}
                     >
-                        {form.coverImageUrl ? (
-                            <Image source={{ uri: getImageUrl(form.coverImageUrl) || undefined }} style={styles.coverImage} />
+                        <ChevronLeft size={22} color="#1E293B" />
+                    </Pressable>
+                    <Pressable
+                        onPress={() => editing ? handleSave() : setEditing(true)}
+                        style={({ pressed }) => [styles.navCircle, editing && styles.navCircleActive, pressed && { opacity: 0.7 }]}
+                    >
+                        {editing ? <Check size={20} color="#FFF" strokeWidth={2.5} />
+                                 : <Pencil size={18} color="#1E293B" strokeWidth={2} />}
+                    </Pressable>
+                </View>
+
+                {/* Identity */}
+                <View style={styles.identitySection}>
+                    <Pressable
+                        disabled={!editing}
+                        onPress={() => handlePickImage('logoUrl')}
+                        style={styles.logoOuter}
+                    >
+                        {form.logoUrl ? (
+                            <Image source={{ uri: getImageUrl(form.logoUrl) || undefined }} style={styles.logoImage} />
                         ) : (
-                            <View style={[styles.coverImage, styles.coverPlaceholder]}>
-                                <Ionicons name="image-outline" size={48} color={Colors.textMuted} />
-                                <Text style={styles.placeholderText}>No Cover Image</Text>
+                            <View style={styles.logoPlaceholder}>
+                                <Store size={28} color={Colors.primary} strokeWidth={1.5} />
                             </View>
                         )}
                         {editing && (
-                            <View style={styles.imageEditOverlay}>
-                                <Ionicons name="camera" size={24} color="white" />
-                                <Text style={styles.overlayText}>Change Cover</Text>
+                            <View style={styles.logoCameraBtn}>
+                                <Camera size={12} color="#FFF" strokeWidth={2.5} />
                             </View>
                         )}
-                    </TouchableOpacity>
-
-                    {/* Navbar actions */}
-                    <View style={styles.navbar}>
-                        <TouchableOpacity onPress={() => router.back()} style={styles.navCircle}>
-                            <Ionicons name="arrow-back" size={20} color={Colors.text} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            onPress={() => editing ? handleSave() : setEditing(true)}
-                            style={[styles.navCircle, editing && styles.saveBtnActive]}
-                        >
-                            <Ionicons name={editing ? "checkmark" : "pencil"} size={20} color={editing ? "white" : Colors.text} />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                {/* Profile Identity Section */}
-                <View style={styles.identitySection}>
-                    <View style={styles.logoWrapper}>
-                        <TouchableOpacity
-                            disabled={!editing}
-                            onPress={() => handlePickImage('logoUrl')}
-                            style={styles.logoOuter}
-                        >
-                            {form.logoUrl ? (
-                                <Image source={{ uri: getImageUrl(form.logoUrl) || undefined }} style={styles.logoImage} />
-                            ) : (
-                                <View style={styles.logoPlaceholder}>
-                                    <Ionicons name="business" size={32} color={Colors.primary} />
-                                </View>
-                            )}
-                            {editing && (
-                                <View style={styles.logoEditOverlay}>
-                                    <Ionicons name="camera" size={16} color="white" />
-                                </View>
-                            )}
-                        </TouchableOpacity>
-                    </View>
+                    </Pressable>
 
                     <View style={styles.mainInfo}>
                         {editing ? (
@@ -179,22 +160,23 @@ export default function MerchantProfileScreen() {
                                 value={form.businessName}
                                 onChangeText={(t) => setForm(p => ({ ...p, businessName: t }))}
                                 placeholder="Business Name"
+                                placeholderTextColor="#CBD5E1"
                             />
                         ) : (
                             <View style={styles.nameRow}>
                                 <Text style={styles.businessName}>{settings?.businessName || 'Unnamed Business'}</Text>
-                                {verStatus === 'APPROVED' && (
-                                    <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-                                )}
+                                {verStatus === 'APPROVED' && <ShieldCheck size={18} color="#10B981" fill="#10B981" />}
                             </View>
                         )}
                         <View style={styles.badgeRow}>
-                            <View style={[styles.statusBadge, { backgroundColor: verColor + '15' }]}>
-                                <Ionicons name={verStatus === 'APPROVED' ? 'shield-checkmark' : 'alert-circle'} size={12} color={verColor} />
+                            <View style={[styles.statusBadge, { backgroundColor: verColor + '14' }]}>
+                                {verStatus === 'APPROVED'
+                                    ? <ShieldCheck size={11} color={verColor} strokeWidth={2.5} />
+                                    : <AlertCircle size={11} color={verColor} strokeWidth={2.5} />}
                                 <Text style={[styles.statusText, { color: verColor }]}>{verStatus.replace('_', ' ')}</Text>
                             </View>
                             <View style={styles.ratingBadge}>
-                                <Ionicons name="star" size={12} color="#F59E0B" />
+                                <Star size={11} color="#F59E0B" fill="#F59E0B" />
                                 <Text style={styles.ratingText}>{(settings?.rating ?? 0).toFixed(1)}</Text>
                             </View>
                         </View>
@@ -202,134 +184,115 @@ export default function MerchantProfileScreen() {
                 </View>
 
                 <View style={styles.contentPadding}>
-                    {/* Bio Section */}
-                    <View style={styles.detailSection}>
-                        <Text style={styles.sectionTitle}>Business Bio</Text>
+                    {/* Bio */}
+                    <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.card}>
+                        <Text style={styles.cardLabel}>ABOUT</Text>
                         {editing ? (
                             <TextInput
-                                style={styles.biographyInput}
+                                style={styles.bioInput}
                                 value={form.description}
                                 onChangeText={(t) => setForm(p => ({ ...p, description: t }))}
                                 placeholder="Tell customers about your services..."
+                                placeholderTextColor="#CBD5E1"
                                 multiline
                             />
                         ) : (
-                            <Text style={styles.biographyText}>
+                            <Text style={styles.bioText}>
                                 {settings?.description || 'No description provided yet. Add one to help customers find you.'}
                             </Text>
                         )}
-                    </View>
+                    </Animated.View>
 
                     {/* Contact Grid */}
-                    <View style={styles.gridSection}>
+                    <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.gridSection}>
                         <View style={styles.gridItem}>
-                            <View style={[styles.iconBox, { backgroundColor: '#E0E7FF' }]}>
-                                <Ionicons name="call" size={20} color="#4F46E5" />
+                            <View style={[styles.gridIcon, { backgroundColor: '#EEF2FF' }]}>
+                                <Phone size={18} color="#6366F1" strokeWidth={2} />
                             </View>
-                            <View style={styles.gridText}>
-                                <Text style={styles.gridLabel}>Phone Number</Text>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.gridLabel}>Phone</Text>
                                 {editing ? (
-                                    <TextInput
-                                        style={styles.gridInput}
-                                        value={form.phone}
-                                        onChangeText={(t) => setForm(p => ({ ...p, phone: t }))}
-                                        keyboardType="phone-pad"
-                                    />
+                                    <TextInput style={styles.gridInput} value={form.phone}
+                                        onChangeText={(t) => setForm(p => ({ ...p, phone: t }))} keyboardType="phone-pad" />
                                 ) : (
                                     <Text style={styles.gridValue}>{settings?.phone || 'Not provided'}</Text>
                                 )}
                             </View>
                         </View>
-
                         <View style={styles.gridItem}>
-                            <View style={[styles.iconBox, { backgroundColor: '#DCFCE7' }]}>
-                                <Ionicons name="location" size={20} color="#10B981" />
+                            <View style={[styles.gridIcon, { backgroundColor: '#ECFDF5' }]}>
+                                <MapPin size={18} color="#10B981" strokeWidth={2} />
                             </View>
-                            <View style={styles.gridText}>
-                                <Text style={styles.gridLabel}>Business Location</Text>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.gridLabel}>Location</Text>
                                 {editing ? (
-                                    <TextInput
-                                        style={styles.gridInput}
-                                        value={form.address}
-                                        onChangeText={(t) => setForm(p => ({ ...p, address: t }))}
-                                        placeholder="Address"
-                                    />
+                                    <TextInput style={styles.gridInput} value={form.address}
+                                        onChangeText={(t) => setForm(p => ({ ...p, address: t }))} placeholder="Address" placeholderTextColor="#CBD5E1" />
                                 ) : (
                                     <Text style={styles.gridValue} numberOfLines={1}>{settings?.address || 'Set address'}</Text>
                                 )}
                             </View>
                         </View>
-                    </View>
+                    </Animated.View>
 
-                    {/* Extended Location Fields (Only if editing) */}
                     {editing && (
                         <View style={styles.locationGroup}>
                             <View style={styles.row}>
-                                <TextInput
-                                    style={[styles.input, { flex: 1 }]}
-                                    value={form.city}
-                                    onChangeText={(t) => setForm(p => ({ ...p, city: t }))}
-                                    placeholder="City"
-                                />
-                                <TextInput
-                                    style={[styles.input, { flex: 1 }]}
-                                    value={form.state}
-                                    onChangeText={(t) => setForm(p => ({ ...p, state: t }))}
-                                    placeholder="State"
-                                />
-                                <TextInput
-                                    style={[styles.input, { width: 80 }]}
-                                    value={form.zipCode}
-                                    onChangeText={(t) => setForm(p => ({ ...p, zipCode: t }))}
-                                    placeholder="Zip"
-                                    keyboardType="number-pad"
-                                />
+                                <TextInput style={[styles.input, { flex: 1 }]} value={form.city}
+                                    onChangeText={(t) => setForm(p => ({ ...p, city: t }))} placeholder="City" placeholderTextColor="#CBD5E1" />
+                                <TextInput style={[styles.input, { flex: 1 }]} value={form.state}
+                                    onChangeText={(t) => setForm(p => ({ ...p, state: t }))} placeholder="State" placeholderTextColor="#CBD5E1" />
+                                <TextInput style={[styles.input, { width: 80 }]} value={form.zipCode}
+                                    onChangeText={(t) => setForm(p => ({ ...p, zipCode: t }))} placeholder="Zip" keyboardType="number-pad" placeholderTextColor="#CBD5E1" />
                             </View>
                         </View>
                     )}
 
-                    {/* KYC Quick Check */}
-                    <View style={styles.kycSection}>
+                    {/* KYC */}
+                    <Animated.View entering={FadeInDown.delay(300).springify()} style={styles.card}>
                         <View style={styles.kycHeader}>
-                            <Text style={styles.sectionTitle}>Verification Highlights</Text>
-                            <TouchableOpacity onPress={() => router.push('/(merchant)/verification')}>
-                                <Text style={styles.linkText}>View All Documents</Text>
-                            </TouchableOpacity>
+                            <Text style={styles.cardLabel}>VERIFICATION</Text>
+                            <Pressable onPress={() => router.push('/(merchant)/verification')} style={styles.linkBtn}>
+                                <Text style={styles.linkText}>View All</Text>
+                                <ChevronRight size={14} color={Colors.primary} strokeWidth={2} />
+                            </Pressable>
                         </View>
                         <View style={styles.kycStrip}>
                             {settings?.verificationDocs && settings.verificationDocs.length > 0 ? (
                                 settings.verificationDocs.slice(0, 3).map((doc) => (
                                     <View key={doc.id} style={styles.kycChip}>
                                         {doc.fileUrl ? (
-                                            <Image
-                                                source={{ uri: getImageUrl(doc.fileUrl) || undefined }}
-                                                style={styles.kycThumb}
-                                            />
+                                            <Image source={{ uri: getImageUrl(doc.fileUrl) || undefined }} style={styles.kycThumb} />
+                                        ) : doc.status === 'APPROVED' ? (
+                                            <Check size={12} color="#10B981" strokeWidth={2.5} />
                                         ) : (
-                                            <Ionicons
-                                                name={doc.status === 'APPROVED' ? "checkmark-circle" : "time"}
-                                                size={14}
-                                                color={doc.status === 'APPROVED' ? "#10B981" : "#F59E0B"}
-                                            />
+                                            <AlertCircle size={12} color="#F59E0B" strokeWidth={2} />
                                         )}
-                                        <Text style={styles.kycChipText}>{doc.type.replace('_', ' ')}</Text>
+                                        <Text style={styles.kycChipText}>{doc.type.replace(/_/g, ' ')}</Text>
                                     </View>
                                 ))
                             ) : (
                                 <Text style={styles.emptyKycText}>No verification documents found.</Text>
                             )}
                         </View>
-                    </View>
+                    </Animated.View>
 
-                    {/* Action Footer */}
                     {!editing && verStatus !== 'APPROVED' && (
-                        <TouchableOpacity
-                            style={styles.verifyBtn}
-                            onPress={() => router.push('/(merchant)/verification')}
-                        >
-                            <Text style={styles.verifyBtnText}>Complete Verification</Text>
-                            <Ionicons name="arrow-forward" size={18} color="white" />
-                        </TouchableOpacity>
+                        <Animated.View entering={FadeInDown.delay(400).springify()}>
+                            <Pressable
+                                onPress={() => router.push('/(merchant)/verification')}
+                                style={({ pressed }) => [styles.verifyBtn, pressed && { transform: [{ scale: 0.98 }] }]}
+                            >
+                                <LinearGradient
+                                    colors={[Colors.primary, Colors.primaryLight]}
+                                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                                    style={styles.verifyGradient}
+                                >
+                                    <Text style={styles.verifyBtnText}>Complete Verification</Text>
+                                    <ChevronRight size={18} color="#FFF" strokeWidth={2} />
+                                </LinearGradient>
+                            </Pressable>
+                        </Animated.View>
                     )}
                 </View>
 
@@ -340,319 +303,107 @@ export default function MerchantProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: 'white' },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    container: { flex: 1, backgroundColor: '#FFF' },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
 
-    coverWrapper: {
-        height: 220,
-        width: '100%',
-        position: 'relative',
-    },
-    coverImage: {
-        width: '100%',
-        height: '100%',
-        backgroundColor: '#F3F4F6',
-    },
-    coverPlaceholder: {
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    placeholderText: {
-        fontSize: FontSize.xs,
-        color: Colors.textMuted,
-        marginTop: 4,
-    },
+    coverWrapper: { height: 220, width: '100%', position: 'relative' },
+    coverImage: { width: '100%', height: '100%', backgroundColor: '#F1F5F9' },
+    coverPlaceholder: { justifyContent: 'center', alignItems: 'center' },
     imageEditOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        justifyContent: 'center',
-        alignItems: 'center',
+        ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'center', alignItems: 'center',
     },
-    overlayText: {
-        color: 'white',
-        fontSize: FontSize.xs,
-        fontWeight: '700',
-        marginTop: 4,
-    },
+    overlayText: { color: '#FFF', fontSize: 12, fontWeight: '700', marginTop: 4 },
+
     navbar: {
-        position: 'absolute',
-        top: 50,
-        left: 0,
-        right: 0,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
+        position: 'absolute', left: 0, right: 0,
+        flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16,
     },
     navCircle: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.9)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.95)',
+        justifyContent: 'center', alignItems: 'center',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)',
     },
-    saveBtnActive: {
-        backgroundColor: Colors.primary,
-    },
+    navCircleActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
 
-    identitySection: {
-        flexDirection: 'row',
-        paddingHorizontal: 20,
-        marginTop: -40,
-        alignItems: 'flex-end',
-    },
-    logoWrapper: {
-        position: 'relative',
-    },
+    identitySection: { flexDirection: 'row', paddingHorizontal: 20, marginTop: -40, alignItems: 'flex-end' },
     logoOuter: {
-        width: 90,
-        height: 90,
-        borderRadius: 45,
-        borderWidth: 4,
-        borderColor: 'white',
-        backgroundColor: 'white',
-        overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
+        width: 90, height: 90, borderRadius: 24, borderWidth: 4, borderColor: '#FFF',
+        backgroundColor: '#FFF', overflow: 'hidden',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4,
     },
-    logoImage: {
-        width: '100%',
-        height: '100%',
+    logoImage: { width: '100%', height: '100%' },
+    logoPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
+    logoCameraBtn: {
+        position: 'absolute', bottom: 0, right: 0, backgroundColor: Colors.primary,
+        width: 26, height: 26, borderRadius: 9, justifyContent: 'center', alignItems: 'center',
+        borderWidth: 2.5, borderColor: '#FFF',
     },
-    logoPlaceholder: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#F9FAFB',
-    },
-    logoEditOverlay: {
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-        backgroundColor: Colors.primary,
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 3,
-        borderColor: 'white',
-    },
-    mainInfo: {
-        flex: 1,
-        marginLeft: Spacing.md,
-        paddingBottom: 4,
-    },
-    nameRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    businessName: {
-        fontSize: 22,
-        fontWeight: '800',
-        color: Colors.text,
-    },
+    mainInfo: { flex: 1, marginLeft: 14, paddingBottom: 4 },
+    nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    businessName: { fontSize: 22, fontWeight: '800', color: '#0F172A' },
     nameInput: {
-        fontSize: 20,
-        fontWeight: '700',
-        borderBottomWidth: 1,
-        borderColor: Colors.border,
-        color: Colors.text,
-        paddingVertical: 4,
+        fontSize: 20, fontWeight: '700', borderBottomWidth: 1.5,
+        borderColor: '#E2E8F0', color: '#0F172A', paddingVertical: 4,
     },
-    badgeRow: {
-        flexDirection: 'row',
-        marginTop: 6,
-        gap: 12,
+    badgeRow: { flexDirection: 'row', marginTop: 6, gap: 8 },
+    statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, gap: 4 },
+    statusText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.3 },
+    ratingBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, gap: 4 },
+    ratingText: { fontSize: 11, fontWeight: '800', color: '#D97706' },
+
+    contentPadding: { paddingHorizontal: 20, marginTop: 24, gap: 12 },
+
+    card: {
+        backgroundColor: '#FFF', borderRadius: 18, padding: 18,
+        borderWidth: 1, borderColor: '#F1F5F9',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2,
     },
-    statusBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
-        gap: 4,
-    },
-    statusText: {
-        fontSize: 11,
-        fontWeight: '700',
-        textTransform: 'uppercase',
-    },
-    ratingBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FFFBEB',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
-        gap: 4,
-    },
-    ratingText: {
-        fontSize: 11,
-        fontWeight: '800',
-        color: '#92400E',
+    cardLabel: { fontSize: 11, fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 },
+    bioText: { fontSize: 14, color: '#64748B', lineHeight: 22, fontWeight: '500' },
+    bioInput: {
+        fontSize: 14, color: '#0F172A', backgroundColor: '#F8FAFC', borderRadius: 14,
+        padding: 14, minHeight: 100, textAlignVertical: 'top', fontWeight: '500',
+        borderWidth: 1, borderColor: '#F1F5F9',
     },
 
-    contentPadding: {
-        paddingHorizontal: 20,
-        marginTop: 24,
-    },
-    detailSection: {
-        marginBottom: 24,
-    },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: Colors.text,
-        marginBottom: 10,
-    },
-    biographyText: {
-        fontSize: FontSize.sm,
-        color: Colors.textSecondary,
-        lineHeight: 22,
-    },
-    biographyInput: {
-        fontSize: FontSize.sm,
-        color: Colors.text,
-        backgroundColor: '#F9FAFB',
-        borderRadius: 12,
-        padding: 12,
-        minHeight: 100,
-        textAlignVertical: 'top',
-    },
-
-    gridSection: {
-        flexDirection: 'row',
-        gap: 16,
-        marginBottom: 24,
-    },
+    gridSection: { flexDirection: 'row', gap: 10 },
     gridItem: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#F9FAFB',
-        padding: 12,
-        borderRadius: 12,
-        gap: 10,
+        flex: 1, flexDirection: 'row', alignItems: 'center',
+        backgroundColor: '#FFF', padding: 14, borderRadius: 16, gap: 10,
+        borderWidth: 1, borderColor: '#F1F5F9',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.03, shadowRadius: 8, elevation: 1,
     },
-    iconBox: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    gridText: {
-        flex: 1,
-    },
-    gridLabel: {
-        fontSize: 10,
-        color: Colors.textMuted,
-        fontWeight: '600',
-        marginBottom: 2,
-    },
-    gridValue: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: Colors.text,
-    },
-    gridInput: {
-        fontSize: 13,
-        fontWeight: '700',
-        padding: 0,
-        color: Colors.primary,
-    },
+    gridIcon: { width: 36, height: 36, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    gridLabel: { fontSize: 10, color: '#94A3B8', fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 },
+    gridValue: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
+    gridInput: { fontSize: 13, fontWeight: '700', padding: 0, color: Colors.primary },
 
-    locationGroup: {
-        marginBottom: 24,
-        gap: 12,
-    },
-    row: {
-        flexDirection: 'row',
-        gap: 10,
-    },
+    locationGroup: { gap: 10 },
+    row: { flexDirection: 'row', gap: 8 },
     input: {
-        backgroundColor: '#F9FAFB',
-        borderRadius: 10,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        fontSize: 14,
+        backgroundColor: '#FFF', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,
+        fontSize: 14, fontWeight: '600', color: '#0F172A', borderWidth: 1, borderColor: '#F1F5F9',
     },
 
-    kycSection: {
-        marginTop: 8,
-    },
-    kycHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    linkText: {
-        fontSize: 12,
-        color: Colors.primary,
-        fontWeight: '700',
-    },
-    kycStrip: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-    },
+    kycHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    linkBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+    linkText: { fontSize: 12, color: Colors.primary, fontWeight: '700' },
+    kycStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     kycChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#F9FAFB',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
-        gap: 6,
+        flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC',
+        paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10,
+        borderWidth: 1, borderColor: '#F1F5F9', gap: 6,
     },
-    kycThumb: {
-        width: 18,
-        height: 18,
-        borderRadius: 4,
-        backgroundColor: '#E5E7EB',
-    },
-    kycChipText: {
-        fontSize: 11,
-        fontWeight: '600',
-        color: Colors.textSecondary,
-    },
-    emptyKycText: {
-        fontSize: 12,
-        color: Colors.textMuted,
-        fontStyle: 'italic',
-    },
+    kycThumb: { width: 18, height: 18, borderRadius: 5, backgroundColor: '#E2E8F0' },
+    kycChipText: { fontSize: 11, fontWeight: '700', color: '#64748B' },
+    emptyKycText: { fontSize: 12, color: '#94A3B8', fontStyle: 'italic', fontWeight: '500' },
 
-    verifyBtn: {
-        backgroundColor: Colors.primary,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 16,
-        borderRadius: 16,
-        marginTop: Spacing.xl,
-        gap: 8,
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 10,
-        elevation: 6,
+    verifyBtn: { borderRadius: 16, overflow: 'hidden', marginTop: 8 },
+    verifyGradient: {
+        flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
+        paddingVertical: 16, gap: 8,
     },
-    verifyBtnText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: '800',
-    },
+    verifyBtnText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
 });

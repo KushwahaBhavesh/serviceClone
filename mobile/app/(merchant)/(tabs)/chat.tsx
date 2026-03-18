@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable, Image, ActivityIndicator, RefreshControl } from 'react-native';
+import {
+    View, Text, StyleSheet, FlatList, Pressable, Image,
+    ActivityIndicator, RefreshControl,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, FontSize, BorderRadius } from '../../../constants/theme';
-import { merchantApi, type Chat } from '../../../lib/merchant';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import {
+    MessageCircle,
+    User as UserIcon,
+    Hash,
+} from 'lucide-react-native';
 import { format } from 'date-fns';
+
+import { Colors, Spacing } from '../../../constants/theme';
+import { merchantApi } from '../../../lib/merchant';
 
 export default function MerchantChatScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const [chats, setChats] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -25,73 +35,71 @@ export default function MerchantChatScreen() {
         }
     };
 
-    useEffect(() => {
-        fetchChats();
-    }, []);
+    useEffect(() => { fetchChats(); }, []);
+    const onRefresh = () => { setRefreshing(true); fetchChats(); };
 
-    const onRefresh = () => {
-        setRefreshing(true);
-        fetchChats();
-    };
-
-    const renderChatItem = ({ item }: { item: any }) => {
+    const renderChatItem = ({ item, index }: { item: any; index: number }) => {
         const lastMessage = item.messages[0];
-        // For merchant, the "other" participant is usually the customer or agent
-        // We look for participants who are NOT merchants
         const participant = item.participants.find((p: any) => p.user.role !== 'MERCHANT')?.user;
         const participantName = participant?.name || 'Customer';
         const participantAvatar = participant?.avatarUrl;
 
         return (
-            <Pressable
-                style={styles.chatItem}
-                onPress={() => router.push(`/(merchant)/chat/${item.id}` as any)}
-            >
-                <View style={styles.avatarContainer}>
-                    {participantAvatar ? (
-                        <Image source={{ uri: participantAvatar }} style={styles.avatar} />
-                    ) : (
-                        <View style={styles.avatarPlaceholder}>
-                            <Ionicons name="person" size={24} color={Colors.textMedium} />
-                        </View>
-                    )}
-                    {item.isActive && <View style={styles.onlineBadge} />}
-                </View>
-
-                <View style={styles.chatInfo}>
-                    <View style={styles.chatHeader}>
-                        <Text style={styles.participantName} numberOfLines={1}>{participantName}</Text>
-                        <Text style={styles.time}>
-                            {lastMessage ? format(new Date(lastMessage.createdAt), 'h:mm a') : ''}
-                        </Text>
+            <Animated.View entering={FadeInDown.delay(index * 60).springify()}>
+                <Pressable
+                    style={({ pressed }) => [styles.chatItem, pressed && { backgroundColor: '#F8FAFC' }]}
+                    onPress={() => router.push(`/(merchant)/chat/${item.id}` as any)}
+                >
+                    {/* Avatar */}
+                    <View style={styles.avatarWrap}>
+                        {participantAvatar ? (
+                            <Image source={{ uri: participantAvatar }} style={styles.avatar} />
+                        ) : (
+                            <View style={styles.avatarPlaceholder}>
+                                <UserIcon size={22} color={Colors.primary} strokeWidth={2} />
+                            </View>
+                        )}
+                        {item.isActive && <View style={styles.onlineDot} />}
                     </View>
 
-                    <View style={styles.chatFooter}>
-                        <Text style={styles.lastMessage} numberOfLines={1}>
-                            {lastMessage?.content || 'Starting conversation...'}
-                        </Text>
-                        <View style={styles.bookingBadge}>
-                            <Text style={styles.bookingText}>#{item.booking?.bookingNumber}</Text>
+                    {/* Content */}
+                    <View style={styles.chatContent}>
+                        <View style={styles.chatTopRow}>
+                            <Text style={styles.chatName} numberOfLines={1}>{participantName}</Text>
+                            <Text style={styles.chatTime}>
+                                {lastMessage ? format(new Date(lastMessage.createdAt), 'h:mm a') : ''}
+                            </Text>
+                        </View>
+                        <View style={styles.chatBottomRow}>
+                            <Text style={styles.chatMessage} numberOfLines={1}>
+                                {lastMessage?.content || 'Starting conversation...'}
+                            </Text>
+                            {item.booking?.bookingNumber && (
+                                <View style={styles.bookingTag}>
+                                    <Hash size={9} color="#94A3B8" strokeWidth={2.5} />
+                                    <Text style={styles.bookingTagText}>{item.booking.bookingNumber}</Text>
+                                </View>
+                            )}
                         </View>
                     </View>
-                </View>
-            </Pressable>
+                </Pressable>
+            </Animated.View>
         );
     };
 
     if (loading) {
         return (
-            <View style={styles.centered}>
+            <View style={styles.center}>
                 <ActivityIndicator size="large" color={Colors.primary} />
             </View>
         );
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <View style={styles.header}>
+        <View style={styles.container}>
+            <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
                 <Text style={styles.title}>Messages</Text>
-                <Text style={styles.subtitle}>Chat with customers and agents</Text>
+                <Text style={styles.subtitle}>Chat with customers & agents</Text>
             </View>
 
             <FlatList
@@ -99,136 +107,150 @@ export default function MerchantChatScreen() {
                 renderItem={renderChatItem}
                 keyExtractor={(item) => item.id}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} colors={[Colors.primary]} />
                 }
                 ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Ionicons name="chatbubbles-outline" size={64} color={Colors.border} />
+                    <View style={styles.empty}>
+                        <View style={styles.emptyIconBox}>
+                            <MessageCircle size={32} color="#CBD5E1" strokeWidth={1.5} />
+                        </View>
                         <Text style={styles.emptyTitle}>No messages yet</Text>
-                        <Text style={styles.emptySubtitle}>Your active conversations will appear here.</Text>
+                        <Text style={styles.emptyHint}>Active conversations will appear here</Text>
                     </View>
                 }
                 contentContainerStyle={styles.listContent}
             />
-        </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background },
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+    container: { flex: 1, backgroundColor: '#F8FAFC' },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
+
     header: {
-        paddingHorizontal: Spacing.lg,
-        paddingTop: Spacing.md,
+        paddingHorizontal: Spacing.xl,
         paddingBottom: Spacing.md,
     },
     title: {
-        fontSize: FontSize.xxl,
+        fontSize: 24,
         fontWeight: '800',
-        color: Colors.text,
+        color: '#0F172A',
+        letterSpacing: -0.5,
     },
     subtitle: {
-        fontSize: FontSize.sm,
-        color: Colors.textSecondary,
-        marginTop: 4,
+        fontSize: 13,
+        color: '#64748B',
+        fontWeight: '600',
+        marginTop: 2,
     },
-    listContent: {
-        paddingBottom: Spacing.xxl,
-    },
+
+    listContent: { paddingBottom: 100 },
+
     chatItem: {
         flexDirection: 'row',
-        paddingHorizontal: Spacing.lg,
-        paddingVertical: Spacing.md,
+        paddingHorizontal: Spacing.xl,
+        paddingVertical: 14,
         alignItems: 'center',
+        gap: 14,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.borderLight,
+        borderBottomColor: '#F1F5F9',
     },
-    avatarContainer: {
-        position: 'relative',
-        marginRight: Spacing.md,
-    },
+    avatarWrap: { position: 'relative' },
     avatar: {
-        width: 56,
-        height: 56,
-        borderRadius: BorderRadius.full,
+        width: 52,
+        height: 52,
+        borderRadius: 18,
     },
     avatarPlaceholder: {
-        width: 56,
-        height: 56,
-        borderRadius: BorderRadius.full,
-        backgroundColor: Colors.backgroundAlt,
+        width: 52,
+        height: 52,
+        borderRadius: 18,
+        backgroundColor: Colors.primary + '12',
         justifyContent: 'center',
         alignItems: 'center',
     },
-    onlineBadge: {
+    onlineDot: {
         position: 'absolute',
-        bottom: 2,
-        right: 2,
+        bottom: 0,
+        right: 0,
         width: 14,
         height: 14,
         borderRadius: 7,
         backgroundColor: Colors.success,
-        borderWidth: 2,
-        borderColor: 'white',
+        borderWidth: 2.5,
+        borderColor: '#F8FAFC',
     },
-    chatInfo: {
-        flex: 1,
-    },
-    chatHeader: {
+
+    chatContent: { flex: 1 },
+    chatTopRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 4,
     },
-    participantName: {
-        fontSize: FontSize.md,
-        fontWeight: '700',
-        color: Colors.text,
+    chatName: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: '#0F172A',
         flex: 1,
+        marginRight: 8,
     },
-    time: {
-        fontSize: FontSize.xs,
-        color: Colors.textMuted,
+    chatTime: {
+        fontSize: 11,
+        color: '#94A3B8',
+        fontWeight: '600',
     },
-    chatFooter: {
+    chatBottomRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
-    lastMessage: {
-        fontSize: FontSize.sm,
-        color: Colors.textSecondary,
+    chatMessage: {
+        fontSize: 13,
+        color: '#64748B',
+        fontWeight: '500',
         flex: 1,
-        marginRight: Spacing.sm,
+        marginRight: 8,
     },
-    bookingBadge: {
-        backgroundColor: Colors.backgroundAlt,
+    bookingTag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 2,
+        backgroundColor: '#F1F5F9',
         paddingHorizontal: 6,
         paddingVertical: 2,
-        borderRadius: 4,
+        borderRadius: 6,
     },
-    bookingText: {
+    bookingTagText: {
         fontSize: 10,
-        fontWeight: '600',
-        color: Colors.textMuted,
+        fontWeight: '700',
+        color: '#94A3B8',
     },
-    emptyContainer: {
-        flex: 1,
+
+    empty: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 80,
+        gap: 8,
+    },
+    emptyIconBox: {
+        width: 64,
+        height: 64,
+        borderRadius: 20,
+        backgroundColor: '#F1F5F9',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: Spacing.xxl,
-        marginTop: 100,
+        marginBottom: 8,
     },
     emptyTitle: {
-        fontSize: FontSize.lg,
-        fontWeight: '600',
-        color: Colors.text,
-        marginTop: Spacing.lg,
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#334155',
     },
-    emptySubtitle: {
-        fontSize: FontSize.md,
-        color: Colors.textSecondary,
-        textAlign: 'center',
-        marginTop: Spacing.sm,
+    emptyHint: {
+        fontSize: 13,
+        color: '#94A3B8',
+        fontWeight: '500',
     },
 });

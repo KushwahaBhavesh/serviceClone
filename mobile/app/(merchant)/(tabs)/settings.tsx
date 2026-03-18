@@ -1,16 +1,32 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
+import {
+    View, Text, StyleSheet, ScrollView, Pressable, Alert,
+    ActivityIndicator, Image,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, FontSize, BorderRadius } from '../../../constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import {
+    Store,
+    ShieldCheck,
+    Users,
+    Wallet,
+    Tag,
+    ChevronRight,
+    LogOut,
+    CheckCircle,
+} from 'lucide-react-native';
+import { useFocusEffect } from '@react-navigation/native';
+
+import { Colors, Spacing } from '../../../constants/theme';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { merchantApi, MerchantSettings } from '../../../lib/merchant';
-import { useFocusEffect } from '@react-navigation/native';
 import { getImageUrl } from '../../../lib/api';
 
 export default function MerchantSettingsScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const { logout, user } = useAuthStore();
     const [settings, setSettings] = React.useState<MerchantSettings | null>(null);
     const [loading, setLoading] = React.useState(true);
@@ -26,280 +42,309 @@ export default function MerchantSettingsScreen() {
         }
     };
 
-    useFocusEffect(
-        React.useCallback(() => {
-            fetchSettings();
-        }, [])
-    );
+    useFocusEffect(React.useCallback(() => { fetchSettings(); }, []));
 
     const handleLogout = () => {
-        Alert.alert(
-            'Logout',
-            'Are you sure you want to logout?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Logout', style: 'destructive', onPress: logout }
-            ]
-        );
+        Alert.alert('Logout', 'Are you sure you want to logout?', [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Logout', style: 'destructive', onPress: () => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                logout();
+            }},
+        ]);
     };
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'APPROVED': return '#10B981';
+            case 'APPROVED': return Colors.success;
             case 'PENDING_REVIEW': return '#F59E0B';
             case 'REJECTED': return '#EF4444';
-            default: return '#6B7280';
+            default: return '#94A3B8';
         }
     };
 
     const menuItems = [
         {
             title: 'Business Profile',
-            subtitle: 'Update business info and location',
-            icon: 'storefront',
-            color: '#4F46E5',
+            subtitle: 'Update business info & location',
+            icon: <Store size={20} color="#6366F1" strokeWidth={2} />,
+            iconBg: '#EEF2FF',
             onPress: () => router.push('/(merchant)/profile'),
         },
         {
             title: 'Account Verification',
-            subtitle: settings?.verificationStatus === 'APPROVED' ? 'Verified Account' : 'Submit documents for KYC',
-            icon: 'shield-checkmark',
-            color: getStatusColor(settings?.verificationStatus || 'NOT_SUBMITTED'),
+            subtitle: settings?.verificationStatus === 'APPROVED' ? 'Verified Account' : 'Submit KYC documents',
+            icon: <ShieldCheck size={20} color={getStatusColor(settings?.verificationStatus || 'NOT_SUBMITTED')} strokeWidth={2} />,
+            iconBg: getStatusColor(settings?.verificationStatus || 'NOT_SUBMITTED') + '14',
             onPress: () => router.push('/(merchant)/verification'),
-            status: settings?.verificationStatus
         },
         {
             title: 'Manage Agents',
             subtitle: 'View and add service agents',
-            icon: 'people',
-            color: '#10B981',
+            icon: <Users size={20} color="#10B981" strokeWidth={2} />,
+            iconBg: '#ECFDF5',
             onPress: () => router.push('/(merchant)/agents'),
         },
         {
             title: 'Earnings & Payouts',
-            subtitle: 'View revenue and settlements',
-            icon: 'wallet',
-            color: '#F59E0B',
+            subtitle: 'Revenue and settlements',
+            icon: <Wallet size={20} color="#F59E0B" strokeWidth={2} />,
+            iconBg: '#FFFBEB',
             onPress: () => router.push('/(merchant)/earnings'),
         },
         {
             title: 'Promotions',
             subtitle: 'Create and manage offers',
-            icon: 'pricetag',
-            color: '#EC4899',
+            icon: <Tag size={20} color="#EC4899" strokeWidth={2} />,
+            iconBg: '#FDF2F8',
             onPress: () => router.push('/(merchant)/promotions'),
         },
     ];
 
     if (loading && !settings) {
         return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={Colors.primary} />
-                </View>
-            </SafeAreaView>
+            <View style={styles.center}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
         );
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <View style={styles.header}>
+        <View style={styles.container}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+                <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
                     <Text style={styles.title}>Settings</Text>
                 </View>
 
-                <View style={styles.profileCard}>
-                    <View style={styles.avatar}>
-                        {settings?.logoUrl ? (
-                            <Image source={{ uri: getImageUrl(settings.logoUrl) || undefined }} style={styles.avatarImage} />
-                        ) : (
-                            <Ionicons name="business" size={32} color={Colors.primary} />
-                        )}
-                    </View>
-                    <View style={styles.profileInfo}>
-                        <View style={styles.nameRow}>
-                            <Text style={styles.businessName}>{settings?.businessName || user?.name || 'My Business'}</Text>
-                            {settings?.verificationStatus === 'APPROVED' && (
-                                <Ionicons name="checkmark-circle" size={18} color="#10B981" style={{ marginLeft: 4 }} />
+                {/* Profile Card */}
+                <Animated.View entering={FadeInDown.delay(100).springify()}>
+                    <Pressable
+                        onPress={() => router.push('/(merchant)/profile')}
+                        style={({ pressed }) => [styles.profileCard, pressed && { transform: [{ scale: 0.98 }] }]}
+                    >
+                        <View style={styles.avatarContainer}>
+                            {settings?.logoUrl ? (
+                                <Image source={{ uri: getImageUrl(settings.logoUrl) || undefined }} style={styles.avatarImage} />
+                            ) : (
+                                <View style={styles.avatarPlaceholder}>
+                                    <Store size={28} color={Colors.primary} strokeWidth={1.5} />
+                                </View>
                             )}
                         </View>
-                        <Text style={styles.phoneNumber}>{settings?.phone || user?.phone || ''}</Text>
-                        {settings?.verificationStatus && settings.verificationStatus !== 'APPROVED' && (
-                            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(settings.verificationStatus) + '20' }]}>
-                                <Text style={[styles.statusText, { color: getStatusColor(settings.verificationStatus) }]}>
-                                    {settings.verificationStatus.replace('_', ' ')}
-                                </Text>
-                            </View>
-                        )}
-                    </View>
-                </View>
 
-                <View style={styles.menuContainer}>
-                    {menuItems.map((item, index) => (
-                        <TouchableOpacity
-                            key={index}
-                            style={styles.menuItem}
-                            onPress={item.onPress}
-                        >
-                            <View style={[styles.iconContainer, { backgroundColor: item.color + '10' }]}>
-                                <Ionicons name={item.icon as any} size={24} color={item.color} />
+                        <View style={styles.profileInfo}>
+                            <View style={styles.nameRow}>
+                                <Text style={styles.businessName} numberOfLines={1}>
+                                    {settings?.businessName || user?.name || 'My Business'}
+                                </Text>
+                                {settings?.verificationStatus === 'APPROVED' && (
+                                    <CheckCircle size={16} color={Colors.success} fill={Colors.success + '20'} />
+                                )}
                             </View>
-                            <View style={styles.menuText}>
+                            <Text style={styles.phoneText}>{settings?.phone || user?.phone || ''}</Text>
+                            {settings?.verificationStatus && settings.verificationStatus !== 'APPROVED' && (
+                                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(settings.verificationStatus) + '14' }]}>
+                                    <Text style={[styles.statusBadgeText, { color: getStatusColor(settings.verificationStatus) }]}>
+                                        {settings.verificationStatus.replace('_', ' ')}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+                        <ChevronRight size={18} color="#CBD5E1" strokeWidth={2} />
+                    </Pressable>
+                </Animated.View>
+
+                {/* Menu Items */}
+                <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.menuCard}>
+                    {menuItems.map((item, index) => (
+                        <Pressable
+                            key={index}
+                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); item.onPress(); }}
+                            style={({ pressed }) => [
+                                styles.menuItem,
+                                pressed && { backgroundColor: '#F8FAFC' },
+                                index === menuItems.length - 1 && { borderBottomWidth: 0 },
+                            ]}
+                        >
+                            <View style={[styles.menuIconBox, { backgroundColor: item.iconBg }]}>
+                                {item.icon}
+                            </View>
+                            <View style={styles.menuTextBox}>
                                 <Text style={styles.menuTitle}>{item.title}</Text>
                                 <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
                             </View>
-                            <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
-                        </TouchableOpacity>
+                            <ChevronRight size={16} color="#CBD5E1" strokeWidth={2} />
+                        </Pressable>
                     ))}
-                </View>
+                </Animated.View>
 
-                <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                    <Ionicons name="log-out" size={20} color={Colors.error} />
-                    <Text style={styles.logoutText}>Logout</Text>
-                </TouchableOpacity>
+                {/* Logout */}
+                <Animated.View entering={FadeInDown.delay(300).springify()}>
+                    <Pressable
+                        onPress={handleLogout}
+                        style={({ pressed }) => [styles.logoutBtn, pressed && { opacity: 0.7 }]}
+                    >
+                        <LogOut size={18} color="#EF4444" strokeWidth={2} />
+                        <Text style={styles.logoutText}>Logout</Text>
+                    </Pressable>
+                </Animated.View>
 
-                <View style={styles.footer}>
-                    <Text style={styles.version}>Version 1.0.0</Text>
-                </View>
+                <Text style={styles.versionText}>Version 1.0.0</Text>
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.backgroundAlt },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+    container: { flex: 1, backgroundColor: '#F8FAFC' },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
+
     header: {
-        paddingHorizontal: Spacing.lg,
-        paddingTop: Spacing.md,
+        paddingHorizontal: Spacing.xl,
         paddingBottom: Spacing.lg,
     },
     title: {
-        fontSize: FontSize.xxl,
+        fontSize: 24,
         fontWeight: '800',
-        color: Colors.text,
+        color: '#0F172A',
+        letterSpacing: -0.5,
     },
+
+    // Profile Card
     profileCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.surface,
+        backgroundColor: '#FFF',
         marginHorizontal: Spacing.lg,
-        padding: Spacing.lg,
-        borderRadius: BorderRadius.lg,
-        marginBottom: Spacing.xl,
+        padding: 18,
+        borderRadius: 20,
+        marginBottom: Spacing.lg,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.05,
-        shadowRadius: 15,
-        elevation: 2,
+        shadowRadius: 12,
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+        gap: 14,
     },
-    avatar: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: Colors.primary + '10',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: Spacing.md,
+    avatarContainer: {
+        width: 56,
+        height: 56,
+        borderRadius: 18,
         overflow: 'hidden',
     },
     avatarImage: {
         width: '100%',
         height: '100%',
     },
-    profileInfo: {
-        flex: 1,
+    avatarPlaceholder: {
+        width: '100%',
+        height: '100%',
+        backgroundColor: Colors.primary + '12',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 18,
     },
+    profileInfo: { flex: 1 },
     nameRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: 6,
     },
     businessName: {
-        fontSize: FontSize.lg,
-        fontWeight: '700',
-        color: Colors.text,
+        fontSize: 17,
+        fontWeight: '800',
+        color: '#0F172A',
+        flexShrink: 1,
     },
-    phoneNumber: {
-        fontSize: FontSize.sm,
-        color: Colors.textSecondary,
+    phoneText: {
+        fontSize: 13,
+        color: '#64748B',
+        fontWeight: '500',
         marginTop: 2,
     },
     statusBadge: {
         alignSelf: 'flex-start',
         paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 4,
+        paddingVertical: 3,
+        borderRadius: 6,
         marginTop: 6,
     },
-    statusText: {
+    statusBadgeText: {
         fontSize: 10,
-        fontWeight: '700',
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        letterSpacing: 0.3,
     },
-    menuContainer: {
-        backgroundColor: Colors.surface,
+
+    // Menu
+    menuCard: {
+        backgroundColor: '#FFF',
         marginHorizontal: Spacing.lg,
-        borderRadius: BorderRadius.lg,
+        borderRadius: 20,
         overflow: 'hidden',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 15,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.04,
+        shadowRadius: 12,
         elevation: 2,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
     },
     menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: Spacing.md,
+        padding: 16,
+        gap: 14,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.borderLight,
+        borderBottomColor: '#F8FAFC',
     },
-    iconContainer: {
+    menuIconBox: {
         width: 44,
         height: 44,
-        borderRadius: 12,
+        borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: Spacing.md,
     },
-    menuText: {
-        flex: 1,
-    },
+    menuTextBox: { flex: 1 },
     menuTitle: {
-        fontSize: FontSize.md,
-        fontWeight: '600',
-        color: Colors.text,
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#0F172A',
     },
     menuSubtitle: {
-        fontSize: FontSize.xs,
-        color: Colors.textSecondary,
+        fontSize: 12,
+        color: '#64748B',
+        fontWeight: '500',
         marginTop: 2,
     },
-    logoutButton: {
+
+    // Logout
+    logoutBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: Colors.surface,
+        backgroundColor: '#FEF2F2',
         marginHorizontal: Spacing.lg,
         marginTop: Spacing.xl,
-        padding: Spacing.md,
-        borderRadius: BorderRadius.lg,
+        padding: 16,
+        borderRadius: 16,
         gap: 8,
+        borderWidth: 1,
+        borderColor: '#FEE2E2',
     },
     logoutText: {
-        fontSize: FontSize.md,
+        fontSize: 15,
         fontWeight: '700',
-        color: Colors.error,
+        color: '#EF4444',
     },
-    footer: {
-        alignItems: 'center',
-        paddingVertical: Spacing.xxl,
-    },
-    version: {
-        fontSize: FontSize.xs,
-        color: Colors.textMuted,
+
+    versionText: {
+        textAlign: 'center',
+        fontSize: 12,
+        color: '#CBD5E1',
+        fontWeight: '600',
+        paddingVertical: 24,
     },
 });

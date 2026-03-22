@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma';
 import { AuthProvider, UserRole } from '@prisma/client';
+import { env } from '../config/env';
 import logger from '../utils/logger';
 import {
     BadRequestError,
@@ -15,6 +16,7 @@ import type {
     VerifyOtpInput,
     SocialLoginInput,
     CompleteOnboardingInput,
+    UpdateProfileInput,
 } from '../validators/auth.validators';
 
 const SALT_ROUNDS = 12;
@@ -36,12 +38,12 @@ async function generateTokens(
 ) {
     const payload = { sub: userId, email, phone, role };
 
-    const accessToken = jwt.sign(payload, process.env.JWT_SECRET || 'fallback-secret', {
-        expiresIn: (process.env.JWT_EXPIRATION || '15m') as jwt.SignOptions['expiresIn'],
+    const accessToken = jwt.sign(payload, env.JWT_SECRET, {
+        expiresIn: env.JWT_EXPIRATION as jwt.SignOptions['expiresIn'],
     });
 
-    const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret', {
-        expiresIn: (process.env.JWT_REFRESH_EXPIRATION || '7d') as jwt.SignOptions['expiresIn'],
+    const refreshToken = jwt.sign(payload, env.JWT_REFRESH_SECRET, {
+        expiresIn: env.JWT_REFRESH_EXPIRATION as jwt.SignOptions['expiresIn'],
     });
 
     const expiresAt = new Date();
@@ -132,7 +134,7 @@ export async function sendOtp(data: SendOtpInput) {
     return {
         message: 'OTP sent successfully',
         expiresInSeconds: OTP_EXPIRY_MINUTES * 60,
-        ...(process.env.NODE_ENV !== 'production' && { devCode: code }),
+        ...(env.NODE_ENV !== 'production' && { devCode: code }),
     };
 }
 
@@ -267,15 +269,29 @@ export async function getMe(userId: string) {
 }
 
 export async function completeOnboarding(userId: string, data: CompleteOnboardingInput) {
-    const { role, email, name, businessName, skills, avatarUrl, locationName, latitude, longitude, description, businessCategory, panNumber, gstNumber } = data;
-    console.log(data)
+    const { 
+        role, email, name, businessName, skills, avatarUrl, locationName, 
+        latitude, longitude, description, businessCategory, selectedPlan 
+    } = data;
+
+    // Check for duplicate email before the transaction
+    let safeEmail = email || undefined;
+    if (safeEmail) {
+        const existingUser = await prisma.user.findFirst({
+            where: { email: safeEmail, NOT: { id: userId } },
+        });
+        if (existingUser) {
+            safeEmail = undefined; // Skip email update — already taken
+        }
+    }
+    
     return await prisma.$transaction(async (tx) => {
         // Update user core profile
         const user = await tx.user.update({
             where: { id: userId },
             data: {
                 role: role as UserRole,
-                email: email || undefined, // Only update if provided
+                email: safeEmail,
                 name,
                 avatarUrl,
                 locationName,
@@ -288,15 +304,13 @@ export async function completeOnboarding(userId: string, data: CompleteOnboardin
 
         // Role-specific profile creation
         if (role === UserRole.MERCHANT && businessName) {
-            await tx.merchantProfile.upsert({
+            const merchantProfile = await tx.merchantProfile.upsert({
                 where: { userId },
                 create: {
                     userId,
                     businessName,
                     businessCategory,
                     description,
-                    gstNumber,
-                    panNumber,
                     latitude,
                     longitude,
                     address: locationName,
@@ -305,13 +319,39 @@ export async function completeOnboarding(userId: string, data: CompleteOnboardin
                     businessName,
                     businessCategory,
                     description,
-                    gstNumber,
-                    panNumber,
                     latitude,
                     longitude,
                     address: locationName,
                 },
             });
+
+            // Handle Pricing/Subscription Plan
+            if (selectedPlan) {
+                const planTier = selectedPlan as 'STARTER' | 'PRO' | 'ELITE';
+                let validUntil = null;
+                
+                // If PRO or ELITE, set a 30-day billing cycle
+                if (planTier !== 'STARTER') {
+                    validUntil = new Date();
+                    validUntil.setDate(validUntil.getDate() + 30);
+                }
+
+                await tx.subscriptionPlan.upsert({
+                    where: { merchantId: merchantProfile.id },
+                    create: {
+                        merchantId: merchantProfile.id,
+                        tier: planTier,
+                        currentPeriodEnd: validUntil,
+                        status: 'ACTIVE'
+                    },
+                    update: {
+                        tier: planTier,
+                        currentPeriodEnd: validUntil,
+                        status: 'ACTIVE'
+                    }
+                });
+            }
+
         } else if (role === UserRole.AGENT) {
             // Check for existing merchant or find a fallback
             let merchantProfile = await tx.merchantProfile.findFirst({
@@ -319,8 +359,6 @@ export async function completeOnboarding(userId: string, data: CompleteOnboardin
             });
 
             if (!merchantProfile) {
-                // Fallback to any existing merchant if independent not found
-                // Note: In production, there should be a platform merchant or assigned merchant
                 merchantProfile = await tx.merchantProfile.findFirst();
             }
 
@@ -339,6 +377,42 @@ export async function completeOnboarding(userId: string, data: CompleteOnboardin
             }
         }
 
-        return { user: sanitizeUser(user) };
+        const tokens = await generateTokens(user.id, user.email, user.phone, user.role);
+
+        return { user: sanitizeUser(user), ...tokens };
     });
+}
+
+export async function updateLocation(userId: string, data: { locationName: string; latitude: number; longitude: number }) {
+    const user = await prisma.user.update({
+        where: { id: userId },
+        data: {
+            locationName: data.locationName,
+            latitude: data.latitude,
+            longitude: data.longitude,
+        },
+    });
+    return { user: sanitizeUser(user) };
+}
+
+export async function updateProfile(userId: string, data: UpdateProfileInput) {
+    const { name, email, avatarUrl } = data;
+    
+    // Check if email already exists for another user
+    if (email) {
+        const existing = await prisma.user.findFirst({
+            where: { email, NOT: { id: userId } }
+        });
+        if (existing) throw new ConflictError('Email already in use');
+    }
+
+    const user = await prisma.user.update({
+        where: { id: userId },
+        data: {
+            ...(name && { name }),
+            ...(email && { email }),
+            ...(avatarUrl && { avatarUrl }),
+        },
+    });
+    return { user: sanitizeUser(user) };
 }

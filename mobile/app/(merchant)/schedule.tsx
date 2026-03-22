@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, Pressable,
-    ActivityIndicator, Alert, ScrollView,
+    ActivityIndicator, Alert, ScrollView, RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
@@ -37,6 +37,7 @@ export default function ScheduleScreen() {
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
     const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
+    const [refreshing, setRefreshing] = useState(false);
 
     const selectedDate = getDayRange(dayOffset);
     const dateStr = toISODate(selectedDate);
@@ -110,7 +111,9 @@ export default function ScheduleScreen() {
             {loading ? (
                 <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
             ) : (
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.slotsContainer}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.slotsContainer}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData().finally(() => setRefreshing(false)); }} colors={[Colors.primary]} tintColor={Colors.primary} />}
+                >
                     {TIME_SLOTS.map(({ start, end }, index) => {
                         const key = `${start}-${end}`;
                         const existing = isSlotExisting(start, end);

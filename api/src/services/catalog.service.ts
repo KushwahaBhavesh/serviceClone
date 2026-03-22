@@ -6,7 +6,22 @@ import type {
     UpdateCategoryInput,
     CreateServiceInput,
     UpdateServiceInput,
+    GetNearbyMerchantsInput,
 } from '../validators/marketplace.validators';
+
+// ─── Helpers ───
+
+// Haversine formula to calculate distance between two coordinates in kilometers.
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
 
 // ─── Categories ───
 
@@ -82,7 +97,10 @@ export async function listServices(options: {
             include: {
                 category: { select: { id: true, name: true, slug: true } },
                 merchantServices: {
-                    where: { isActive: true },
+                    where: { 
+                        isActive: true,
+                        merchant: { isVerified: true }
+                    },
                     include: {
                         merchant: {
                             select: {
@@ -114,7 +132,10 @@ export async function getServiceBySlug(slug: string) {
         include: {
             category: { select: { id: true, name: true, slug: true } },
             merchantServices: {
-                where: { isActive: true },
+                where: { 
+                    isActive: true,
+                    merchant: { isVerified: true }
+                },
                 include: {
                     merchant: {
                         select: {
@@ -131,12 +152,14 @@ export async function getServiceBySlug(slug: string) {
     return service;
 }
 
-// ─── Slot Availability (Customer-facing) ───
-
 export async function getAvailableSlots(serviceId: string, date: string) {
-    // Find merchants that offer this service
+    // Find merchants that offer this service AND are verified
     const merchantServices = await prisma.merchantService.findMany({
-        where: { serviceId, isActive: true },
+        where: { 
+            serviceId, 
+            isActive: true,
+            merchant: { isVerified: true }
+        },
         select: { merchantId: true, price: true },
     });
 
@@ -248,4 +271,190 @@ export async function updateService(id: string, data: UpdateServiceInput) {
 
 export async function deleteService(id: string) {
     return prisma.service.update({ where: { id }, data: { isActive: false } });
+}
+
+// ─── Merchant Profile (Customer-facing) ───
+
+export async function getMerchantProfileById(merchantId: string) {
+    const merchant = await prisma.merchantProfile.findUnique({
+        where: { id: merchantId },
+        include: {
+            user: { select: { name: true, avatarUrl: true, phone: true } },
+            merchantServices: {
+                where: { isActive: true },
+                include: {
+                    service: {
+                        select: {
+                            id: true,
+                            name: true,
+                            slug: true,
+                            description: true,
+                            imageUrl: true,
+                            basePrice: true,
+                            unit: true,
+                            duration: true,
+                            category: { select: { id: true, name: true } },
+                        },
+                    },
+                },
+            },
+        },
+    });
+
+    if (!merchant || !merchant.isVerified) {
+        throw new BadRequestError('Service provider not found');
+    }
+
+    // Fetch recent reviews for this merchant's bookings
+    const reviews = await prisma.review.findMany({
+        where: {
+            booking: { merchantId: merchant.userId },
+        },
+        include: {
+            user: { select: { name: true, avatarUrl: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+    });
+
+    return {
+        id: merchant.id,
+        businessName: merchant.businessName,
+        businessCategory: merchant.businessCategory,
+        description: merchant.description,
+        logoUrl: merchant.logoUrl,
+        coverImageUrl: merchant.coverImageUrl,
+        phone: merchant.phone,
+        address: merchant.address,
+        city: merchant.city,
+        state: merchant.state,
+        latitude: merchant.latitude,
+        longitude: merchant.longitude,
+        serviceRadius: merchant.serviceRadius,
+        rating: merchant.rating,
+        totalReviews: merchant.totalReviews,
+        isVerified: merchant.isVerified,
+        owner: merchant.user,
+        services: merchant.merchantServices.map((ms) => ({
+            merchantServiceId: ms.id,
+            price: ms.price,
+            ...ms.service,
+        })),
+        reviews: reviews.map((r) => ({
+            id: r.id,
+            rating: r.rating,
+            comment: r.comment,
+            createdAt: r.createdAt,
+            user: r.user,
+        })),
+    };
+}
+
+// ─── Nearby Providers ───
+
+export async function getNearbyMerchants({
+    latitude,
+    longitude,
+    radius = 50,
+    categoryId,
+    limit = 20,
+}: GetNearbyMerchantsInput) {
+    // 1. Fetch all verified merchants (or filter by category if provided)
+    const merchants = await prisma.merchantProfile.findMany({
+        where: {
+            isVerified: true,
+            latitude: { not: null },
+            longitude: { not: null },
+            ...(categoryId
+                ? { merchantServices: { some: { service: { categoryId } } } }
+                : {}),
+        },
+        include: {
+            user: { select: { name: true, avatarUrl: true } },
+            merchantServices: {
+                where: { isActive: true },
+                include: { service: { select: { name: true, category: { select: { name: true } } } } },
+                take: 3, 
+            },
+        },
+    });
+
+    // 2. Calculate distance and filter by radius
+    const nearbyMerchants = merchants
+        .map((merchant) => {
+            const distance = calculateDistance(
+                latitude,
+                longitude,
+                merchant.latitude!,
+                merchant.longitude!
+            );
+            return { ...merchant, distance };
+        })
+        .filter((merchant) => merchant.distance <= radius)
+        .sort((a, b) => {
+            // Sort by Elite first, then distance, then rating
+            // Assuming we check subscription or just use rating + distance for now.
+            // For MVP: Distance primary sort, rating secondary.
+            if (Math.abs(a.distance - b.distance) < 5) {
+                return b.rating - a.rating; // If within 5km, higher rating first
+            }
+            return a.distance - b.distance;
+        })
+        .slice(0, limit);
+
+    return nearbyMerchants;
+}
+
+// ─── Nearby Promotions ───
+
+export async function getNearbyPromotions({
+    latitude,
+    longitude,
+    limit = 5,
+}: {
+    latitude: number;
+    longitude: number;
+    limit?: number;
+}) {
+    // 1. Fetch all active promotions with merchant location
+    const promotions = await prisma.promotion.findMany({
+        where: {
+            isActive: true,
+            expiryDate: { gt: new Date() },
+            merchant: {
+                isVerified: true,
+                latitude: { not: null },
+                longitude: { not: null },
+            },
+        },
+        include: {
+            merchant: {
+                select: {
+                    id: true,
+                    businessName: true,
+                    latitude: true,
+                    longitude: true,
+                    serviceRadius: true,
+                    logoUrl: true,
+                },
+            },
+        },
+    });
+
+    // 2. Filter by service radius
+    const nearbyPromotions = promotions
+        .map((promo) => {
+            const distance = calculateDistance(
+                latitude,
+                longitude,
+                promo.merchant.latitude!,
+                promo.merchant.longitude!
+            );
+            return { ...promo, distance };
+        })
+        .filter((promo) => promo.distance <= promo.merchant.serviceRadius)
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, limit);
+
+    return nearbyPromotions;
 }

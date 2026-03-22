@@ -22,6 +22,8 @@ interface AuthState {
     completeIntroOnboarding: () => Promise<void>;
     sendOtp: (data: { phone: string }) => Promise<void>;
     logout: () => Promise<void>;
+    updateLocation: (latitude: number, longitude: number, locationName: string) => Promise<void>;
+    updateProfile: (data: { name?: string; email?: string; avatarUrl?: string }) => Promise<void>;
     clearError: () => void;
 }
 
@@ -150,8 +152,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: true, error: null });
         try {
             const { data: response } = await authApi.completeOnboarding(data);
+            if ((response as any).accessToken) {
+                await saveTokens((response as any).accessToken, (response as any).refreshToken);
+            }
             await saveUser(response.user);
-            set({ user: response.user, isLoading: false });
+            set({ 
+                user: response.user, 
+                isLoading: false,
+                ...( (response as any).accessToken && { accessToken: (response as any).accessToken, isAuthenticated: true } )
+            });
         } catch (err: any) {
             const message = err.response?.data?.message || 'Onboarding failed';
             set({ error: message, isLoading: false });
@@ -188,4 +197,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     },
 
     clearError: () => set({ error: null }),
+
+    updateLocation: async (latitude: number, longitude: number, locationName: string) => {
+        try {
+            const { data } = await authApi.updateLocation({ locationName, latitude, longitude });
+            await saveUser(data.user);
+            set({ user: data.user });
+        } catch (err: any) {
+            console.error('Failed to update location:', err.message);
+        }
+    },
+
+    updateProfile: async (data: { name?: string; email?: string; avatarUrl?: string }) => {
+        set({ isLoading: true, error: null });
+        try {
+            const { data: response } = await authApi.updateProfile(data);
+            await saveUser(response.user);
+            set({ user: response.user, isLoading: false });
+        } catch (err: any) {
+            const message = err.response?.data?.message || 'Failed to update profile';
+            set({ error: message, isLoading: false });
+            throw new Error(message);
+        }
+    },
 }));

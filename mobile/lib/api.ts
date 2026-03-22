@@ -43,11 +43,24 @@ const processQueue = (error: any, token: string | null = null) => {
 };
 
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        // Automatically unwrap the { success, data, message } backend response standard
+        if (response.data && response.data.success !== undefined && response.data.data !== undefined) {
+            return {
+                ...response,
+                data: response.data.data,
+                // Attach message to response object for components that might want to read it
+                message: response.data.message
+            } as any;
+        }
+        return response;
+    },
     async (error: AxiosError) => {
         const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        // Handle both 401 (expired token) and 403 (stale role after onboarding)
+        const status = error.response?.status;
+        if ((status === 401 || status === 403) && !originalRequest._retry) {
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
                     failedQueue.push({
@@ -75,11 +88,14 @@ api.interceptors.response.use(
                     refreshToken,
                 });
 
-                await saveTokens(data.accessToken, data.refreshToken);
-                processQueue(null, data.accessToken);
+                // Since we used raw axios, the response is NOT unwrapped by the interceptor
+                const newTokens = data.data;
+
+                await saveTokens(newTokens.accessToken, newTokens.refreshToken);
+                processQueue(null, newTokens.accessToken);
 
                 if (originalRequest.headers) {
-                    originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
+                    originalRequest.headers.Authorization = `Bearer ${newTokens.accessToken}`;
                 }
                 return api(originalRequest);
             } catch (refreshError) {

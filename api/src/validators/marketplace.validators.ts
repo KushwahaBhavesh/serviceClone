@@ -63,15 +63,23 @@ export const createReviewSchema = z.object({
 // ─── Addresses ───
 
 export const createAddressSchema = z.object({
-    label: z.string().optional(),
-    line1: z.string().min(1),
+    label: z.string().min(1).default('Home'),
+    line1: z.string().min(5),
     line2: z.string().optional(),
-    city: z.string().min(1),
-    state: z.string().min(1),
-    zipCode: z.string().min(1),
+    city: z.string().min(2),
+    state: z.string().min(2),
+    zipCode: z.string().min(4),
     latitude: z.number().optional(),
     longitude: z.number().optional(),
-    isDefault: z.boolean().optional(),
+    isDefault: z.boolean().default(false),
+});
+
+export const getNearbyMerchantsSchema = z.object({
+    latitude: z.coerce.number().min(-90).max(90),
+    longitude: z.coerce.number().min(-180).max(180),
+    radius: z.coerce.number().positive().default(50),
+    categoryId: z.string().optional(),
+    limit: z.coerce.number().int().positive().default(20),
 });
 
 export const updateAddressSchema = createAddressSchema.partial();
@@ -87,3 +95,4 @@ export type UpdateBookingStatusInput = z.infer<typeof updateBookingStatusSchema>
 export type CreateReviewInput = z.infer<typeof createReviewSchema>;
 export type CreateAddressInput = z.infer<typeof createAddressSchema>;
 export type UpdateAddressInput = z.infer<typeof updateAddressSchema>;
+export type GetNearbyMerchantsInput = z.infer<typeof getNearbyMerchantsSchema>;

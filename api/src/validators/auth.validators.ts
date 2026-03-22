@@ -47,11 +47,22 @@ export const completeOnboardingSchema = z.object({
     avatarUrl: z.string().url().optional(),
     description: z.string().max(500).optional(),
     businessCategory: z.string().optional(),
-    panNumber: z.string().max(10, 'PAN_TOO_LONG').or(z.literal('')).optional(),
-    gstNumber: z.string().max(15, 'GST_TOO_LONG_DEBUG').or(z.literal('')).optional(),
     locationName: z.string().optional(),
     latitude: z.number().optional(),
     longitude: z.number().optional(),
+    selectedPlan: z.enum(['STARTER', 'PRO', 'ELITE']).optional(),
+});
+
+export const updateLocationSchema = z.object({
+    locationName: z.string().min(1),
+    latitude: z.number(),
+    longitude: z.number(),
+});
+
+export const updateProfileSchema = z.object({
+    name: z.string().min(2).optional(),
+    email: z.string().email().optional(),
+    avatarUrl: z.string().url().optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -61,3 +72,5 @@ export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
 export type SocialLoginInput = z.infer<typeof socialLoginSchema>;
 export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
 export type CompleteOnboardingInput = z.infer<typeof completeOnboardingSchema>;
+export type UpdateLocationInput = z.infer<typeof updateLocationSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

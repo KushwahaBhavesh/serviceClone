@@ -67,9 +67,15 @@ export default function RoleSelectScreen() {
     const { isLoading, user } = useAuthStore();
     const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
     const [email, setEmail] = useState(user?.email || '');
+    const [name, setName] = useState(user?.name || '');
 
     const handleContinue = async () => {
         if (!selectedRole) return;
+
+        if (!name.trim()) {
+            Alert.alert('Name Required', 'Please enter your full name.');
+            return;
+        }
 
         if (!email.trim() || !email.includes('@')) {
             Alert.alert('Email Required', 'Please enter a valid email address.');
@@ -79,14 +85,22 @@ export default function RoleSelectScreen() {
         if (selectedRole === 'CUSTOMER') {
             router.push({
                 pathname: '/(onboarding)/location',
-                params: { role: selectedRole, email: email.trim() }
+                params: { role: selectedRole, email: email.trim(), name: name.trim() }
+            });
+            return;
+        }
+
+        if (selectedRole === 'MERCHANT') {
+            router.push({
+                pathname: '/(onboarding)/business-details',
+                params: { role: selectedRole, email: email.trim(), name: name.trim() }
             });
             return;
         }
 
         router.push({
             pathname: '/(onboarding)/role-details',
-            params: { role: selectedRole, email: email.trim() }
+            params: { role: selectedRole, email: email.trim(), name: name.trim() }
         });
     };
 
@@ -130,17 +144,25 @@ export default function RoleSelectScreen() {
                     </View>
 
                     <View style={styles.section}>
-                        <Text style={styles.sectionLabel}>Communication Email</Text>
+                        <Text style={styles.sectionLabel}>Personal Details</Text>
                         <View style={styles.inputCard}>
+                            <Input
+                                value={name}
+                                onChangeText={setName}
+                                placeholder="Full Name"
+                                autoCapitalize="words"
+                                containerStyle={styles.nameInput}
+                            />
+                            <View style={styles.inputDivider} />
                             <Input
                                 value={email}
                                 onChangeText={setEmail}
-                                placeholder="john@example.com"
+                                placeholder="Email Address"
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                                 containerStyle={styles.emailInput}
                             />
-                            <Text style={styles.inputHint}>We'll use this for important updates.</Text>
+                            <Text style={styles.inputHint}>Used for account updates and profile.</Text>
                         </View>
                     </View>
 
@@ -276,6 +298,15 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.02,
         shadowRadius: 10,
         elevation: 1,
+    },
+    nameInput: {
+        marginBottom: 0,
+    },
+    inputDivider: {
+        height: 1,
+        backgroundColor: '#F1F5F9',
+        marginVertical: 12,
+        marginHorizontal: -4,
     },
     emailInput: {
         marginBottom: 0,

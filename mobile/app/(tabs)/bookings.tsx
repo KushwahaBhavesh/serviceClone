@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.sm },
     emptyTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text },
     emptySubtext: { fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center', paddingHorizontal: Spacing.xl },
-    list: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xxl, gap: Spacing.md },
+    list: { paddingHorizontal: Spacing.lg, paddingBottom: 160, gap: Spacing.md },
     bookingCard: {
         backgroundColor: Colors.background,
         borderRadius: BorderRadius.xl,
@@ -255,4 +255,19 @@ const styles = StyleSheet.create({
     cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
     addressLabel: { fontSize: FontSize.sm, color: Colors.textSecondary },
     totalPrice: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.primary },
+    reorderBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        paddingVertical: 10,
+        backgroundColor: Colors.primary + '10',
+        borderRadius: BorderRadius.md,
+        marginTop: Spacing.md,
+    },
+    reorderText: {
+        fontSize: FontSize.md,
+        fontWeight: '700',
+        color: Colors.primary,
+    },
 });

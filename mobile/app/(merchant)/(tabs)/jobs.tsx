@@ -109,11 +109,12 @@ export default function MerchantJobsScreen() {
         ]);
     };
 
-    const renderOrderCard = ({ item, index }: { item: Booking; index: number }) => {
+    const renderOrderCard = useCallback(({ item, index }: { item: Booking; index: number }) => {
         const statusColor = STATUS_COLORS[item.status] || '#94A3B8';
+        const animDelay = Math.min(index, 8) * 60;
 
         return (
-            <Animated.View entering={FadeInDown.delay(index * 60).springify()}>
+            <Animated.View entering={FadeInDown.delay(animDelay).springify()}>
                 <Pressable
                     style={({ pressed }) => [styles.orderCard, pressed && { transform: [{ scale: 0.98 }] }]}
                     onPress={() => router.push(`/(merchant)/orders/${item.id}` as any)}
@@ -151,7 +152,7 @@ export default function MerchantJobsScreen() {
                             </View>
                             <View style={styles.infoRow}>
                                 <IndianRupee size={14} color="#94A3B8" strokeWidth={2} />
-                                <Text style={styles.priceText}>₹{item.total.toLocaleString()}</Text>
+                                <Text style={styles.priceText}>₹{(item.total ?? 0).toLocaleString()}</Text>
                             </View>
                         </View>
 
@@ -198,13 +199,13 @@ export default function MerchantJobsScreen() {
                 </Pressable>
             </Animated.View>
         );
-    };
+    }, [handleAccept, handleReject, router]);
 
     return (
         <View style={styles.container}>
             {/* Header */}
             <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
-                <Text style={styles.title}>Job Queue</Text>
+                <Text style={styles.title}>Orders</Text>
                 <Text style={styles.subtitle}>{orders.length} orders</Text>
             </View>
 
@@ -236,6 +237,10 @@ export default function MerchantJobsScreen() {
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.list}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
+                    removeClippedSubviews={true}
+                    maxToRenderPerBatch={10}
+                    windowSize={5}
+                    initialNumToRender={8}
                     ListEmptyComponent={
                         <View style={styles.empty}>
                             <View style={styles.emptyIconBox}>

@@ -107,6 +107,60 @@ export async function disableService(userId: string, id: string) {
     });
 }
 
+export async function createCustomService(
+    userId: string,
+    data: {
+        name: string;
+        description?: string;
+        categoryId: string;
+        price: number;
+        duration?: number;
+        unit?: string;
+        imageUrl?: string;
+    },
+) {
+    const profile = await getMerchantProfile(userId);
+
+    // Verify category exists
+    const category = await prisma.category.findUnique({ where: { id: data.categoryId } });
+    if (!category) throw new BadRequestError('Category not found');
+
+    // Auto-generate slug from name
+    const baseSlug = data.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+    const uniqueSuffix = Date.now().toString(36);
+    const slug = `${baseSlug}-${uniqueSuffix}`;
+
+    // Create the service + auto-link to this merchant in a single transaction
+    return prisma.$transaction(async (tx) => {
+        const service = await tx.service.create({
+            data: {
+                name: data.name,
+                slug,
+                description: data.description,
+                categoryId: data.categoryId,
+                basePrice: data.price,
+                duration: data.duration || 60,
+                unit: (data.unit as any) || 'per_visit',
+                imageUrl: data.imageUrl,
+            },
+        });
+
+        const merchantService = await tx.merchantService.create({
+            data: {
+                merchantId: profile.id,
+                serviceId: service.id,
+                price: data.price,
+            },
+            include: { service: { include: { category: true } } },
+        });
+
+        return merchantService;
+    });
+}
+
 // ─── Merchant Orders ───
 
 export async function listMerchantOrders(
@@ -194,8 +248,8 @@ export async function assignAgent(userId: string, bookingId: string, data: Assig
 
     return prisma.booking.update({
         where: { id: bookingId },
-        data: { status: 'AGENT_ASSIGNED' },
-        include: { items: { include: { service: true } }, address: true },
+        data: { status: 'AGENT_ASSIGNED', agentId: agent.id },
+        include: { items: { include: { service: true } }, address: true, agent: { include: { user: { select: { name: true, phone: true } } } } },
     });
 }
 
@@ -446,25 +500,34 @@ export async function getAnalytics(userId: string, periodDays: number = 30) {
     const topServices = Object.values(serviceStats).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
 
     // 3. Agent Performance — fetch agents with user name + count completed bookings
-    const agentList = await prisma.agent.findMany({
-        where: { merchantId: profile.id },
-        include: { user: { select: { name: true } } },
-    });
+    // Single query instead of N+1 per-agent count
+    const [agentList, agentBookingGroups] = await Promise.all([
+        prisma.agent.findMany({
+            where: { merchantId: profile.id },
+            include: { user: { select: { name: true } } },
+        }),
+        prisma.booking.groupBy({
+            by: ['agentId'],
+            where: { 
+                agent: { merchantId: profile.id }, 
+                status: 'COMPLETED', 
+                completedAt: { gte: startDate },
+                agentId: { not: null },
+            },
+            _count: { id: true },
+        }),
+    ]);
 
-    const agentBookingCounts = await Promise.all(
-        agentList.map(a =>
-            prisma.booking.count({
-                where: { agent: { id: a.id }, status: 'COMPLETED', completedAt: { gte: startDate } },
-            })
-        )
+    const agentCountMap = new Map(
+        agentBookingGroups.map(g => [g.agentId, g._count.id])
     );
 
     const topAgents = agentList
-        .map((a, i) => ({
+        .map((a) => ({
             id: a.id,
             name: a.user?.name || 'Unknown',
             rating: a.rating,
-            completedJobs: agentBookingCounts[i],
+            completedJobs: agentCountMap.get(a.id) || 0,
         }))
         .sort((a, b) => b.completedJobs - a.completedJobs)
         .slice(0, 5);

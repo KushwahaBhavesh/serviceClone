@@ -136,6 +136,27 @@ export interface MerchantSettings {
     verificationDocs: VerificationDoc[];
 }
 
+export interface Review {
+    id: string;
+    rating: number;
+    comment: string | null;
+    merchantReply: string | null;
+    merchantReplyAt: string | null;
+    createdAt: string;
+    booking: { bookingNumber: string };
+    user: { name: string | null; avatarUrl: string | null };
+}
+
+export interface MerchantNotification {
+    id: string;
+    type: string;
+    title: string;
+    body: string;
+    deepLink: string | null;
+    readAt: string | null;
+    createdAt: string;
+}
+
 export interface Chat {
     id: string;
     bookingId: string;
@@ -166,6 +187,17 @@ export const merchantApi = {
 
     disableService: (id: string) =>
         api.delete(MERCHANT + `/services/${id}`),
+
+    createCustomService: (data: {
+        name: string;
+        description?: string;
+        categoryId: string;
+        price: number;
+        duration?: number;
+        unit?: string;
+        imageUrl?: string;
+    }) =>
+        api.post<{ service: MerchantService }>(MERCHANT + '/services/custom', data),
 
     // Orders
     listOrders: (params?: { status?: string; page?: number; limit?: number }) =>
@@ -277,4 +309,24 @@ export const merchantApi = {
 
     sendMessage: (chatId: string, content: string) =>
         api.post<{ message: any }>(`${MERCHANT}/chat/${chatId}/messages`, { content }),
+
+    // Reviews
+    listReviews: (params?: { page?: number; limit?: number }) =>
+        api.get<{ reviews: Review[]; total: number; avgRating: number }>(MERCHANT + '/reviews', { params }),
+
+    replyToReview: (reviewId: string, reply: string) =>
+        api.post<{ review: Review }>(MERCHANT + `/reviews/${reviewId}/reply`, { reply }),
+
+    // Notifications
+    listNotifications: (params?: { unreadOnly?: boolean; page?: number; limit?: number }) =>
+        api.get<{ notifications: MerchantNotification[]; unreadCount: number }>(MERCHANT + '/notifications', { params }),
+
+    markNotificationRead: (id: string) =>
+        api.patch(MERCHANT + `/notifications/${id}/read`),
+
+    markAllNotificationsRead: () =>
+        api.post(MERCHANT + '/notifications/read-all'),
+
+    updatePushToken: (token: string) =>
+        api.post(MERCHANT + '/push-token', { token }),
 };

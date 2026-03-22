@@ -35,8 +35,19 @@ export default function NotificationsScreen() {
         fetchNotifications();
     };
 
+    const handleMarkAllRead = async () => {
+        try {
+            await customerApi.markNotificationsRead();
+            setUnreadCount(0);
+            setNotifications(prev =>
+                prev.map(n => ({ ...n, readAt: n.readAt || new Date().toISOString() })),
+            );
+        } catch (error) {
+            console.error('Failed to mark all as read:', error);
+        }
+    };
+
     const handleNotificationPress = async (notification: Notification) => {
-        // Here we could mark as read and then navigate if there's a deepLink
         if (notification.deepLink) {
             router.push(notification.deepLink as any);
         }
@@ -86,6 +97,14 @@ export default function NotificationsScreen() {
                     title: 'Notifications',
                     headerShadowVisible: false,
                     headerStyle: { backgroundColor: 'white' },
+                    headerRight: () =>
+                        unreadCount > 0 ? (
+                            <Pressable onPress={handleMarkAllRead} style={{ marginRight: Spacing.md }}>
+                                <Text style={{ color: Colors.primary, fontSize: FontSize.sm, fontWeight: '700' }}>
+                                    Mark All Read
+                                </Text>
+                            </Pressable>
+                        ) : null,
                 }}
             />
 

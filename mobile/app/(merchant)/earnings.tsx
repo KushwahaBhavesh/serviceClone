@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, Pressable,
-    ActivityIndicator, Alert,
+    ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
@@ -31,6 +31,7 @@ export default function EarningsScreen() {
     const [period, setPeriod] = useState<PeriodKey>('month');
     const [data, setData] = useState<Earnings | null>(null);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     const fetchEarnings = useCallback(async () => {
         try {
@@ -41,6 +42,8 @@ export default function EarningsScreen() {
     }, [period]);
 
     useEffect(() => { setLoading(true); fetchEarnings(); }, [fetchEarnings]);
+
+    const onRefresh = () => { setRefreshing(true); fetchEarnings().finally(() => setRefreshing(false)); };
 
     const stats = [
         { icon: <Receipt size={18} color={Colors.primary} strokeWidth={2} />, iconBg: Colors.primary + '12', value: `₹${(data?.earnings.subtotal ?? 0).toLocaleString()}`, label: 'Subtotal' },
@@ -86,7 +89,9 @@ export default function EarningsScreen() {
             {loading ? (
                 <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
             ) : (
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} tintColor={Colors.primary} />}
+                >
                     {/* Hero */}
                     <Animated.View entering={FadeInDown.delay(100).springify()}>
                         <LinearGradient

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, FlatList, Pressable, Image,
     ActivityIndicator, RefreshControl,
@@ -16,14 +16,33 @@ import { format } from 'date-fns';
 import { Colors, Spacing } from '../../../constants/theme';
 import { merchantApi } from '../../../lib/merchant';
 
+interface ChatParticipant {
+    user: { id: string; name: string; role: string; avatarUrl?: string };
+}
+
+interface ChatMessage {
+    id: string;
+    content: string;
+    createdAt: string;
+}
+
+interface Chat {
+    id: string;
+    isActive: boolean;
+    participants: ChatParticipant[];
+    messages: ChatMessage[];
+    unreadCount?: number;
+    booking?: { bookingNumber: string };
+}
+
 export default function MerchantChatScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const [chats, setChats] = useState<any[]>([]);
+    const [chats, setChats] = useState<Chat[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    const fetchChats = async () => {
+    const fetchChats = useCallback(async () => {
         try {
             const response = await merchantApi.listChats();
             setChats(response.data.chats);
@@ -33,19 +52,19 @@ export default function MerchantChatScreen() {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, []);
 
     useEffect(() => { fetchChats(); }, []);
     const onRefresh = () => { setRefreshing(true); fetchChats(); };
 
-    const renderChatItem = ({ item, index }: { item: any; index: number }) => {
+    const renderChatItem = useCallback(({ item, index }: { item: Chat; index: number }) => {
         const lastMessage = item.messages[0];
-        const participant = item.participants.find((p: any) => p.user.role !== 'MERCHANT')?.user;
+        const participant = item.participants.find((p) => p.user.role !== 'MERCHANT')?.user;
         const participantName = participant?.name || 'Customer';
         const participantAvatar = participant?.avatarUrl;
 
         return (
-            <Animated.View entering={FadeInDown.delay(index * 60).springify()}>
+            <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 60).springify()}>
                 <Pressable
                     style={({ pressed }) => [styles.chatItem, pressed && { backgroundColor: '#F8FAFC' }]}
                     onPress={() => router.push(`/(merchant)/chat/${item.id}` as any)}
@@ -85,7 +104,7 @@ export default function MerchantChatScreen() {
                 </Pressable>
             </Animated.View>
         );
-    };
+    }, [router]);
 
     if (loading) {
         return (
@@ -109,6 +128,10 @@ export default function MerchantChatScreen() {
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} colors={[Colors.primary]} />
                 }
+                removeClippedSubviews={true}
+                maxToRenderPerBatch={10}
+                windowSize={5}
+                initialNumToRender={10}
                 ListEmptyComponent={
                     <View style={styles.empty}>
                         <View style={styles.emptyIconBox}>

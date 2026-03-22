@@ -49,6 +49,28 @@ export async function createBooking(customerId: string, data: CreateBookingInput
         throw new BadRequestError('One or more selected services are unavailable');
     }
 
+    // Auto-resolve merchantId: find the best merchant offering the first service
+    let resolvedMerchantId: string | null = (data as any).merchantId || null;
+
+    if (!resolvedMerchantId) {
+        // Find a verified merchant who offers the primary service, preferring closest/highest-rated
+        const merchantService = await prisma.merchantService.findFirst({
+            where: {
+                serviceId: serviceIds[0],
+                isActive: true,
+                merchant: { isVerified: true },
+            },
+            include: {
+                merchant: { select: { userId: true, rating: true } },
+            },
+            orderBy: { merchant: { rating: 'desc' } },
+        });
+
+        if (merchantService) {
+            resolvedMerchantId = merchantService.merchant.userId;
+        }
+    }
+
     const priceMap = new Map<string, number>(services.map(s => [s.id, s.basePrice]));
     let subtotal = 0;
     const itemsData = data.items.map((item: { serviceId: string; quantity: number; notes?: string }) => {
@@ -69,6 +91,7 @@ export async function createBooking(customerId: string, data: CreateBookingInput
         data: {
             bookingNumber: generateBookingNumber(),
             customerId,
+            merchantId: resolvedMerchantId,
             addressId: data.addressId,
             scheduledAt: new Date(data.scheduledAt),
             notes: data.notes,
@@ -95,7 +118,10 @@ export async function listBookings(
     const where: Record<string, unknown> = role === 'customer'
         ? { customerId: userId }
         : { merchantId: userId };
-    if (status) where.status = status;
+    if (status) {
+        const statuses = (status as string).split(',').map(s => s.trim());
+        where.status = statuses.length > 1 ? { in: statuses } : statuses[0];
+    }
 
     const [bookings, total] = await Promise.all([
         prisma.booking.findMany({

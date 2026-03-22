@@ -31,7 +31,7 @@ export default function ChatDetailScreen() {
     const [isTyping, setIsTyping] = useState(false);
     const [othersTyping, setOthersTyping] = useState(false);
     const flatListRef = useRef<FlatList>(null);
-    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const { joinChat, leaveChat, onChatMessage, onTyping, sendTyping } = useSocket();
 

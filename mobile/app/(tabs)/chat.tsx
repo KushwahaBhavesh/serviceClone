@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.lg,
     },
     listContent: {
-        paddingBottom: Spacing.xxl,
+        paddingBottom: 160,
     },
     chatItem: {
         flexDirection: 'row',

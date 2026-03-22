@@ -11,15 +11,19 @@ export default function ProfileScreen() {
     const { logout, user } = useAuthStore();
 
     const MENU_ITEMS = [
+        { icon: 'person-outline', title: 'Personal Details', subtitle: 'Update your name and email', route: '/(customer)/edit-profile' },
         { icon: 'location-outline', title: 'Saved Addresses', subtitle: 'Manage your home and office locations', route: '/(customer)/profile/addresses' },
         { icon: 'card-outline', title: 'Wallet & Payments', subtitle: 'Manage your balance and transactions', route: '/(customer)/profile/wallet' },
-        { icon: 'notifications-outline', title: 'Notifications', subtitle: 'Preference and alert settings', route: '/(tabs)/profile' },
-        { icon: 'help-circle-outline', title: 'Help & Support', subtitle: 'FAQs and direct contact', route: '/(tabs)/profile' },
+        { icon: 'notifications-outline', title: 'Notifications', subtitle: 'Preference and alert settings', route: '/(customer)/notifications' },
+        { icon: 'help-circle-outline', title: 'Help & Support', subtitle: 'FAQs and direct contact', route: '' },
     ];
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+            >
                 {/* Header / User Info */}
                 <View style={styles.header}>
                     <View style={styles.avatarContainer}>
@@ -29,7 +33,10 @@ export default function ProfileScreen() {
                         <Text style={styles.userName}>{user?.name || 'Guest User'}</Text>
                         <Text style={styles.userEmail}>{user?.email || '+91 99999 00000'}</Text>
                     </View>
-                    <Pressable style={styles.editBtn}>
+                    <Pressable 
+                        style={styles.editBtn}
+                        onPress={() => router.push('/(customer)/edit-profile')}
+                    >
                         <Ionicons name="create-outline" size={20} color={Colors.primary} />
                     </Pressable>
                 </View>
@@ -92,6 +99,7 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background },
+    scrollContent: { paddingBottom: 160 },
     header: {
         flexDirection: 'row',
         alignItems: 'center',

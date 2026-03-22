@@ -12,14 +12,9 @@ import {
 } from 'lucide-react-native';
 
 import { Colors, Spacing } from '../../constants/theme';
-import api from '../../lib/api';
+import { merchantApi } from '../../lib/merchant';
+import type { MerchantNotification } from '../../lib/merchant';
 
-const MERCHANT = '/api/v1/merchant';
-
-interface Notification {
-    id: string; type: string; title: string; body: string;
-    deepLink: string | null; readAt: string | null; createdAt: string;
-}
 
 const ICON_MAP: Record<string, React.ReactNode> = {
     NEW_ORDER: <ShoppingBag size={18} color={Colors.primary} strokeWidth={2} />,
@@ -40,14 +35,14 @@ const COLOR_MAP: Record<string, string> = {
 export default function NotificationsScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [notifications, setNotifications] = useState<MerchantNotification[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
 
     const fetchData = useCallback(async () => {
         try {
-            const res = await api.get<{ notifications: Notification[]; unreadCount: number }>(MERCHANT + '/notifications');
+            const res = await merchantApi.listNotifications();
             setNotifications(res.data.notifications);
             setUnreadCount(res.data.unreadCount);
         } catch { setNotifications([]); }
@@ -58,7 +53,7 @@ export default function NotificationsScreen() {
 
     const handleMarkRead = async (id: string) => {
         try {
-            await api.patch(MERCHANT + `/notifications/${id}/read`);
+            await merchantApi.markNotificationRead(id);
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, readAt: new Date().toISOString() } : n));
             setUnreadCount(prev => Math.max(0, prev - 1));
         } catch {}
@@ -66,13 +61,13 @@ export default function NotificationsScreen() {
 
     const handleMarkAllRead = async () => {
         try {
-            await api.post(MERCHANT + '/notifications/read-all');
+            await merchantApi.markAllNotificationsRead();
             setNotifications(prev => prev.map(n => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })));
             setUnreadCount(0);
         } catch {}
     };
 
-    const handlePress = (item: Notification) => {
+    const handlePress = (item: MerchantNotification) => {
         if (!item.readAt) handleMarkRead(item.id);
         if (item.deepLink) router.push(item.deepLink as never);
     };
@@ -87,7 +82,7 @@ export default function NotificationsScreen() {
         return `${Math.floor(hrs / 24)}d ago`;
     };
 
-    const renderNotification = ({ item, index }: { item: Notification; index: number }) => {
+    const renderNotification = ({ item, index }: { item: MerchantNotification; index: number }) => {
         const icon = ICON_MAP[item.type] ?? <Info size={18} color="#64748B" strokeWidth={2} />;
         const color = COLOR_MAP[item.type] ?? '#64748B';
         const isUnread = !item.readAt;

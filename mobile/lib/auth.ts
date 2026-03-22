@@ -42,4 +42,10 @@ export const authApi = {
 
     completeOnboarding: (data: CompleteOnboardingRequest) =>
         api.put<{ user: User }>(`${AUTH_BASE}/onboarding`, data),
+
+    updateLocation: (data: { locationName: string; latitude: number; longitude: number }) =>
+        api.put<{ user: User }>(`${AUTH_BASE}/location`, data),
+    
+    updateProfile: (data: { name?: string; email?: string; avatarUrl?: string }) =>
+        api.put<{ user: User }>(`${AUTH_BASE}/profile`, data),
 };

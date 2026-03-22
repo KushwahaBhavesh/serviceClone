@@ -12,17 +12,8 @@ import {
 } from 'lucide-react-native';
 
 import { Colors, Spacing } from '../../constants/theme';
-import api from '../../lib/api';
-
-const MERCHANT = '/api/v1/merchant';
-
-interface Review {
-    id: string; rating: number; comment: string | null;
-    merchantReply: string | null; merchantReplyAt: string | null;
-    createdAt: string;
-    booking: { bookingNumber: string };
-    user: { name: string | null; avatarUrl: string | null };
-}
+import { merchantApi } from '../../lib/merchant';
+import type { Review } from '../../lib/merchant';
 
 export default function ReviewsScreen() {
     const insets = useSafeAreaInsets();
@@ -37,7 +28,7 @@ export default function ReviewsScreen() {
 
     const fetchReviews = useCallback(async () => {
         try {
-            const res = await api.get<{ reviews: Review[]; avgRating: number }>(MERCHANT + '/reviews');
+            const res = await merchantApi.listReviews();
             setReviews(res.data.reviews);
             setAvgRating(res.data.avgRating);
         } catch { setReviews([]); }
@@ -51,7 +42,7 @@ export default function ReviewsScreen() {
         setSubmitting(true);
         try {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            const res = await api.post<{ review: Review }>(MERCHANT + `/reviews/${reviewId}/reply`, { reply: replyText.trim() });
+            const res = await merchantApi.replyToReview(reviewId, replyText.trim());
             setReviews(prev => prev.map(r => r.id === reviewId ? res.data.review : r));
             setReplyingTo(null);
             setReplyText('');

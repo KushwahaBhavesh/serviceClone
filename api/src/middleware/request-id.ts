@@ -1,0 +1,23 @@
+import { Request, Response, NextFunction } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+
+declare global {
+    namespace Express {
+        interface Request {
+            id: string;
+        }
+    }
+}
+
+/**
+ * Generates a unique request ID for each incoming request.
+ * - Attaches to `req.id`
+ * - Sets `X-Request-Id` response header
+ * - Allows client-provided ID via `X-Request-Id` header
+ */
+export function requestId(req: Request, res: Response, next: NextFunction): void {
+    const id = (req.headers['x-request-id'] as string) || uuidv4();
+    req.id = id;
+    res.setHeader('X-Request-Id', id);
+    next();
+}

@@ -81,9 +81,8 @@ export interface CompleteOnboardingRequest {
     skills?: string[];
     description?: string;
     businessCategory?: string;
-    panNumber?: string;
-    gstNumber?: string;
     locationName?: string;
     latitude?: number;
     longitude?: number;
+    selectedPlan?: 'STARTER' | 'PRO' | 'ELITE';
 }

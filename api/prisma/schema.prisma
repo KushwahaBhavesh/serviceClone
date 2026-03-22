@@ -117,6 +117,25 @@ model Service {
   @@map("services")
 }
 
+enum PlanTier {
+  STARTER
+  PRO
+  ELITE
+}
+
+model SubscriptionPlan {
+  id               String          @id @default(cuid())
+  merchantId       String          @unique @map("merchant_id")
+  tier             PlanTier        @default(STARTER)
+  status           String          @default("ACTIVE")
+  currentPeriodEnd DateTime?       @map("current_period_end")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  merchant         MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@map("subscription_plans")
+}
+
 model MerchantProfile {
   id                 String             @id @default(cuid())
   userId             String             @unique @map("user_id")
@@ -148,6 +167,7 @@ model MerchantProfile {
   user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   merchantServices   MerchantService[]
   promos             Promotion[]
+  subscription       SubscriptionPlan?
   slots              Slot[]
   verificationDocs   VerificationDoc[]
 

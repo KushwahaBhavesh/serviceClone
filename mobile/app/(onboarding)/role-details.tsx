@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
     View,
     Text,
@@ -29,6 +29,7 @@ import { Colors, Spacing, FontSize, BorderRadius } from '../../constants/theme';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import type { UserRole } from '../../types/auth';
+import { catalogApi, type Category } from '../../lib/marketplace';
 
 const { width } = Dimensions.get('window');
 
@@ -46,7 +47,7 @@ const BUSINESS_CATEGORIES = [
 export default function RoleDetailsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const { role, email } = useLocalSearchParams<{ role: UserRole, email: string }>();
+    const { role, email, name } = useLocalSearchParams<{ role: UserRole, email: string, name?: string }>();
 
     // Step state
     const [currentStep, setCurrentStep] = useState(1);
@@ -55,9 +56,43 @@ export default function RoleDetailsScreen() {
     // Merchant States
     const [businessName, setBusinessName] = useState('');
     const [businessCategory, setBusinessCategory] = useState('');
+    const [customCategory, setCustomCategory] = useState('');
+    const [isOtherSelected, setIsOtherSelected] = useState(false);
     const [description, setDescription] = useState('');
     const [panNumber, setPanNumber] = useState('');
     const [gstNumber, setGstNumber] = useState('');
+
+    // Dynamic Categories
+    const [categories, setCategories] = useState<any[]>([]);
+    const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+
+    useEffect(() => {
+        const fetchCategories = async () => {
+            try {
+                const { data } = await catalogApi.listCategories();
+                // Map top 5 categories + Other
+                const top5 = data.categories
+                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                    .slice(0, 5)
+                    .map(cat => ({
+                        name: cat.name,
+                        icon: 'briefcase-outline' // Default icon for dynamic categories
+                    }));
+                
+                setCategories([...top5, { name: 'Other', icon: 'ellipsis-horizontal-outline' }]);
+            } catch (error) {
+                console.error('Error fetching categories:', error);
+                // Fallback to static if fetch fails
+                setCategories(BUSINESS_CATEGORIES);
+            } finally {
+                setIsLoadingCategories(false);
+            }
+        };
+
+        if (role === 'MERCHANT') {
+            fetchCategories();
+        }
+    }, [role]);
 
     // Agent States
     const [skillInput, setSkillInput] = useState('');
@@ -83,6 +118,7 @@ export default function RoleDetailsScreen() {
             if (currentStep === 1) {
                 if (!businessName.trim()) return "Business name is required";
                 if (!businessCategory) return "Please select a category";
+                if (isOtherSelected && !customCategory.trim()) return "Please specify your category";
             }
             if (currentStep === 2) {
                 if (!panNumber.trim() || panNumber.length !== 10) return "Valid 10-digit PAN is required";
@@ -111,8 +147,9 @@ export default function RoleDetailsScreen() {
                 params: {
                     role,
                     email,
+                    name,
                     businessName: businessName.trim(),
-                    businessCategory,
+                    businessCategory: isOtherSelected ? customCategory.trim() : businessCategory,
                     description: description.trim(),
                     panNumber: panNumber.toUpperCase(),
                     gstNumber: gstNumber.toUpperCase(),
@@ -155,11 +192,12 @@ export default function RoleDetailsScreen() {
                             <View style={styles.inputGroup}>
                                 <Text style={styles.label}>Select Primary Category</Text>
                                 <View style={styles.categoryGrid}>
-                                    {BUSINESS_CATEGORIES.map((cat) => (
+                                    {categories.map((cat) => (
                                         <Pressable
                                             key={cat.name}
                                             onPress={() => {
                                                 setBusinessCategory(cat.name);
+                                                setIsOtherSelected(cat.name === 'Other');
                                                 Haptics.selectionAsync();
                                             }}
                                             style={[
@@ -180,6 +218,18 @@ export default function RoleDetailsScreen() {
                                     ))}
                                 </View>
                             </View>
+
+                            {isOtherSelected && (
+                                <Animated.View exiting={FadeOutLeft} entering={FadeInRight} style={styles.inputGroup}>
+                                    <Text style={styles.label}>Specify Other Service</Text>
+                                    <Input
+                                        placeholder="e.g. Pet Grooming, Photography"
+                                        value={customCategory}
+                                        onChangeText={setCustomCategory}
+                                        containerStyle={styles.premiumInput}
+                                    />
+                                </Animated.View>
+                            )}
                         </Animated.View>
                     );
                 case 2:

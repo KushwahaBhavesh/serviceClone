@@ -43,17 +43,16 @@ export default function LocationScreen() {
     const mapRef = useRef<MapView>(null);
 
     const {
-        role, email, businessName, skills,
-        businessCategory, description, panNumber, gstNumber,
+        role, email, name, businessName, skills,
+        businessCategory, description,
     } = useLocalSearchParams<{
         role: UserRole;
         email: string;
+        name?: string;
         businessName?: string;
         skills?: string;
         businessCategory?: string;
         description?: string;
-        panNumber?: string;
-        gstNumber?: string;
     }>();
 
     const { completeOnboarding, isLoading, user } = useAuthStore();
@@ -226,27 +225,47 @@ export default function LocationScreen() {
         }
 
         try {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+            // Merchants go to pricing next. They do NOT complete onboarding here.
+            if (role === 'MERCHANT') {
+                router.push({
+                    pathname: '/(onboarding)/pricing',
+                    params: {
+                        role,
+                        email,
+                        businessName,
+                        businessCategory,
+                        description,
+                        locationName: locationName.trim(),
+                        latitude: markerCoord.latitude,
+                        longitude: markerCoord.longitude,
+                    }
+                });
+                return;
+            }
+
+            // Customers and Agents finish onboarding here
+            const cleanStr = (val: any) => {
+                if (!val || val === 'null' || val === 'undefined') return undefined;
+                return String(val);
+            };
+
             await completeOnboarding({
-                role: role || 'CUSTOMER',
-                email,
-                businessName: businessName || undefined,
-                businessCategory: businessCategory || undefined,
-                description: description || undefined,
-                panNumber: panNumber ? panNumber.trim() : undefined,
-                gstNumber: gstNumber ? gstNumber.trim() : undefined,
-                skills: skills ? skills.split(',') : undefined,
-                name: user?.name,
+                role: (cleanStr(role) as any) || 'CUSTOMER',
+                email: cleanStr(email),
+                businessName: cleanStr(businessName),
+                businessCategory: cleanStr(businessCategory),
+                description: cleanStr(description),
+                name: cleanStr(name) || user?.name || undefined,
                 locationName: locationName.trim(),
                 latitude: markerCoord.latitude,
                 longitude: markerCoord.longitude,
+                skills: skills && skills !== 'undefined' ? JSON.parse(skills as string) : undefined,
             });
-
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-            if (role === 'MERCHANT') {
-                router.replace('/(merchant)/dashboard');
-            } else if (role === 'AGENT') {
+            if (role === 'AGENT') {
                 router.replace('/(agent)/dashboard');
             } else {
                 router.replace('/(tabs)/home');
@@ -256,7 +275,7 @@ export default function LocationScreen() {
         }
     }, [
         locationName, markerCoord, role, email, businessName,
-        businessCategory, description, panNumber, gstNumber,
+        businessCategory, description,
         skills, user, completeOnboarding, router,
     ]);
 

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { env } from '../config/env';
 
 export interface JwtPayload {
     sub: string;
@@ -17,9 +18,6 @@ export interface AuthenticatedRequest extends Request {
     };
 }
 
-/**
- * JWT auth middleware — replaces NestJS JwtAuthGuard + JwtStrategy
- */
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
     const authHeader = req.headers.authorization;
 
@@ -36,8 +34,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
     const token = authHeader.split(' ')[1];
 
     try {
-        const secret = process.env.JWT_SECRET || 'fallback-secret';
-        const payload = jwt.verify(token, secret) as JwtPayload;
+        const payload = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
 
         (req as AuthenticatedRequest).user = {
             id: payload.sub,
@@ -57,9 +54,6 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
     }
 }
 
-/**
- * Role-based access — replaces NestJS RolesGuard
- */
 export function requireRoles(...roles: string[]) {
     return (req: Request, res: Response, next: NextFunction): void => {
         const user = (req as AuthenticatedRequest).user;

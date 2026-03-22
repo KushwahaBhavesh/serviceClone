@@ -9,12 +9,17 @@ import {
     TextInput,
     Modal,
     ScrollView,
+    Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import MapView, { Marker, Callout } from 'react-native-maps';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../constants/theme';
-import { catalogApi, type Category, type Service } from '../../lib/marketplace';
+import { useAuthStore } from '../../store/useAuthStore';
+import { catalogApi, type Category, type Service, type NearbyMerchant } from '../../lib/marketplace';
+import { getImageUrl } from '../../lib/api';
 
 const CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
     'cleaning': 'sparkles',
@@ -38,8 +43,11 @@ const SORT_OPTIONS: { value: SortByOption; label: string; icon: keyof typeof Ion
 
 export default function ExploreScreen() {
     const router = useRouter();
+    const { user } = useAuthStore();
+    const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
     const [categories, setCategories] = useState<Category[]>([]);
     const [services, setServices] = useState<Service[]>([]);
+    const [merchants, setMerchants] = useState<NearbyMerchant[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [sortBy, setSortBy] = useState<SortByOption>('name');
@@ -61,24 +69,37 @@ export default function ExploreScreen() {
         if (pageNum === 1) setIsLoading(true);
         else setIsLoadingMore(true);
         try {
-            const { data } = await catalogApi.listServices({
-                categoryId: selectedCategory || undefined,
-                search: search || undefined,
-                sortBy,
-                page: pageNum,
-                limit: 15,
-            });
-            if (append) {
-                setServices(prev => [...prev, ...data.services]);
+            if (viewMode === 'list') {
+                const { data } = await catalogApi.listServices({
+                    categoryId: selectedCategory || undefined,
+                    search: search || undefined,
+                    sortBy,
+                    page: pageNum,
+                    limit: 15,
+                });
+                if (append) {
+                    setServices(prev => [...prev, ...data.services]);
+                } else {
+                    setServices(data.services);
+                }
+                setTotalCount(data.pagination.total);
+                setHasMore(pageNum < data.pagination.totalPages);
             } else {
-                setServices(data.services);
+                // Map Mode
+                if (user?.latitude && user?.longitude) {
+                    const { data } = await catalogApi.listNearbyMerchants({
+                        latitude: user.latitude,
+                        longitude: user.longitude,
+                        categoryId: selectedCategory || undefined,
+                        limit: 50,
+                    });
+                    setMerchants(data.merchants);
+                }
             }
-            setTotalCount(data.pagination.total);
-            setHasMore(pageNum < data.pagination.totalPages);
         } catch { /* silent */ }
         setIsLoading(false);
         setIsLoadingMore(false);
-    }, [selectedCategory, search, sortBy]);
+    }, [selectedCategory, search, sortBy, viewMode, user]);
 
     useEffect(() => { fetchCategories(); }, [fetchCategories]);
     useEffect(() => {
@@ -115,62 +136,97 @@ export default function ExploreScreen() {
 
     const renderServiceCard = ({ item }: { item: Service }) => {
         const merchantCount = item._count?.merchantServices || 0;
+        const prices = (item.merchantServices || []).map(ms => ms.price);
+        const minPrice = prices.length > 0 ? Math.min(...prices) : item.basePrice;
+        const avgRating = (item.merchantServices || []).reduce((acc, curr) => acc + curr.merchant.rating, 0) / (item.merchantServices?.length || 1);
+        const totalReviews = (item.merchantServices || []).reduce((acc, curr) => acc + curr.merchant.totalReviews, 0);
+
         return (
             <Pressable
-                style={styles.serviceCard}
+                style={styles.premiumCard}
                 onPress={() => router.push(`/(booking)/${item.slug}`)}
             >
-                <View style={styles.serviceIcon}>
-                    <Ionicons
-                        name={CATEGORY_ICONS[item.category?.slug || ''] || 'construct'}
-                        size={28}
-                        color={Colors.primary}
-                    />
-                </View>
-                <View style={styles.serviceInfo}>
-                    <Text style={styles.serviceName}>{item.name}</Text>
-                    <Text style={styles.serviceDesc} numberOfLines={2}>
-                        {item.description}
-                    </Text>
-                    <View style={styles.serviceFooter}>
-                        <Text style={styles.servicePrice}>₹{item.basePrice}</Text>
-                        <Text style={styles.serviceUnit}>/ {item.unit.replace('_', ' ')}</Text>
-                        <View style={styles.durationBadge}>
-                            <Ionicons name="time-outline" size={12} color={Colors.textMuted} />
-                            <Text style={styles.durationText}>{item.duration} min</Text>
+                <View style={styles.cardImageContainer}>
+                    {item.imageUrl ? (
+                        <Image source={{ uri: getImageUrl(item.imageUrl) || '' }} style={styles.cardImage} />
+                    ) : (
+                        <LinearGradient
+                            colors={[Colors.primary + '20', Colors.primary + '05']}
+                            style={styles.cardImagePlaceholder}
+                        >
+                            <Ionicons
+                                name={CATEGORY_ICONS[item.category?.slug || ''] || 'construct'}
+                                size={40}
+                                color={Colors.primary}
+                            />
+                        </LinearGradient>
+                    )}
+                    {item.merchantServices && item.merchantServices.length > 0 && (
+                        <View style={styles.ratingBadgeOver}>
+                            <Ionicons name="star" size={12} color="#FFB800" />
+                            <Text style={styles.ratingBadgeText}>{avgRating > 0 ? avgRating.toFixed(1) : 'New'}</Text>
                         </View>
-                        {merchantCount > 0 && (
-                            <View style={styles.providerBadge}>
-                                <Ionicons name="storefront-outline" size={12} color={Colors.primary} />
-                                <Text style={styles.providerText}>{merchantCount}</Text>
+                    )}
+                </View>
+
+                <View style={styles.cardContent}>
+                    <View style={styles.cardHeader}>
+                        <Text style={styles.serviceNamePremium}>{item.name}</Text>
+                        {merchantCount > 5 && (
+                            <View style={styles.trendingBadge}>
+                                <Ionicons name="flame" size={10} color="#FF4B2B" />
+                                <Text style={styles.trendingText}>POPULAR</Text>
                             </View>
                         )}
                     </View>
+                    
+                    <Text style={styles.serviceDescPremium} numberOfLines={2}>
+                        {item.description}
+                    </Text>
+
+                    <View style={styles.cardFooterPremium}>
+                        <View>
+                            <Text style={styles.startsFromText}>Starts from</Text>
+                            <View style={styles.priceRowPremium}>
+                                <Text style={styles.priceSymbol}>₹</Text>
+                                <Text style={styles.priceValuePremium}>{minPrice}</Text>
+                                <Text style={styles.unitTextPremium}>/ {item.unit.replace('_', ' ')}</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.providerInfoPremium}>
+                            <View style={styles.providerAvatars}>
+                                {(item.merchantServices || []).slice(0, 3).map((ms, idx) => (
+                                    <View key={ms.merchant.id} style={[styles.miniAvatar, { marginLeft: idx === 0 ? 0 : -10 }]}>
+                                        {ms.merchant.logoUrl ? (
+                                            <Image source={{ uri: getImageUrl(ms.merchant.logoUrl) || '' }} style={styles.miniAvatarImg} />
+                                        ) : (
+                                            <View style={styles.avatarLetter}>
+                                                <Text style={styles.avatarLetterText}>{ms.merchant.businessName[0]}</Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                ))}
+                            </View>
+                            <Text style={styles.providerCountText}>
+                                {merchantCount > 0 ? `${merchantCount} Providers` : 'Nearby'}
+                            </Text>
+                        </View>
+                    </View>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={Colors.border} />
             </Pressable>
         );
     };
 
-    const renderFooter = () => {
-        if (!isLoadingMore) return null;
-        return (
-            <View style={styles.footerLoader}>
-                <ActivityIndicator size="small" color={Colors.primary} />
-                <Text style={styles.footerText}>Loading more...</Text>
-            </View>
-        );
-    };
-
-    return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+    const renderHeader = () => (
+        <View style={styles.listHeader}>
             {/* Search + Filter Bar */}
             <View style={styles.searchContainer}>
                 <View style={styles.searchBar}>
                     <Ionicons name="search" size={20} color={Colors.textMuted} />
                     <TextInput
                         style={styles.searchInput}
-                        placeholder="Search services..."
+                        placeholder="Search for services..."
                         placeholderTextColor={Colors.textMuted}
                         value={search}
                         onChangeText={setSearch}
@@ -182,12 +238,20 @@ export default function ExploreScreen() {
                         </Pressable>
                     )}
                 </View>
-                <Pressable
-                    style={[styles.filterToggle, showFilter && styles.filterToggleActive]}
-                    onPress={() => setShowFilter(true)}
-                >
-                    <Ionicons name="options-outline" size={20} color={showFilter ? '#fff' : Colors.text} />
-                </Pressable>
+                <View style={styles.headerControls}>
+                    <Pressable
+                        style={[styles.filterToggle, showFilter && styles.filterToggleActive]}
+                        onPress={() => setShowFilter(true)}
+                    >
+                        <Ionicons name="options-outline" size={20} color={showFilter ? '#fff' : Colors.text} />
+                    </Pressable>
+                    <Pressable
+                        style={styles.viewToggleBtn}
+                        onPress={() => setViewMode(prev => prev === 'list' ? 'map' : 'list')}
+                    >
+                        <Ionicons name={viewMode === 'list' ? 'map' : 'list'} size={20} color={Colors.primary} />
+                    </Pressable>
+                </View>
             </View>
 
             {/* Sort Chips */}
@@ -227,31 +291,116 @@ export default function ExploreScreen() {
                     contentContainerStyle={styles.chipsList}
                 />
             </View>
+        </View>
+    );
 
-            {/* Services List */}
-            {isLoading ? (
-                <View style={styles.loaderContainer}>
-                    <ActivityIndicator size="large" color={Colors.primary} />
-                </View>
-            ) : services.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                    <Ionicons name="search-outline" size={48} color={Colors.border} />
-                    <Text style={styles.emptyText}>No services found</Text>
-                    <Text style={styles.emptySubtext}>Try a different category or search term</Text>
-                </View>
-            ) : (
-                <FlatList
-                    data={services}
-                    renderItem={renderServiceCard}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.servicesList}
-                    showsVerticalScrollIndicator={false}
-                    ItemSeparatorComponent={() => <View style={styles.separator} />}
-                    onEndReached={loadMore}
-                    onEndReachedThreshold={0.3}
-                    ListFooterComponent={renderFooter}
-                />
-            )}
+    const renderFooter = () => {
+        if (!isLoadingMore || viewMode === 'map') return null;
+        return (
+            <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color={Colors.primary} />
+                <Text style={styles.footerText}>Loading more...</Text>
+            </View>
+        );
+    };
+
+    return (
+        <SafeAreaView style={styles.container} edges={['top']}>
+            <View style={{ flex: 1 }}>
+                {viewMode === 'map' ? (
+                    <>
+                        {/* Map Header stays fixed in map mode */}
+                        <View style={styles.searchContainer}>
+                            <View style={styles.searchBar}>
+                                <Ionicons name="search" size={20} color={Colors.textMuted} />
+                                <TextInput
+                                    style={styles.searchInput}
+                                    placeholder="Search on map..."
+                                    placeholderTextColor={Colors.textMuted}
+                                    value={search}
+                                    onChangeText={setSearch}
+                                />
+                            </View>
+                            <Pressable
+                                style={styles.viewToggleBtn}
+                                onPress={() => setViewMode('list')}
+                            >
+                                <Ionicons name="list" size={20} color={Colors.primary} />
+                            </Pressable>
+                        </View>
+
+                        <View style={styles.mapContainer}>
+                            <MapView
+                                style={StyleSheet.absoluteFillObject}
+                                initialRegion={user?.latitude && user?.longitude ? {
+                                    latitude: user.latitude,
+                                    longitude: user.longitude,
+                                    latitudeDelta: 0.1,
+                                    longitudeDelta: 0.1,
+                                } : undefined}
+                            >
+                                {user?.latitude && user?.longitude && (
+                                    <Marker
+                                        coordinate={{ latitude: user.latitude, longitude: user.longitude }}
+                                        pinColor="blue"
+                                        title="You are here"
+                                    />
+                                )}
+                                {merchants.map((merchant) => (
+                                    <Marker
+                                        key={merchant.id}
+                                        coordinate={{ latitude: merchant.latitude!, longitude: merchant.longitude! }}
+                                    >
+                                        <View style={styles.markerContainer}>
+                                            <Ionicons name="storefront" size={16} color="#FFF" />
+                                        </View>
+                                        <Callout
+                                            onPress={() => router.push({
+                                                pathname: '/(booking)/merchant-profile',
+                                                params: { id: merchant.id },
+                                            })}
+                                        >
+                                            <View style={styles.calloutBox}>
+                                                <Text style={styles.calloutTitle}>{merchant.businessName}</Text>
+                                                <Text style={styles.calloutSubtitle}>★ {merchant.rating.toFixed(1)} · {merchant.distance.toFixed(1)}km</Text>
+                                                <Text style={{ fontSize: 11, color: Colors.primary, marginTop: 2 }}>Tap to view →</Text>
+                                            </View>
+                                        </Callout>
+                                    </Marker>
+                                ))}
+                            </MapView>
+                        </View>
+                    </>
+                ) : (
+                    <FlatList
+                        data={isLoading ? [] : services}
+                        renderItem={renderServiceCard}
+                        keyExtractor={(item) => item.id}
+                        contentContainerStyle={styles.servicesList}
+                        showsVerticalScrollIndicator={false}
+                        ListHeaderComponent={renderHeader}
+                        ListEmptyComponent={() => !isLoading && (
+                            <View style={styles.emptyContainer}>
+                                <Ionicons name="search-outline" size={48} color={Colors.border} />
+                                <Text style={styles.emptyText}>No services found</Text>
+                                <Text style={styles.emptySubtext}>Try a different category or search term</Text>
+                            </View>
+                        )}
+                        onEndReached={loadMore}
+                        onEndReachedThreshold={0.3}
+                        ListFooterComponent={renderFooter}
+                        refreshing={isLoading && services.length > 0}
+                        onRefresh={() => fetchServices(1, false)}
+                    />
+                )}
+
+                {isLoading && services.length === 0 && (
+                    <View style={styles.loaderContainer}>
+                        <ActivityIndicator size="large" color={Colors.primary} />
+                    </View>
+                )}
+            </View>
+
 
             {/* Filter Modal */}
             <Modal visible={showFilter} animationType="slide" transparent>
@@ -316,6 +465,7 @@ export default function ExploreScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: Colors.background },
+    listHeader: { paddingBottom: Spacing.sm },
     searchContainer: { flexDirection: 'row', paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.sm, gap: Spacing.sm },
     searchBar: {
         flex: 1, flexDirection: 'row', alignItems: 'center',
@@ -353,33 +503,172 @@ const styles = StyleSheet.create({
     chipTextActive: { color: '#fff' },
     // ─── List ───
     loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.sm },
+    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.xxl },
     emptyText: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text },
     emptySubtext: { fontSize: FontSize.sm, color: Colors.textMuted },
-    servicesList: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xxl },
-    separator: { height: 1, backgroundColor: Colors.borderLight, marginVertical: Spacing.sm },
-    serviceCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.md, gap: Spacing.md },
-    serviceIcon: {
-        width: 56, height: 56, borderRadius: BorderRadius.md,
-        backgroundColor: Colors.primary + '12', justifyContent: 'center', alignItems: 'center',
+    servicesList: { paddingBottom: 160 },
+    
+    // ─── Premium Card ───
+    premiumCard: {
+        backgroundColor: Colors.surface,
+        borderRadius: BorderRadius.xl,
+        marginHorizontal: Spacing.lg,
+        marginBottom: Spacing.md,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: Colors.borderLight,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 2,
     },
-    serviceInfo: { flex: 1 },
-    serviceName: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
-    serviceDesc: { fontSize: FontSize.sm, color: Colors.textMuted, marginTop: 2, lineHeight: 18 },
-    serviceFooter: { flexDirection: 'row', alignItems: 'center', marginTop: Spacing.xs, gap: 4 },
-    servicePrice: { fontSize: FontSize.md, fontWeight: '800', color: Colors.primary },
-    serviceUnit: { fontSize: FontSize.xs, color: Colors.textMuted },
-    durationBadge: { flexDirection: 'row', alignItems: 'center', marginLeft: Spacing.sm, gap: 3 },
-    durationText: { fontSize: FontSize.xs, color: Colors.textMuted },
-    providerBadge: {
-        flexDirection: 'row', alignItems: 'center', gap: 3,
-        marginLeft: Spacing.sm, backgroundColor: Colors.primary + '10',
-        paddingHorizontal: 6, paddingVertical: 2, borderRadius: BorderRadius.full,
+    cardImageContainer: {
+        width: '100%',
+        height: 160,
+        position: 'relative',
     },
-    providerText: { fontSize: 10, fontWeight: '700', color: Colors.primary },
+    cardImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
+    cardImagePlaceholder: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    ratingBadgeOver: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        backgroundColor: 'rgba(255,255,255,0.92)',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: BorderRadius.md,
+    },
+    ratingBadgeText: {
+        fontSize: 12,
+        fontWeight: '800',
+        color: Colors.text,
+    },
+    cardContent: {
+        padding: Spacing.md,
+    },
+    cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 4,
+    },
+    serviceNamePremium: {
+        fontSize: FontSize.lg,
+        fontWeight: '800',
+        color: Colors.text,
+        flex: 1,
+    },
+    trendingBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: '#FFF5F5',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+    },
+    trendingText: {
+        fontSize: 10,
+        fontWeight: '800',
+        color: '#FF4B2B',
+    },
+    serviceDescPremium: {
+        fontSize: FontSize.sm,
+        color: Colors.textSecondary,
+        lineHeight: 20,
+        marginBottom: Spacing.md,
+    },
+    cardFooterPremium: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-end',
+        paddingTop: Spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: Colors.borderLight,
+    },
+    startsFromText: {
+        fontSize: 10,
+        fontWeight: '600',
+        color: Colors.textMuted,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    priceRowPremium: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        marginTop: 2,
+    },
+    priceSymbol: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: Colors.primary,
+        marginRight: 1,
+    },
+    priceValuePremium: {
+        fontSize: FontSize.xl,
+        fontWeight: '900',
+        color: Colors.primary,
+    },
+    unitTextPremium: {
+        fontSize: 12,
+        color: Colors.textMuted,
+        marginLeft: 2,
+    },
+    providerInfoPremium: {
+        alignItems: 'flex-end',
+    },
+    providerAvatars: {
+        flexDirection: 'row',
+        marginBottom: 4,
+    },
+    miniAvatar: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        borderWidth: 2,
+        borderColor: 'white',
+        backgroundColor: Colors.backgroundAlt,
+        overflow: 'hidden',
+    },
+    miniAvatarImg: {
+        width: '100%',
+        height: '100%',
+    },
+    avatarLetter: {
+        width: '100%',
+        height: '100%',
+        backgroundColor: Colors.primary + '20',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    avatarLetterText: {
+        fontSize: 10,
+        fontWeight: '800',
+        color: Colors.primary,
+    },
+    providerCountText: {
+        fontSize: 10,
+        fontWeight: '700',
+        color: Colors.textSecondary,
+    },
+
     // ─── Footer ───
     footerLoader: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.lg },
     footerText: { fontSize: FontSize.sm, color: Colors.textMuted },
+    
     // ─── Filter Modal ───
     modalOverlay: { flex: 1, justifyContent: 'flex-end' },
     modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
@@ -399,4 +688,28 @@ const styles = StyleSheet.create({
     filterOptionActive: { backgroundColor: Colors.primary + '10' },
     filterOptionText: { flex: 1, fontSize: FontSize.md, color: Colors.text },
     filterOptionTextActive: { fontWeight: '700', color: Colors.primary },
+    // ─── Header Controls ───
+    headerControls: { flexDirection: 'row', gap: Spacing.xs },
+    viewToggleBtn: {
+        width: 48, height: 48, borderRadius: BorderRadius.lg,
+        backgroundColor: Colors.primary + '10', justifyContent: 'center', alignItems: 'center',
+    },
+    // ─── Map View ───
+    mapContainer: { flex: 1, borderRadius: BorderRadius.xl, overflow: 'hidden', marginHorizontal: Spacing.lg, marginBottom: Spacing.lg },
+    markerContainer: {
+        backgroundColor: Colors.primary,
+        padding: 8,
+        borderRadius: 20,
+        borderWidth: 2,
+        borderColor: '#FFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+    },
+    calloutBox: { minWidth: 150, padding: Spacing.sm },
+    calloutTitle: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.text },
+    calloutSubtitle: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
 });
+

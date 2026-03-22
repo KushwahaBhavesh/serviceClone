@@ -86,12 +86,32 @@ async function seed() {
                 sortOrder: 8,
             },
         }),
+        prisma.category.upsert({
+            where: { slug: 'personal-care' },
+            update: {},
+            create: {
+                name: 'Salon & Spa',
+                slug: 'personal-care',
+                description: 'Haircut, facial, massage at home',
+                sortOrder: 9,
+            },
+        }),
+        prisma.category.upsert({
+            where: { slug: 'home-security' },
+            update: {},
+            create: {
+                name: 'Home Security',
+                slug: 'home-security',
+                description: 'CCTV, smart locks & safety systems',
+                sortOrder: 10,
+            },
+        }),
     ]);
 
     console.log(`✅ ${categories.length} categories seeded`);
 
     // ─── Services ───
-    const [cleaning, plumbing, electrical, painting, acRepair, carpentry, pestControl, applianceRepair] = categories;
+    const [cleaning, plumbing, electrical, painting, acRepair, carpentry, pestControl, applianceRepair, salon, security] = categories;
 
     const services = await Promise.all([
         // Cleaning
@@ -126,6 +146,15 @@ async function seed() {
         // Appliance Repair
         prisma.service.upsert({ where: { slug: 'washing-machine-repair' }, update: {}, create: { name: 'Washing Machine Repair', slug: 'washing-machine-repair', description: 'Diagnose and fix washing machine issues', basePrice: 399, unit: 'per_visit', duration: 60, categoryId: applianceRepair.id } }),
         prisma.service.upsert({ where: { slug: 'fridge-repair' }, update: {}, create: { name: 'Fridge Repair', slug: 'fridge-repair', description: 'Fridge cooling issue diagnosis and repair', basePrice: 499, unit: 'per_visit', duration: 60, categoryId: applianceRepair.id } }),
+
+        // Salon & Spa
+        prisma.service.upsert({ where: { slug: 'mens-haircut' }, update: {}, create: { name: 'Men\'s Haircut', slug: 'mens-haircut', description: 'Professional haircut and styling', basePrice: 199, unit: 'per_person', duration: 30, categoryId: salon.id } }),
+        prisma.service.upsert({ where: { slug: 'facial-for-women' }, update: {}, create: { name: 'Facial for Women', slug: 'facial-for-women', description: 'Skin brightening facial treatment', basePrice: 899, unit: 'per_person', duration: 60, categoryId: salon.id } }),
+        prisma.service.upsert({ where: { slug: 'head-massage' }, update: {}, create: { name: 'Head Massage', slug: 'head-massage', description: 'Relaxing oil head massage (30 mins)', basePrice: 299, unit: 'per_person', duration: 30, categoryId: salon.id } }),
+
+        // Home Security
+        prisma.service.upsert({ where: { slug: 'cctv-installation' }, update: {}, create: { name: 'CCTV Installation', slug: 'cctv-installation', description: 'IP camera setup and DVR configuration', basePrice: 999, unit: 'per_camera', duration: 120, categoryId: security.id } }),
+        prisma.service.upsert({ where: { slug: 'smart-lock-install' }, update: {}, create: { name: 'Smart Lock Installation', slug: 'smart-lock-install', description: 'Digital door lock setup with app sync', basePrice: 799, unit: 'per_visit', duration: 90, categoryId: security.id } }),
     ]);
 
     console.log(`✅ ${services.length} services seeded`);
@@ -135,7 +164,6 @@ async function seed() {
 seed()
     .catch((e) => {
         console.error('❌ Seed error:', e);
-        process.exit(1);
     })
     .finally(async () => {
         await prisma.$disconnect();

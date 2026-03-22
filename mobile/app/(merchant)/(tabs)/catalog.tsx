@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     View,
     Text,
@@ -18,13 +18,17 @@ import {
     IndianRupee,
     ShoppingBag,
     Layers,
+    Plus,
 } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 import { Colors, Spacing } from '../../../constants/theme';
 import { merchantApi, MerchantService } from '../../../lib/merchant';
 
 export default function MerchantCatalogScreen() {
+    const priceDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const insets = useSafeAreaInsets();
+    const router = useRouter();
     const [services, setServices] = useState<MerchantService[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -53,19 +57,22 @@ export default function MerchantCatalogScreen() {
         } catch { Alert.alert('Error', 'Failed to update service'); }
     };
 
-    const handlePriceUpdate = async (id: string, newPrice: string) => {
+    const handlePriceUpdate = useCallback((id: string, newPrice: string) => {
         const price = parseFloat(newPrice);
         if (isNaN(price) || price <= 0) return;
-        try {
-            await merchantApi.updateService(id, { price });
-            setServices((prev) =>
-                prev.map((s) => (s.id === id ? { ...s, price } : s)),
-            );
-        } catch { Alert.alert('Error', 'Failed to update price'); }
-    };
+        if (priceDebounceRef.current) clearTimeout(priceDebounceRef.current);
+        priceDebounceRef.current = setTimeout(async () => {
+            try {
+                await merchantApi.updateService(id, { price });
+                setServices((prev) =>
+                    prev.map((s) => (s.id === id ? { ...s, price } : s)),
+                );
+            } catch { Alert.alert('Error', 'Failed to update price'); }
+        }, 500);
+    }, []);
 
-    const renderServiceCard = ({ item, index }: { item: MerchantService; index: number }) => (
-        <Animated.View entering={FadeInDown.delay(index * 60).springify()}>
+    const renderServiceCard = useCallback(({ item, index }: { item: MerchantService; index: number }) => (
+        <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 60).springify()}>
             <View style={[styles.card, !item.isActive && styles.cardInactive]}>
                 {/* Header */}
                 <View style={styles.cardHeader}>
@@ -116,7 +123,7 @@ export default function MerchantCatalogScreen() {
                 </View>
             </View>
         </Animated.View>
-    );
+    ), [handleToggle, handlePriceUpdate]);
 
     if (loading) {
         return (
@@ -141,6 +148,10 @@ export default function MerchantCatalogScreen() {
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={styles.list}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
+                removeClippedSubviews={true}
+                maxToRenderPerBatch={10}
+                windowSize={5}
+                initialNumToRender={8}
                 ListEmptyComponent={
                     <View style={styles.empty}>
                         <View style={styles.emptyIconBox}>
@@ -151,6 +162,15 @@ export default function MerchantCatalogScreen() {
                     </View>
                 }
             />
+
+            <Animated.View entering={FadeInDown.delay(300).springify()} style={[styles.fabContainer, { bottom: insets.bottom + 80 }]}>
+                <Pressable
+                    style={styles.fab}
+                    onPress={() => router.push('/(merchant)/add-service')}
+                >
+                    <Plus color="#FFF" size={24} strokeWidth={2.5} />
+                </Pressable>
+            </Animated.View>
         </View>
     );
 }
@@ -158,6 +178,24 @@ export default function MerchantCatalogScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F8FAFC' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
+    fabContainer: {
+        position: 'absolute',
+        right: Spacing.xl,
+        zIndex: 10,
+    },
+    fab: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: Colors.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+        elevation: 6,
+    },
 
     header: {
         paddingHorizontal: Spacing.xl,

@@ -1,0 +1,80 @@
+import { Response } from 'express';
+import { AuthenticatedRequest } from '../middleware/auth';
+import { sendSuccess, sendCreated } from '../utils/response';
+import * as customerService from '../services/customer.service';
+import * as chatService from '../services/chat.service';
+
+// ─── ADDRESSES ───
+
+export async function listAddresses(req: AuthenticatedRequest, res: Response) {
+    const result = await customerService.listAddresses(req.user.id);
+    sendSuccess(res, { addresses: result });
+}
+
+export async function createAddress(req: AuthenticatedRequest, res: Response) {
+    const result = await customerService.createAddress(req.user.id, req.body);
+    sendCreated(res, { address: result });
+}
+
+export async function updateAddress(req: AuthenticatedRequest, res: Response) {
+    const result = await customerService.updateAddress(req.user.id, String(req.params.id), req.body);
+    sendSuccess(res, { address: result });
+}
+
+export async function deleteAddress(req: AuthenticatedRequest, res: Response) {
+    await customerService.deleteAddress(req.user.id, String(req.params.id));
+    sendSuccess(res, null, 'Address deleted');
+}
+
+// ─── WALLET ───
+
+export async function getWallet(req: AuthenticatedRequest, res: Response) {
+    const result = await customerService.getWalletData(req.user.id);
+    sendSuccess(res, result);
+}
+
+export async function topupWallet(req: AuthenticatedRequest, res: Response) {
+    const result = await customerService.topupWallet(req.user.id, req.body);
+    sendSuccess(res, result);
+}
+
+// ─── ENGAGEMENT ───
+
+export async function listReviews(req: AuthenticatedRequest, res: Response) {
+    const result = await customerService.listMyReviews(req.user.id);
+    sendSuccess(res, { reviews: result });
+}
+
+export async function listNotifications(req: AuthenticatedRequest, res: Response) {
+    const result = await customerService.listMyNotifications(req.user.id);
+    sendSuccess(res, result);
+}
+
+export async function markAllNotificationsRead(req: AuthenticatedRequest, res: Response) {
+    await customerService.markAllNotificationsRead(req.user.id);
+    sendSuccess(res, null, 'All notifications marked as read');
+}
+
+export async function listChats(req: AuthenticatedRequest, res: Response) {
+    const result = await customerService.listMyChats(req.user.id);
+    sendSuccess(res, { chats: result });
+}
+
+export async function openChat(req: AuthenticatedRequest, res: Response) {
+    const chat = await chatService.getOrCreateChat(req.user.id, String(req.params.bookingId), 'CUSTOMER');
+    sendSuccess(res, { chat });
+}
+
+export async function getChatMessages(req: AuthenticatedRequest, res: Response) {
+    const { page, limit } = req.query;
+    const result = await chatService.getChatMessages(req.user.id, String(req.params.chatId), {
+        page: page ? Number(page) : undefined,
+        limit: limit ? Number(limit) : undefined,
+    });
+    sendSuccess(res, result);
+}
+
+export async function sendChatMessage(req: AuthenticatedRequest, res: Response) {
+    const message = await chatService.sendChatMessage(req.user.id, String(req.params.chatId), req.body.content);
+    sendCreated(res, { message });
+}

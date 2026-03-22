@@ -76,10 +76,10 @@ export default function AgentManagementScreen() {
         } catch { Alert.alert('Error', 'Failed to update agent'); }
     };
 
-    const renderAgent = ({ item, index }: { item: Agent; index: number }) => {
+    const renderAgent = useCallback(({ item, index }: { item: Agent; index: number }) => {
         const statusColor = STATUS_COLOR[item.status] || '#94A3B8';
         return (
-            <Animated.View entering={FadeInDown.delay(index * 60).springify()}>
+            <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 60).springify()}>
                 <View style={styles.agentCard}>
                     <View style={styles.agentRow}>
                         <View style={styles.avatarWrap}>
@@ -124,7 +124,7 @@ export default function AgentManagementScreen() {
                 </View>
             </Animated.View>
         );
-    };
+    }, [handleToggle, router]);
 
     return (
         <View style={styles.container}>
@@ -163,6 +163,10 @@ export default function AgentManagementScreen() {
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.list}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchAgents(); }} colors={[Colors.primary]} />}
+                    removeClippedSubviews={true}
+                    maxToRenderPerBatch={10}
+                    windowSize={5}
+                    initialNumToRender={8}
                     ListEmptyComponent={
                         <View style={styles.empty}>
                             <View style={styles.emptyIconBox}>

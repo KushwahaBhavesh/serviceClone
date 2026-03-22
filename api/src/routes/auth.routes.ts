@@ -1,5 +1,5 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { authenticate, AuthenticatedRequest } from '../middleware/auth';
+import { Router } from 'express';
+import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import {
     registerSchema,
@@ -9,111 +9,27 @@ import {
     socialLoginSchema,
     refreshTokenSchema,
     completeOnboardingSchema,
+    updateLocationSchema,
+    updateProfileSchema,
 } from '../validators/auth.validators';
-import * as authService from '../services/auth.service';
+import { asyncHandler } from '../utils/async-handler';
+import * as authController from '../controllers/auth.controller';
 
 const router = Router();
 
-// Async wrapper
-const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) =>
-    (req: Request, res: Response, next: NextFunction) => fn(req, res, next).catch(next);
-
 // ─── PUBLIC ROUTES ───
-
-// POST /api/v1/auth/register
-router.post(
-    '/register',
-    validate(registerSchema),
-    asyncHandler(async (req: Request, res: Response) => {
-        const result = await authService.register(req.body);
-        res.status(201).json(result);
-    }),
-);
-
-// POST /api/v1/auth/login
-router.post(
-    '/login',
-    validate(loginSchema),
-    asyncHandler(async (req: Request, res: Response) => {
-        const result = await authService.login(req.body);
-        res.json(result);
-    }),
-);
-
-// POST /api/v1/auth/otp/send
-router.post(
-    '/otp/send',
-    validate(sendOtpSchema),
-    asyncHandler(async (req: Request, res: Response) => {
-        const result = await authService.sendOtp(req.body);
-        res.json(result);
-    }),
-);
-
-// POST /api/v1/auth/otp/verify
-router.post(
-    '/otp/verify',
-    validate(verifyOtpSchema),
-    asyncHandler(async (req: Request, res: Response) => {
-        const result = await authService.verifyOtp(req.body);
-        res.json(result);
-    }),
-);
-
-// POST /api/v1/auth/social/google
-router.post(
-    '/social/google',
-    validate(socialLoginSchema),
-    asyncHandler(async (req: Request, res: Response) => {
-        const result = await authService.googleLogin(req.body);
-        res.json(result);
-    }),
-);
-
-// POST /api/v1/auth/refresh
-router.post(
-    '/refresh',
-    validate(refreshTokenSchema),
-    asyncHandler(async (req: Request, res: Response) => {
-        const result = await authService.refreshTokens(req.body.refreshToken);
-        res.json(result);
-    }),
-);
+router.post('/register', validate(registerSchema), asyncHandler(authController.register));
+router.post('/login', validate(loginSchema), asyncHandler(authController.login));
+router.post('/otp/send', validate(sendOtpSchema), asyncHandler(authController.sendOtp));
+router.post('/otp/verify', validate(verifyOtpSchema), asyncHandler(authController.verifyOtp));
+router.post('/social/google', validate(socialLoginSchema), asyncHandler(authController.googleLogin));
+router.post('/refresh', validate(refreshTokenSchema), asyncHandler(authController.refreshTokens));
 
 // ─── PROTECTED ROUTES ───
-
-// DELETE /api/v1/auth/logout
-router.delete(
-    '/logout',
-    authenticate,
-    asyncHandler(async (req: Request, res: Response) => {
-        const { id } = (req as AuthenticatedRequest).user;
-        const result = await authService.logout(id);
-        res.json(result);
-    }),
-);
-
-// GET /api/v1/auth/me
-router.get(
-    '/me',
-    authenticate,
-    asyncHandler(async (req: Request, res: Response) => {
-        const { id } = (req as AuthenticatedRequest).user;
-        const result = await authService.getMe(id);
-        res.json(result);
-    }),
-);
-
-// PUT /api/v1/auth/onboarding
-router.put(
-    '/onboarding',
-    authenticate,
-    validate(completeOnboardingSchema),
-    asyncHandler(async (req: Request, res: Response) => {
-        const { id } = (req as AuthenticatedRequest).user;
-        const result = await authService.completeOnboarding(id, req.body);
-        res.json(result);
-    }),
-);
+router.delete('/logout', authenticate, asyncHandler(authController.logout));
+router.get('/me', authenticate, asyncHandler(authController.getMe));
+router.put('/onboarding', authenticate, validate(completeOnboardingSchema), asyncHandler(authController.completeOnboarding));
+router.put('/location', authenticate, validate(updateLocationSchema), asyncHandler(authController.updateLocation));
+router.put('/profile', authenticate, validate(updateProfileSchema), asyncHandler(authController.updateProfile));
 
 export default router;

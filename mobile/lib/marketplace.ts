@@ -43,6 +43,84 @@ export interface Service {
     _count?: { merchantServices: number };
 }
 
+export interface NearbyMerchant {
+    id: string;
+    businessName: string;
+    rating: number;
+    totalReviews: number;
+    isVerified: boolean;
+    logoUrl: string | null;
+    city: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    distance: number;
+    user: { name: string | null; avatarUrl: string | null };
+    merchantServices: { service: { name: string; category?: { name: string } } }[];
+}
+
+export interface Promotion {
+    id: string;
+    merchantId: string;
+    code: string;
+    type: 'PERCENTAGE' | 'FLAT';
+    value: number;
+    minOrderValue: number | null;
+    maxDiscount: number | null;
+    startDate: string;
+    expiryDate: string;
+    usageLimit: number | null;
+    currentUsage: number;
+    isActive: boolean;
+    distance?: number;
+    merchant: {
+        id: string;
+        businessName: string;
+        logoUrl: string | null;
+        serviceRadius: number;
+    };
+}
+
+export interface MerchantProfileData {
+    id: string;
+    businessName: string;
+    businessCategory: string | null;
+    description: string | null;
+    logoUrl: string | null;
+    coverImageUrl: string | null;
+    phone: string | null;
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    serviceRadius: number;
+    rating: number;
+    totalReviews: number;
+    isVerified: boolean;
+    owner: { name: string | null; avatarUrl: string | null; phone: string | null };
+    services: {
+        merchantServiceId: string;
+        id: string;
+        name: string;
+        slug: string;
+        description: string | null;
+        imageUrl: string | null;
+        basePrice: number;
+        price: number;
+        unit: string;
+        duration: number;
+        category: { id: string; name: string } | null;
+    }[];
+    reviews: {
+        id: string;
+        rating: number;
+        comment: string | null;
+        createdAt: string;
+        user: { name: string | null; avatarUrl: string | null };
+    }[];
+}
+
+
 export interface Address {
     id: string;
     label: string;
@@ -108,6 +186,9 @@ export const catalogApi = {
     getServiceBySlug: (slug: string) =>
         api.get<{ service: Service }>(CATALOG + `/services/${slug}`),
 
+    listNearbyMerchants: (params: { latitude: number; longitude: number; radius?: number; categoryId?: string; limit?: number }) =>
+        api.get<{ merchants: NearbyMerchant[] }>(CATALOG + '/merchants/nearby', { params }),
+
     getServiceReviews: (serviceId: string, params?: { page?: number; limit?: number }) =>
         api.get<{ reviews: any[]; total: number; page: number; totalPages: number; avgRating: number }>(
             CATALOG + `/services/${serviceId}/reviews`, { params },
@@ -122,6 +203,12 @@ export const catalogApi = {
         api.post<{ valid: boolean; code: string; type: string; value: number; discount: number; message: string }>(
             CATALOG + '/promotions/validate', { code, orderTotal },
         ),
+
+    listNearbyPromotions: (params: { latitude: number; longitude: number; limit?: number }) =>
+        api.get<{ promotions: Promotion[] }>(CATALOG + '/nearby-promos', { params }),
+
+    getMerchantProfile: (id: string) =>
+        api.get<{ merchant: MerchantProfileData }>(CATALOG + `/merchants/${id}`),
 };
 
 // ─── Booking API ───

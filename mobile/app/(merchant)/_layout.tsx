@@ -21,6 +21,7 @@ export default function MerchantLayout() {
             <Stack.Screen name="agents" />
             <Stack.Screen name="agents/map" />
             <Stack.Screen name="orders/[id]" />
+            <Stack.Screen name="add-service" />
             <Stack.Screen name="chat/[id]" />
         </Stack>
     );

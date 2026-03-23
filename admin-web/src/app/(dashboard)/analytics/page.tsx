@@ -38,7 +38,7 @@ export default function AnalyticsPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[#0ea5e9]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#FF6B00]" />
       </div>
     );
   }
@@ -130,7 +130,7 @@ export default function AnalyticsPage() {
               {stats.recentUsers.map((user) => (
                 <div key={user.id} className="flex items-center justify-between py-4 border-b border-slate-50 last:border-0 group hover:bg-slate-50/50 -mx-2 px-2 rounded-xl transition-colors">
                   <div className="flex items-center space-x-4">
-                    <div className="h-10 w-10 rounded-xl bg-slate-900 flex items-center justify-center text-sm font-black text-white shadow-lg shadow-slate-200">
+                    <div className="h-10 w-10 rounded-xl bg-[#FF6B00] flex items-center justify-center text-sm font-black text-white shadow-lg shadow-orange-100">
                       {user.name?.charAt(0) || '?'}
                     </div>
                     <div>

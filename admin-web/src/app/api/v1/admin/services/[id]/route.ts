@@ -6,8 +6,7 @@ const putHandler = async (
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) => {
-    const auth = await requireAdmin(req);
-    if (!auth.success) return auth as unknown as NextResponse;
+    await requireAdmin(req);
 
     const { id } = await params;
     const body = await req.json();
@@ -17,3 +16,14 @@ const putHandler = async (
 };
 
 export const PUT = withErrorHandler(putHandler);
+
+export const DELETE = withErrorHandler(async (
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) => {
+    await requireAdmin(req);
+
+    const { id } = await params;
+    const result = await adminService.deleteService(id);
+    return NextResponse.json(result);
+});

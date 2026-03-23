@@ -36,7 +36,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex selection:bg-slate-900 selection:text-white">
+    <div className="min-h-screen bg-[#fcfcfc] flex selection:bg-[#FF6B00] selection:text-white">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden relative">
         {/* Decorative background element */}

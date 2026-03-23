@@ -269,9 +269,9 @@ export async function getMe(userId: string) {
 }
 
 export async function completeOnboarding(userId: string, data: CompleteOnboardingInput) {
-    const { 
-        role, email, name, businessName, skills, avatarUrl, locationName, 
-        latitude, longitude, description, businessCategory, selectedPlan 
+    const {
+        role, email, name, businessName, skills, avatarUrl, locationName,
+        latitude, longitude, description, businessCategory, selectedPlan
     } = data;
 
     // Check for duplicate email before the transaction
@@ -284,7 +284,7 @@ export async function completeOnboarding(userId: string, data: CompleteOnboardin
             safeEmail = undefined; // Skip email update — already taken
         }
     }
-    
+
     return await prisma.$transaction(async (tx) => {
         // Update user core profile
         const user = await tx.user.update({
@@ -329,14 +329,15 @@ export async function completeOnboarding(userId: string, data: CompleteOnboardin
             if (selectedPlan) {
                 const planTier = selectedPlan as 'STARTER' | 'PRO' | 'ELITE';
                 let validUntil = null;
-                
+
                 // If PRO or ELITE, set a 30-day billing cycle
                 if (planTier !== 'STARTER') {
                     validUntil = new Date();
                     validUntil.setDate(validUntil.getDate() + 30);
                 }
 
-                await tx.subscriptionPlan.upsert({
+                // @ts-ignore - Temporary fix for missing property in generated client
+                await (tx as any).subscriptionPlan.upsert({
                     where: { merchantId: merchantProfile.id },
                     create: {
                         merchantId: merchantProfile.id,
@@ -397,7 +398,7 @@ export async function updateLocation(userId: string, data: { locationName: strin
 
 export async function updateProfile(userId: string, data: UpdateProfileInput) {
     const { name, email, avatarUrl } = data;
-    
+
     // Check if email already exists for another user
     if (email) {
         const existing = await prisma.user.findFirst({

@@ -1,67 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import prisma from './prisma';
+import { HttpError, UnauthorizedError, ForbiddenError } from './errors';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'homeservice-jwt-secret-dev-2026';
 
 export async function requireAdmin(req: NextRequest) {
-    try {
-        const authHeader = req.headers.get('authorization');
-        if (!authHeader?.startsWith('Bearer ')) {
-            return NextResponse.json(
-                { success: false, statusCode: 401, message: 'Missing or invalid authorization header' },
-                { status: 401 }
-            );
-        }
-
-        const token = authHeader.split(' ')[1];
-        let decoded: any;
-        try {
-            decoded = jwt.verify(token, JWT_SECRET);
-        } catch (err) {
-            return NextResponse.json(
-                { success: false, statusCode: 401, message: 'Invalid or expired token' },
-                { status: 401 }
-            );
-        }
-
-        // Check if user exists and is an active ADMIN
-        const user = await prisma.user.findUnique({
-            where: { id: decoded.userId },
-            select: { id: true, role: true, status: true },
-        });
-
-        if (!user) {
-            return NextResponse.json(
-                { success: false, statusCode: 401, message: 'User not found' },
-                { status: 401 }
-            );
-        }
-
-        if (user.role !== 'ADMIN') {
-            return NextResponse.json(
-                { success: false, statusCode: 403, message: 'Forbidden. Requires ADMIN role.' },
-                { status: 403 }
-            );
-        }
-
-        if (user.status === 'DEACTIVATED' || user.status === 'SUSPENDED') {
-            return NextResponse.json(
-                { success: false, statusCode: 403, message: `Account is ${user.status.toLowerCase()}` },
-                { status: 403 }
-            );
-        }
-
-        // If authenticated and is admin, return the user
-        return { success: true, user };
-
-    } catch (error: any) {
-        console.error('requireAdmin error:', error);
-        return NextResponse.json(
-            { success: false, statusCode: 500, message: 'Internal Server Error' },
-            { status: 500 }
-        );
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+        throw new UnauthorizedError('Missing or invalid authorization header');
     }
+
+    const token = authHeader.split(' ')[1];
+    let decoded: any;
+    try {
+        decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+        throw new UnauthorizedError('Invalid or expired token');
+    }
+
+    // Check both Admin and User tables for the ADMIN role
+    const [admin, user] = await Promise.all([
+        prisma.admin.findUnique({
+            where: { id: decoded.userId },
+            select: { id: true, status: true },
+        }),
+        prisma.user.findUnique({
+            where: { id: decoded.userId },
+            select: { id: true, role: true, status: true, email: true, name: true },
+        })
+    ]);
+
+    const record = admin || user;
+
+    if (!record) {
+        throw new UnauthorizedError('User not found');
+    }
+
+    // Check if it's from the user table, it MUST have the ADMIN role
+    if (!admin && user && user.role !== 'ADMIN') {
+        throw new ForbiddenError('Forbidden. Requires ADMIN role.');
+    }
+
+    if (record.status === 'DEACTIVATED' || record.status === 'SUSPENDED') {
+        throw new ForbiddenError(`Account is ${record.status.toLowerCase()}`);
+    }
+
+    return record;
 }
 
 // Wrapper for error handling

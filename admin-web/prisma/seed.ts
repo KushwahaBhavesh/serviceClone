@@ -1,32 +1,24 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
-import * as dotenv from 'dotenv';
-import path from 'path';
-
-// Load .env from the parent directory (api/)
-dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const prisma = new PrismaClient();
 const SALT_ROUNDS = 12;
 
 async function seed() {
+    console.log('🌱 Seeding Admin Web Database...');
 
-
-    // ─── Admin User ───
     const adminEmail = 'admin@ondemand.com';
-    const adminPassword = 'admin'; // For development ease
+    const adminPassword = 'admin'; // Same as configured in API seed for consistency
     const hashedPassword = await bcrypt.hash(adminPassword, SALT_ROUNDS);
 
-    await prisma.user.upsert({
+    await prisma.admin.upsert({
         where: { email: adminEmail },
         update: {},
         create: {
             email: adminEmail,
             name: 'Platform Admin',
-            role: 'ADMIN',
             passwordHash: hashedPassword,
             status: 'ACTIVE',
-            onboardingCompleted: true,
         },
     });
 
@@ -37,6 +29,7 @@ async function seed() {
 seed()
     .catch((e) => {
         console.error('❌ Seed error:', e);
+        process.exit(1);
     })
     .finally(async () => {
         await prisma.$disconnect();

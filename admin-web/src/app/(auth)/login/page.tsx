@@ -13,7 +13,7 @@ import { motion } from 'framer-motion';
 export default function LoginPage() {
   const router = useRouter();
   const setAuth = useAuthStore((state) => state.setAuth);
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,21 +22,21 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
-    
+
     setLoading(true);
     setError('');
-    
+
     try {
       const res = await api.post('/auth/login', { email, password });
       const { user, token } = res.data;
-      
+
       // Enforce ADMIN role
       if (user.role !== 'ADMIN') {
         setError('Unauthorized: Admin access required.');
         setLoading(false);
         return;
       }
-      
+
       setAuth(user, token);
       router.push('/'); // Dashboard
     } catch (err: any) {
@@ -55,11 +55,11 @@ export default function LoginPage() {
         className="w-full max-w-[420px]"
       >
         <div className="mb-8 text-center flex flex-col items-center">
-          <div className="h-12 w-12 bg-[#0f172a] rounded-xl flex items-center justify-center mb-4 shadow-xl">
+          <div className="h-12 w-12 bg-[#FF6B00] rounded-xl flex items-center justify-center mb-4 shadow-xl shadow-orange-200/50">
             <span className="text-white font-bold text-xl tracking-tight">O</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#0f172a]">Admin Portal</h1>
-          <p className="text-sm text-[#64748b] mt-1">Sign in to manage the platform</p>
+          <h1 className="text-2xl font-bold tracking-tight text-[#1a1a1a]">Admin Portal</h1>
+          <p className="text-sm text-[#666666] mt-1">Sign in to manage the platform</p>
         </div>
 
         <Card className="border-[#e2e8f0] shadow-sm">
@@ -75,7 +75,7 @@ export default function LoginPage() {
                   <span>{error}</span>
                 </div>
               )}
-              
+
               <div className="space-y-2">
                 <label className="text-sm font-medium text-[#0f172a]">Email address</label>
                 <Input
@@ -86,7 +86,7 @@ export default function LoginPage() {
                   disabled={loading}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium text-[#0f172a]">Password</label>

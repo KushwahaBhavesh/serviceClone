@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Shield, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Shield, Loader2, ChevronLeft, ChevronRight, Trash2, Edit2, Check, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -36,6 +36,8 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState('');
 
   const fetchUsers = useCallback(async (page = 1) => {
     setLoading(true);
@@ -65,6 +67,34 @@ export default function UsersPage() {
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
     } catch (err) {
       console.error('Failed to update user status:', err);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleRoleUpdate = async (userId: string) => {
+    setUpdatingId(userId);
+    try {
+      await api.put(`/admin/users/${userId}`, { role: selectedRole });
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: selectedRole } : u));
+      setEditingRoleId(null);
+    } catch (err) {
+      console.error('Failed to update user role:', err);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+    setUpdatingId(userId);
+    try {
+      await api.delete(`/admin/users/${userId}`);
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      setPagination(prev => ({ ...prev, total: prev.total - 1 }));
+    } catch (err) {
+      console.error('Failed to delete user:', err);
+      alert('Failed to delete user. They might have active dependencies.');
     } finally {
       setUpdatingId(null);
     }
@@ -102,8 +132,8 @@ export default function UsersPage() {
                   className={cn(
                     "px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-200",
                     roleFilter === role
-                      ? "bg-slate-900 text-white shadow-lg shadow-slate-200"
-                      : "text-slate-400 hover:text-slate-900 hover:bg-white"
+                      ? "bg-[#FF6B00] text-white shadow-lg shadow-orange-100/50"
+                      : "text-slate-400 hover:text-[#FF6B00] hover:bg-white"
                   )}
                 >
                   {role}
@@ -152,8 +182,31 @@ export default function UsersPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center">
-                          {user.role === 'ADMIN' && <Shield size={12} className="mr-1 text-[#0ea5e9]" />}
-                          <span className="text-xs font-semibold tracking-wider text-[#475569]">{user.role}</span>
+                          {editingRoleId === user.id ? (
+                            <div className="flex items-center gap-1">
+                              <select
+                                className="text-[10px] font-bold border rounded p-1 bg-white outline-none"
+                                value={selectedRole}
+                                onChange={(e) => setSelectedRole(e.target.value)}
+                              >
+                                {ROLES.filter(r => r !== 'ALL').map(r => (
+                                  <option key={r} value={r}>{r}</option>
+                                ))}
+                              </select>
+                              <button onClick={() => handleRoleUpdate(user.id)} className="p-1 text-[#059669] hover:bg-emerald-50 rounded">
+                                <Check size={12} />
+                              </button>
+                              <button onClick={() => setEditingRoleId(null)} className="p-1 text-slate-400 hover:bg-slate-50 rounded">
+                                <X size={12} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center group/role relative h-8 px-2 -ml-2 rounded-lg hover:bg-slate-50 cursor-pointer" onClick={() => { setEditingRoleId(user.id); setSelectedRole(user.role); }}>
+                              {user.role === 'ADMIN' && <Shield size={12} className="mr-1 text-[#FF6B00]" />}
+                              <span className="text-[11px] font-bold tracking-wider text-slate-700">{user.role}</span>
+                              <Edit2 size={10} className="ml-2 text-slate-300 opacity-0 group-hover/role:opacity-100" />
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -172,7 +225,7 @@ export default function UsersPage() {
                         {user.status !== 'ACTIVE' && (
                           <Button
                             variant="ghost" size="sm"
-                            className="text-[#059669] text-xs"
+                            className="text-[#059669] text-[10px] font-black uppercase tracking-widest h-8"
                             disabled={updatingId === user.id}
                             onClick={() => handleStatusUpdate(user.id, 'ACTIVE')}
                           >
@@ -182,11 +235,21 @@ export default function UsersPage() {
                         {user.status !== 'SUSPENDED' && user.role !== 'ADMIN' && (
                           <Button
                             variant="ghost" size="sm"
-                            className="text-[#dc2626] text-xs"
+                            className="text-amber-600 text-[10px] font-black uppercase tracking-widest h-8"
                             disabled={updatingId === user.id}
                             onClick={() => handleStatusUpdate(user.id, 'SUSPENDED')}
                           >
                             Suspend
+                          </Button>
+                        )}
+                        {user.role !== 'ADMIN' && (
+                          <Button
+                            variant="ghost" size="sm"
+                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg p-2 h-8 w-8"
+                            disabled={updatingId === user.id}
+                            onClick={() => handleDeleteUser(user.id)}
+                          >
+                            <Trash2 size={14} />
                           </Button>
                         )}
                       </TableCell>

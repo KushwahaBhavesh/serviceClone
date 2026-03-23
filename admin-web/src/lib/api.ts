@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Since the admin-web usually runs on 3001 and api on 3000 locally
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+// The admin panel now handles its own administrative routes as a standalone full-stack Next.js app.
+const API_URL = process.env.NEXT_PUBLIC_ADMIN_API_URL || '/api/v1';
 
 export const api = axios.create({
   baseURL: API_URL,

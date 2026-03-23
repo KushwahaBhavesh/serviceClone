@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { BadgeCheck, XCircle, Clock, Loader2, Store, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BadgeCheck, XCircle, Clock, Loader2, Store, ChevronLeft, ChevronRight, Eye, FileText, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Merchant {
@@ -35,6 +35,8 @@ export default function MerchantsPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [selectedMerchant, setSelectedMerchant] = useState<Merchant | null>(null);
+  const [showDocs, setShowDocs] = useState(false);
 
   const fetchMerchants = useCallback(async (page = 1) => {
     setLoading(true);
@@ -90,8 +92,8 @@ export default function MerchantsPage() {
             className={cn(
               "px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-200",
               statusFilter === s
-                ? "bg-slate-900 text-white shadow-lg shadow-slate-200"
-                : "text-slate-500 hover:text-slate-900 hover:bg-white"
+                ? "bg-[#FF6B00] text-white shadow-lg shadow-orange-100/50"
+                : "text-slate-500 hover:text-[#FF6B00] hover:bg-white"
             )}
           >
             {s === 'ALL' ? 'All' : statusLabel(s)}
@@ -169,7 +171,14 @@ export default function MerchantsPage() {
                       <TableCell className="text-right space-x-2">
                         <Button
                           variant="ghost" size="sm"
-                          className="text-[#059669]"
+                          className="text-[#64748b] hover:text-[#FF6B00] hover:bg-orange-50"
+                          onClick={() => { setSelectedMerchant(merchant); setShowDocs(true); }}
+                        >
+                          <Eye size={14} className="mr-1" /> View Docs
+                        </Button>
+                        <Button
+                          variant="ghost" size="sm"
+                          className="text-[#059669] hover:bg-emerald-50"
                           onClick={() => handleVerification(merchant.id, 'APPROVED')}
                           disabled={merchant.verificationStatus === 'APPROVED' || updatingId === merchant.id}
                         >
@@ -177,7 +186,7 @@ export default function MerchantsPage() {
                         </Button>
                         <Button
                           variant="ghost" size="sm"
-                          className="text-[#dc2626]"
+                          className="text-[#dc2626] hover:bg-rose-50"
                           onClick={() => handleVerification(merchant.id, 'REJECTED')}
                           disabled={merchant.verificationStatus === 'REJECTED' || updatingId === merchant.id}
                         >
@@ -208,6 +217,98 @@ export default function MerchantsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* KYC Documents Modal */}
+      {showDocs && selectedMerchant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-[#FF6B00] p-6 text-white flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-black tracking-tight">{selectedMerchant.businessName}</h3>
+                <p className="text-sm font-bold opacity-80 uppercase tracking-widest text-xs mt-1">KYC Verification Documents</p>
+              </div>
+              <button
+                onClick={() => setShowDocs(false)}
+                className="p-2 hover:bg-white/20 rounded-xl transition-colors"
+              >
+                <XCircle size={24} />
+              </button>
+            </div>
+
+            <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+              {selectedMerchant.verificationDocs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                  <FileText size={48} className="mb-4 opacity-20" />
+                  <p className="font-bold uppercase tracking-widest text-[10px]">No documents uploaded yet</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedMerchant.verificationDocs.map((doc) => (
+                    <div key={doc.id} className="group relative bg-[#f8fafc] border-2 border-slate-100 rounded-2xl p-4 transition-all hover:border-[#FF6B00]/30 hover:shadow-lg">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="bg-white p-2.5 rounded-xl shadow-sm border border-slate-100">
+                          <FileText className="text-[#FF6B00]" size={20} />
+                        </div>
+                        <span className={cn(
+                          "text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border",
+                          doc.status === 'APPROVED' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-amber-50 text-amber-600 border-amber-100"
+                        )}>
+                          {doc.status}
+                        </span>
+                      </div>
+                      <p className="font-bold text-slate-900 mb-1">{doc.type.replace(/_/g, ' ')}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Verification Certificate</p>
+
+                      <div className="flex gap-2">
+                        <a
+                          href={doc.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 flex items-center justify-center gap-2 py-2 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 transition-colors"
+                        >
+                          <Eye size={12} /> View
+                        </a>
+                        <a
+                          href={doc.fileUrl}
+                          download
+                          className="flex items-center justify-center p-2 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-orange-50 hover:text-[#FF6B00] hover:border-[#FF6B00]/20 transition-all shadow-sm"
+                        >
+                          <Download size={14} />
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="pt-6 border-t border-slate-100 flex gap-3">
+                <Button
+                  className="flex-1 h-12 rounded-2xl font-black uppercase tracking-widest text-[10px]"
+                  variant="primary"
+                  disabled={selectedMerchant.verificationStatus === 'APPROVED' || updatingId === selectedMerchant.id}
+                  onClick={() => {
+                    handleVerification(selectedMerchant.id, 'APPROVED');
+                    setShowDocs(false);
+                  }}
+                >
+                  Approve Merchant
+                </Button>
+                <Button
+                  className="flex-1 h-12 rounded-2xl font-black uppercase tracking-widest text-[10px]"
+                  variant="outline"
+                  disabled={selectedMerchant.verificationStatus === 'REJECTED' || updatingId === selectedMerchant.id}
+                  onClick={() => {
+                    handleVerification(selectedMerchant.id, 'REJECTED');
+                    setShowDocs(false);
+                  }}
+                >
+                  Reject Application
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

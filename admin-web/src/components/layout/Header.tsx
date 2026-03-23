@@ -46,7 +46,7 @@ export function Header() {
               <p className="text-sm font-bold text-slate-900 leading-none tracking-tight">{user?.name || 'Administrator'}</p>
               <p className="text-[10px] font-semibold text-slate-400 mt-1.5 uppercase tracking-widest">Active Session</p>
             </div>
-            <div className="h-11 w-11 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black shadow-lg shadow-slate-200 border border-slate-800">
+            <div className="h-11 w-11 rounded-xl bg-[#FF6B00] text-white flex items-center justify-center font-black shadow-lg shadow-orange-100 border border-orange-400/20">
               {user?.name?.charAt(0) || 'A'}
             </div>
           </div>

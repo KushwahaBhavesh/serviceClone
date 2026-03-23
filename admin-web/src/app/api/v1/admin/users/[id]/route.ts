@@ -7,23 +7,27 @@ const putHandler = async (
     { params }: { params: Promise<{ id: string }> }
 ) => {
     await requireAdmin(req);
-
     const { id } = await params;
     const body = await req.json();
 
-    const result = await adminService.updateCategory(id, body);
-    return NextResponse.json(result);
+    const { role } = body;
+    if (role) {
+        await adminService.updateUserRole(id, role);
+    }
+
+    // Support other updates if needed
+    return NextResponse.json({ success: true });
 };
 
-export const PUT = withErrorHandler(putHandler);
-
-export const DELETE = withErrorHandler(async (
+const deleteHandler = async (
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) => {
     await requireAdmin(req);
-
     const { id } = await params;
-    const result = await adminService.deleteCategory(id);
-    return NextResponse.json(result);
-});
+    await adminService.deleteUser(id);
+    return NextResponse.json({ success: true });
+};
+
+export const PUT = withErrorHandler(putHandler);
+export const DELETE = withErrorHandler(deleteHandler);

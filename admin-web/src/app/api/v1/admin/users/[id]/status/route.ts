@@ -6,8 +6,7 @@ const putHandler = async (
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) => {
-    const auth = await requireAdmin(req);
-    if (!auth.success) return auth as unknown as NextResponse;
+    await requireAdmin(req);
 
     const { id } = await params;
     const { status } = await req.json();

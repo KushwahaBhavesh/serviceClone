@@ -1,5 +1,5 @@
 import prisma from '../prisma';
-import { BadRequestError } from './errors';
+import { BadRequestError } from '../errors';
 
 // ─── Dashboard Stats ───
 
@@ -102,25 +102,32 @@ export async function listUsers(options: {
     };
 }
 
-export async function updateUserStatus(userId: string, status: string) {
-    const validStatuses = ['PENDING_VERIFICATION', 'ONBOARDING', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED'];
+export async function updateUserStatus(id: string, status: string) {
+    const validStatuses = ['ACTIVE', 'DEACTIVATED', 'SUSPENDED', 'PENDING_VERIFICATION'];
     if (!validStatuses.includes(status)) {
         throw new BadRequestError(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
     }
 
-    const user = await prisma.user.update({
-        where: { id: userId },
+    return prisma.user.update({
+        where: { id },
         data: { status: status as any },
-        select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-            status: true,
-        },
     });
+}
 
-    return user;
+export async function updateUserRole(id: string, role: string) {
+    const validRoles = ['CUSTOMER', 'MERCHANT', 'AGENT', 'ADMIN'];
+    if (!validRoles.includes(role)) {
+        throw new BadRequestError(`Invalid role. Must be one of: ${validRoles.join(', ')}`);
+    }
+
+    return prisma.user.update({
+        where: { id },
+        data: { role: role as any },
+    });
+}
+
+export async function deleteUser(id: string) {
+    return prisma.user.delete({ where: { id } });
 }
 
 // ─── Merchants / KYC ───
@@ -361,4 +368,17 @@ export async function updateService(
     },
 ) {
     return prisma.service.update({ where: { id }, data });
+}
+
+export async function deleteCategory(id: string) {
+    // Check for child services first 
+    const count = await prisma.service.count({ where: { categoryId: id } });
+    if (count > 0) {
+        throw new BadRequestError(`Cannot delete category with ${count} active services. Move or delete them first.`);
+    }
+    return prisma.category.delete({ where: { id } });
+}
+
+export async function deleteService(id: string) {
+    return prisma.service.delete({ where: { id } });
 }

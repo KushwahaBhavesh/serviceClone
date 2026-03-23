@@ -45,7 +45,7 @@ export function Sidebar() {
     <aside className="w-68 border-r border-slate-200 bg-white hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 enterprise-shadow">
       {/* Brand */}
       <div className="h-20 flex items-center px-6 border-b border-slate-100">
-        <div className="h-10 w-10 bg-slate-900 rounded-xl flex items-center justify-center mr-3 shadow-sm rotate-3 transform">
+        <div className="h-10 w-10 bg-[#FF6B00] rounded-xl flex items-center justify-center mr-3 shadow-lg shadow-orange-200/50 rotate-3 transform">
           <span className="text-white font-black text-lg tracking-tight">S</span>
         </div>
         <div className="flex flex-col">
@@ -68,17 +68,17 @@ export function Sidebar() {
               <div className={cn(
                 "flex items-center px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 relative z-10",
                 isActive
-                  ? "text-white shadow-lg shadow-slate-200"
-                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                  ? "text-[#FF6B00] shadow-sm shadow-orange-100 bg-orange-50/50"
+                  : "text-slate-500 hover:text-[#FF6B00] hover:bg-orange-50/30"
               )}>
-                <Icon size={19} className={cn("mr-3.5 transition-transform duration-200 group-hover:scale-110", isActive ? "text-white" : "text-slate-400 group-hover:text-slate-900")} />
+                <Icon size={19} className={cn("mr-3.5 transition-transform duration-200 group-hover:scale-110", isActive ? "text-[#FF6B00]" : "text-slate-400 group-hover:text-[#FF6B00]")} />
                 {item.label}
               </div>
 
               {isActive && (
                 <motion.div
                   layoutId="activeTab"
-                  className="absolute inset-0 bg-slate-950 rounded-xl z-0"
+                  className="absolute inset-y-0 -left-6 w-1.5 bg-[#FF6B00] rounded-r-full z-10"
                   initial={false}
                   transition={{ type: "spring", stiffness: 350, damping: 30 }}
                 />
@@ -89,9 +89,9 @@ export function Sidebar() {
       </nav>
 
       {/* User / Footer */}
-      <div className="p-5 mt-auto border-t border-slate-100 bg-slate-50/50">
+      <div className="p-5 mt-auto border-t border-slate-100 bg-slate-50/30">
         <div className="flex items-center space-x-3 p-3 rounded-2xl bg-white border border-slate-200/60 shadow-sm mb-4">
-          <div className="h-10 w-10 rounded-xl bg-slate-900 flex items-center justify-center font-bold text-white shadow-inner">
+          <div className="h-10 w-10 rounded-xl bg-[#FF6B00] flex items-center justify-center font-bold text-white shadow-inner">
             {user?.name?.charAt(0) || 'A'}
           </div>
           <div className="flex-1 min-w-0">

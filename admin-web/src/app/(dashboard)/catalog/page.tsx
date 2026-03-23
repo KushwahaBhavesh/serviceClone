@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Layers, Plus, Tag, Loader2, Check, X } from 'lucide-react';
+import { Layers, Plus, Tag, Loader2, Check, X, Edit2, Trash2, Power } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -50,6 +50,12 @@ export default function CatalogPage() {
   const [newSvcName, setNewSvcName] = useState('');
   const [newSvcPrice, setNewSvcPrice] = useState('');
   const [addingSvc, setAddingSvc] = useState(false);
+
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editCatName, setEditCatName] = useState('');
+
+  const [editingSvcId, setEditingSvcId] = useState<string | null>(null);
+  const [editSvcData, setEditSvcData] = useState({ name: '', basePrice: '', duration: '', description: '' });
 
   const fetchCategories = useCallback(async () => {
     setLoadingCat(true);
@@ -130,13 +136,79 @@ export default function CatalogPage() {
     }
   };
 
+  const handleUpdateCategory = async (id: string) => {
+    if (!editCatName.trim()) return;
+    try {
+      await api.put(`/admin/categories/${id}`, { name: editCatName.trim() });
+      setEditingCatId(null);
+      await fetchCategories();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Update failed');
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this category?')) return;
+    try {
+      await api.delete(`/admin/categories/${id}`);
+      if (selectedCategoryId === id) setSelectedCategoryId(null);
+      await fetchCategories();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Delete failed');
+    }
+  };
+
+  const handleToggleCategory = async (id: string, current: boolean) => {
+    try {
+      await api.put(`/admin/categories/${id}`, { isActive: !current });
+      await fetchCategories();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Update failed');
+    }
+  };
+
+  const handleUpdateService = async (id: string) => {
+    try {
+      await api.put(`/admin/services/${id}`, {
+        name: editSvcData.name.trim(),
+        basePrice: Number(editSvcData.basePrice),
+        duration: Number(editSvcData.duration),
+        description: editSvcData.description,
+      });
+      setEditingSvcId(null);
+      fetchServices(selectedCategoryId!);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Update failed');
+    }
+  };
+
+  const handleDeleteService = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this service?')) return;
+    try {
+      await api.delete(`/admin/services/${id}`);
+      fetchServices(selectedCategoryId!);
+      fetchCategories();
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Delete failed');
+    }
+  };
+
+  const handleToggleService = async (id: string, current: boolean) => {
+    try {
+      await api.put(`/admin/services/${id}`, { isActive: !current });
+      fetchServices(selectedCategoryId!);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Update failed');
+    }
+  };
+
   const selectedCategoryName = categories.find(c => c.id === selectedCategoryId)?.name || 'Select a category';
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
         <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-black tracking-tight text-slate-900">Global Service Catalog</h1>
+          <h1 className="text-3xl font-black tracking-tight text-[#1a1a1a]">Global Service Catalog</h1>
           <p className="text-sm font-semibold text-slate-400 uppercase tracking-[0.2em]">Platform Core Definitions</p>
         </div>
         <div className="flex gap-3">
@@ -165,28 +237,77 @@ export default function CatalogPage() {
                   key={c.id}
                   onClick={() => setSelectedCategoryId(c.id)}
                   className={cn(
-                    "cursor-pointer p-4 rounded-2xl border-2 transition-all duration-200 flex justify-between items-center group",
+                    "cursor-pointer p-4 rounded-2xl border-2 transition-all duration-200 flex justify-between items-center group relative overflow-hidden",
                     selectedCategoryId === c.id
-                      ? "border-slate-900 bg-slate-900 text-white shadow-xl shadow-slate-200"
-                      : "border-slate-100 bg-white hover:border-slate-300 hover:shadow-md"
+                      ? "border-[#FF6B00] bg-[#FF6B00] text-white shadow-xl shadow-orange-100/50"
+                      : "border-slate-100 bg-white hover:border-[#FF6B00]/30 hover:shadow-md"
                   )}
                 >
-                  <div className="flex items-center">
+                  <div className="flex items-center flex-1 min-w-0">
                     <Layers size={18} className={cn(
-                      "mr-3 transition-transform duration-200 group-hover:scale-110",
-                      selectedCategoryId === c.id ? "text-white" : "text-slate-400 group-hover:text-slate-900"
+                      "flex-shrink-0 mr-3 transition-transform duration-200 group-hover:scale-110",
+                      selectedCategoryId === c.id ? "text-white" : "text-slate-400 group-hover:text-[#FF6B00]"
                     )} />
-                    <div>
-                      <span className="font-bold text-sm tracking-tight">{c.name}</span>
-                      {!c.isActive && <span className="ml-2 text-[10px] font-black uppercase tracking-widest opacity-60">(Inactive)</span>}
+                    <div className="flex-1 min-w-0">
+                      {editingCatId === c.id ? (
+                        <div className="flex items-center gap-1 -ml-1 pr-2" onClick={e => e.stopPropagation()}>
+                          <Input
+                            size={10}
+                            className="h-8 py-0 px-2 text-xs text-slate-900"
+                            value={editCatName}
+                            autoFocus
+                            onChange={e => setEditCatName(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleUpdateCategory(c.id)}
+                          />
+                          <Button size="sm" className="h-7 w-7 p-0 rounded-lg min-h-0" onClick={() => handleUpdateCategory(c.id)}>
+                            <Check size={12} />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-lg min-h-0" onClick={() => setEditingCatId(null)}>
+                            <X size={12} />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col">
+                          <span className="font-bold text-sm tracking-tight truncate">{c.name}</span>
+                          {!c.isActive && <span className="text-[9px] font-black uppercase tracking-widest opacity-60">Inactive</span>}
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <span className={cn(
-                    "text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border",
-                    selectedCategoryId === c.id ? "bg-white/10 border-white/20 text-white" : "bg-slate-50 border-slate-100 text-slate-500"
-                  )}>
-                    {c._count.services}
-                  </span>
+
+                  <div className="flex items-center gap-1.5 ml-2" onClick={e => e.stopPropagation()}>
+                    {selectedCategoryId === c.id && !editingCatId && (
+                      <div className="flex items-center gap-1 absolute right-16 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => { setEditingCatId(c.id); setEditCatName(c.name); }}
+                          className="p-1.5 rounded-lg bg-black/10 hover:bg-black/20 text-white transition-colors"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleToggleCategory(c.id, c.isActive)}
+                          className={cn(
+                            "p-1.5 rounded-lg transition-colors",
+                            c.isActive ? "bg-black/10 hover:bg-black/20 text-white" : "bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30"
+                          )}
+                        >
+                          <Power size={12} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCategory(c.id)}
+                          className="p-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/40 text-rose-100 transition-colors"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    )}
+                    <span className={cn(
+                      "text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border flex-shrink-0 transition-all",
+                      selectedCategoryId === c.id ? "bg-white/10 border-white/20 text-white group-hover:opacity-0" : "bg-slate-50 border-slate-100 text-slate-500"
+                    )}>
+                      {c._count.services}
+                    </span>
+                  </div>
                 </div>
               ))}
               {categories.length === 0 && (
@@ -249,30 +370,109 @@ export default function CatalogPage() {
                         </TableRow>
                       )}
                       {services.map((svc) => (
-                        <TableRow key={svc.id}>
+                        <TableRow key={svc.id} className="group">
                           <TableCell className="font-medium">
-                            <div className="flex items-center">
-                              <div className="bg-[#f1f5f9] p-1.5 rounded mr-3">
-                                <Tag size={14} className="text-[#64748b]" />
+                            {editingSvcId === svc.id ? (
+                              <div className="space-y-2">
+                                <Input
+                                  className="h-8 text-xs font-semibold"
+                                  value={editSvcData.name}
+                                  onChange={e => setEditSvcData({ ...editSvcData, name: e.target.value })}
+                                />
+                                <Input
+                                  className="h-8 text-xs"
+                                  placeholder="Description..."
+                                  value={editSvcData.description}
+                                  onChange={e => setEditSvcData({ ...editSvcData, description: e.target.value })}
+                                />
                               </div>
-                              <div>
-                                <p className="text-[#0f172a]">{svc.name}</p>
-                                {svc.description && (
-                                  <p className="text-xs text-[#94a3b8] truncate max-w-[200px]">{svc.description}</p>
+                            ) : (
+                              <div className="flex items-center">
+                                <div className="bg-[#f1f5f9] p-1.5 rounded mr-3">
+                                  <Tag size={14} className="text-[#64748b]" />
+                                </div>
+                                <div>
+                                  <p className="text-[#1a1a1a] font-bold">{svc.name}</p>
+                                  {svc.description && (
+                                    <p className="text-[11px] font-medium text-[#666666] truncate max-w-[200px]">{svc.description}</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-[#1a1a1a] font-black">
+                            {editingSvcId === svc.id ? (
+                              <Input
+                                className="h-8 w-24 text-xs font-bold"
+                                type="number"
+                                value={editSvcData.basePrice}
+                                onChange={e => setEditSvcData({ ...editSvcData, basePrice: e.target.value })}
+                              />
+                            ) : (
+                              `₹${svc.basePrice.toLocaleString()}`
+                            )}
+                          </TableCell>
+                          <TableCell className="text-[#666666] font-semibold">
+                            {editingSvcId === svc.id ? (
+                              <Input
+                                className="h-8 w-20 text-xs"
+                                type="number"
+                                value={editSvcData.duration}
+                                onChange={e => setEditSvcData({ ...editSvcData, duration: e.target.value })}
+                              />
+                            ) : (
+                              `${svc.duration} min`
+                            )}
+                          </TableCell>
+                          <TableCell className="text-[#666666] font-bold">{svc._count.merchantServices}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <span
+                                onClick={() => handleToggleService(svc.id, svc.isActive)}
+                                className={cn(
+                                  "cursor-pointer inline-flex px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all hover:scale-105 active:scale-95",
+                                  svc.isActive ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-slate-50 text-slate-400 border-slate-100"
+                                )}
+                              >
+                                {svc.isActive ? 'Active' : 'Inactive'}
+                              </span>
+
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {editingSvcId === svc.id ? (
+                                  <>
+                                    <button onClick={() => handleUpdateService(svc.id)} className="p-1.5 rounded-lg bg-orange-100 text-[#FF6B00] hover:bg-orange-200 shadow-sm border border-orange-200/50">
+                                      <Check size={14} />
+                                    </button>
+                                    <button onClick={() => setEditingSvcId(null)} className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200">
+                                      <X size={14} />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        setEditingSvcId(svc.id);
+                                        setEditSvcData({
+                                          name: svc.name,
+                                          basePrice: svc.basePrice.toString(),
+                                          duration: svc.duration.toString(),
+                                          description: svc.description || '',
+                                        });
+                                      }}
+                                      className="p-1.5 rounded-lg bg-slate-50 text-slate-400 hover:text-[#FF6B00] hover:bg-orange-50 transition-colors"
+                                    >
+                                      <Edit2 size={14} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteService(svc.id)}
+                                      className="p-1.5 rounded-lg bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             </div>
-                          </TableCell>
-                          <TableCell className="text-[#0f172a] font-medium">₹{svc.basePrice.toLocaleString()}</TableCell>
-                          <TableCell className="text-[#64748b]">{svc.duration} min</TableCell>
-                          <TableCell className="text-[#64748b]">{svc._count.merchantServices}</TableCell>
-                          <TableCell>
-                            <span className={cn(
-                              "inline-flex px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest border",
-                              svc.isActive ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-slate-50 text-slate-400 border-slate-100"
-                            )}>
-                              {svc.isActive ? 'Active' : 'Inactive'}
-                            </span>
                           </TableCell>
                         </TableRow>
                       ))}

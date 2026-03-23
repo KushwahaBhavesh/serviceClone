@@ -3,11 +3,11 @@
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { 
-  BarChart3, 
-  Users, 
-  Store, 
-  CalendarDays, 
+import {
+  BarChart3,
+  Users,
+  Store,
+  CalendarDays,
   Layers,
   LogOut,
   ShieldAlert
@@ -42,40 +42,45 @@ export function Sidebar() {
   if (!mounted) return <div className="w-64 border-r border-[#e2e8f0] bg-white hidden md:block" />;
 
   return (
-    <aside className="w-64 border-r border-[#e2e8f0] bg-white hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0">
+    <aside className="w-68 border-r border-slate-200 bg-white hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 enterprise-shadow">
       {/* Brand */}
-      <div className="h-16 flex items-center px-6 border-b border-[#f1f5f9]">
-        <div className="h-8 w-8 bg-[#0f172a] rounded-lg flex items-center justify-center mr-3">
-          <span className="text-white font-bold text-sm tracking-tight">O</span>
+      <div className="h-20 flex items-center px-6 border-b border-slate-100">
+        <div className="h-10 w-10 bg-slate-900 rounded-xl flex items-center justify-center mr-3 shadow-sm rotate-3 transform">
+          <span className="text-white font-black text-lg tracking-tight">S</span>
         </div>
-        <span className="font-bold text-[#0f172a] text-lg tracking-tight">Admin Portal</span>
+        <div className="flex flex-col">
+          <span className="font-bold text-slate-900 text-base leading-tight tracking-tight">ServiceClone</span>
+          <span className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400">Admin Portal</span>
+        </div>
       </div>
 
       {/* Nav Links */}
-      <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-4 py-8 space-y-1.5 overflow-y-auto custom-scrollbar">
         {NAV_ITEMS.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const Icon = item.icon;
           return (
-            <Link 
-              key={item.href} 
+            <Link
+              key={item.href}
               href={item.href}
-              className="relative block"
+              className="relative block group"
             >
               <div className={cn(
-                "flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative z-10",
-                isActive ? "text-white" : "text-[#64748b] hover:text-[#0f172a] hover:bg-[#f8fafc]"
+                "flex items-center px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 relative z-10",
+                isActive
+                  ? "text-white shadow-lg shadow-slate-200"
+                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
               )}>
-                <Icon size={18} className={cn("mr-3", isActive ? "text-white" : "text-[#94a3b8]")} />
+                <Icon size={19} className={cn("mr-3.5 transition-transform duration-200 group-hover:scale-110", isActive ? "text-white" : "text-slate-400 group-hover:text-slate-900")} />
                 {item.label}
               </div>
-              
+
               {isActive && (
-                <motion.div 
+                <motion.div
                   layoutId="activeTab"
-                  className="absolute inset-0 bg-[#0f172a] rounded-lg z-0"
+                  className="absolute inset-0 bg-slate-950 rounded-xl z-0"
                   initial={false}
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
                 />
               )}
             </Link>
@@ -83,21 +88,23 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Footer / User */}
-      <div className="p-4 border-t border-[#f1f5f9]">
-        <div className="flex items-center space-x-3 px-3 py-2 rounded-lg bg-[#f8fafc] mb-2">
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-[#0f172a] truncate">{user?.name || 'Admin'}</p>
-            <p className="text-xs text-[#64748b] truncate">{user?.email}</p>
+      {/* User / Footer */}
+      <div className="p-5 mt-auto border-t border-slate-100 bg-slate-50/50">
+        <div className="flex items-center space-x-3 p-3 rounded-2xl bg-white border border-slate-200/60 shadow-sm mb-4">
+          <div className="h-10 w-10 rounded-xl bg-slate-900 flex items-center justify-center font-bold text-white shadow-inner">
+            {user?.name?.charAt(0) || 'A'}
           </div>
-          <ShieldAlert size={16} className="text-[#0ea5e9]" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-slate-900 truncate tracking-tight">{user?.name || 'Admin'}</p>
+            <p className="text-[11px] font-medium text-slate-400 truncate uppercase tracking-widest leading-none mt-1">Super Admin</p>
+          </div>
         </div>
-        
-        <button 
+
+        <button
           onClick={handleLogout}
-          className="w-full flex items-center px-3 py-2 text-sm font-medium text-[#ef4444] rounded-lg hover:bg-[#fef2f2] transition-colors"
+          className="w-full flex items-center justify-center gap-2.5 px-4 py-3 text-sm font-bold text-rose-500 rounded-xl border border-rose-100 bg-rose-50/30 hover:bg-rose-500 hover:text-white transition-all duration-300 group"
         >
-          <LogOut size={16} className="mr-3" />
+          <LogOut size={16} className="transition-transform group-hover:-translate-x-1" />
           Sign out
         </button>
       </div>

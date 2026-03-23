@@ -13,17 +13,17 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={cn(
-          "inline-flex items-center justify-center font-medium transition-all focus:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98]",
+          "inline-flex items-center justify-center font-bold transition-all focus:outline-none disabled:opacity-50 disabled:pointer-events-none active:scale-[0.97]",
           // Variants
-          variant === 'primary' && "bg-[#0ea5e9] text-white hover:bg-[#0284c7] shadow-[0_4px_14px_0_rgba(14,165,233,0.39)] hover:shadow-[0_6px_20px_rgba(14,165,233,0.23)] hover:-translate-y-0.5",
-          variant === 'secondary' && "bg-[#1e293b] text-white hover:bg-[#0f172a] shadow-sm",
-          variant === 'danger' && "bg-[#ef4444] text-white hover:bg-[#dc2626] shadow-[0_4px_14px_0_rgba(239,68,68,0.39)]",
-          variant === 'outline' && "border border-[#e2e8f0] bg-transparent text-[#0f172a] hover:bg-[#f8fafc]",
-          variant === 'ghost' && "bg-transparent text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#0f172a]",
+          variant === 'primary' && "bg-slate-900 text-white hover:bg-slate-800 shadow-lg shadow-slate-200 hover:-translate-y-0.5",
+          variant === 'secondary' && "bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-100/50 hover:-translate-y-0.5",
+          variant === 'danger' && "bg-rose-500 text-white hover:bg-rose-600 shadow-lg shadow-rose-100",
+          variant === 'outline' && "border-2 border-slate-200 bg-transparent text-slate-900 hover:bg-slate-50 hover:border-slate-300",
+          variant === 'ghost' && "bg-transparent text-slate-500 hover:bg-slate-100 hover:text-slate-900",
           // Sizes
-          size === 'sm' && "h-8 px-3 text-xs rounded-sm",
-          size === 'md' && "h-11 px-6 text-sm rounded-md",
-          size === 'lg' && "h-14 px-8 text-base rounded-md",
+          size === 'sm' && "h-9 px-4 text-xs rounded-xl",
+          size === 'md' && "h-12 px-7 text-sm rounded-xl",
+          size === 'lg' && "h-14 px-10 text-base rounded-2xl",
           className
         )}
         {...props}

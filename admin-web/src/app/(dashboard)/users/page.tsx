@@ -1,92 +1,226 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, MoreVertical, Shield } from 'lucide-react';
+import { Search, Shield, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
-const mockUsers = [
-  { id: 'usr_1', name: 'John Doe', email: 'john@example.com', role: 'CUSTOMER', joined: '2025-01-15', status: 'ACTIVE' },
-  { id: 'usr_2', name: 'Elite Cleaners', email: 'info@elite.com', role: 'MERCHANT', joined: '2025-02-21', status: 'ACTIVE' },
-  { id: 'usr_3', name: 'Admin Master', email: 'admin@ondemand.com', role: 'ADMIN', joined: '2024-11-05', status: 'ACTIVE' },
-  { id: 'usr_4', name: 'Sarah Smith', email: 'sarah.s@example.com', role: 'CUSTOMER', joined: '2025-03-01', status: 'SUSPENDED' },
-];
+interface User {
+  id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  role: string;
+  status: string;
+  createdAt: string;
+  avatarUrl: string | null;
+}
+
+interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+const ROLES = ['ALL', 'CUSTOMER', 'MERCHANT', 'AGENT', 'ADMIN'];
 
 export default function UsersPage() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, totalPages: 0 });
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('ALL');
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const filtered = mockUsers.filter(u => 
-    u.name.toLowerCase().includes(search.toLowerCase()) || 
-    u.email.toLowerCase().includes(search.toLowerCase())
-  );
+  const fetchUsers = useCallback(async (page = 1) => {
+    setLoading(true);
+    try {
+      const params: any = { page, limit: 20 };
+      if (search) params.search = search;
+      if (roleFilter !== 'ALL') params.role = roleFilter;
+      const res = await api.get('/admin/users', { params });
+      setUsers(res.data.users);
+      setPagination(res.data.pagination);
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, roleFilter]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => fetchUsers(), 300);
+    return () => clearTimeout(timer);
+  }, [fetchUsers]);
+
+  const handleStatusUpdate = async (userId: string, newStatus: string) => {
+    setUpdatingId(userId);
+    try {
+      await api.put(`/admin/users/${userId}/status`, { status: newStatus });
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
+    } catch (err) {
+      console.error('Failed to update user status:', err);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#0f172a]">User Management</h1>
-          <p className="text-[#64748b]">View and manage all registered accounts across roles.</p>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-2">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-3xl font-black tracking-tight text-slate-900">User Management</h1>
+          <p className="text-sm font-semibold text-slate-400 uppercase tracking-[0.2em]">Platform Account Control</p>
         </div>
-        <Button size="sm">Add User</Button>
+        <div className="text-[11px] font-black uppercase tracking-[0.15em] text-slate-400 bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm">
+          {pagination.total} total accounts
+        </div>
       </div>
 
       <Card className="border-[#e2e8f0]">
         <CardHeader className="pb-4">
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#94a3b8]" />
-              <Input 
-                placeholder="Search by name or email..." 
+              <Input
+                placeholder="Search by name, email, phone..."
                 className="pl-9 h-10"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
+            <div className="flex gap-2 p-1 bg-slate-50 border border-slate-100 rounded-2xl">
+              {ROLES.map((role) => (
+                <button
+                  key={role}
+                  onClick={() => setRoleFilter(role)}
+                  className={cn(
+                    "px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-200",
+                    roleFilter === role
+                      ? "bg-slate-900 text-white shadow-lg shadow-slate-200"
+                      : "text-slate-400 hover:text-slate-900 hover:bg-white"
+                  )}
+                >
+                  {role}
+                </button>
+              ))}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Joined Date</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium text-[#0f172a]">{user.name}</span>
-                      <span className="text-xs text-[#64748b]">{user.email}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center">
-                      {user.role === 'ADMIN' && <Shield size={12} className="mr-1 text-[#0ea5e9]" />}
-                      <span className="text-xs font-semibold tracking-wider text-[#475569]">{user.role}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
-                      user.status === 'ACTIVE' ? 'bg-[#ecfdf5] text-[#059669]' : 'bg-[#fef2f2] text-[#dc2626]'
-                    }`}>
-                      {user.status}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-[#64748b]">{new Date(user.joined).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-[#64748b]"><MoreVertical size={16} /></Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {loading ? (
+            <div className="flex h-40 items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-[#64748b]" />
+            </div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Joined Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center h-24 text-[#64748b]">
+                        No users found.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {users.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div className="flex items-center space-x-3">
+                          <div className="h-8 w-8 rounded-full bg-[#f1f5f9] flex items-center justify-center text-sm font-semibold text-[#0f172a]">
+                            {user.name?.charAt(0) || '?'}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-[#0f172a]">{user.name || 'Unnamed'}</span>
+                            <span className="text-xs text-[#64748b]">{user.email || user.phone}</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          {user.role === 'ADMIN' && <Shield size={12} className="mr-1 text-[#0ea5e9]" />}
+                          <span className="text-xs font-semibold tracking-wider text-[#475569]">{user.role}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className={cn(
+                          "inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest",
+                          user.status === 'ACTIVE' && 'bg-emerald-50 text-emerald-600 border border-emerald-100',
+                          user.status === 'SUSPENDED' && 'bg-rose-50 text-rose-600 border border-rose-100',
+                          user.status === 'DEACTIVATED' && 'bg-slate-50 text-slate-400 border border-slate-100',
+                          (user.status === 'PENDING_VERIFICATION' || user.status === 'ONBOARDING') && 'bg-amber-50 text-amber-600 border border-amber-100',
+                        )}>
+                          {user.status.replace(/_/g, ' ')}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-[#64748b]">{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-right space-x-1">
+                        {user.status !== 'ACTIVE' && (
+                          <Button
+                            variant="ghost" size="sm"
+                            className="text-[#059669] text-xs"
+                            disabled={updatingId === user.id}
+                            onClick={() => handleStatusUpdate(user.id, 'ACTIVE')}
+                          >
+                            Activate
+                          </Button>
+                        )}
+                        {user.status !== 'SUSPENDED' && user.role !== 'ADMIN' && (
+                          <Button
+                            variant="ghost" size="sm"
+                            className="text-[#dc2626] text-xs"
+                            disabled={updatingId === user.id}
+                            onClick={() => handleStatusUpdate(user.id, 'SUSPENDED')}
+                          >
+                            Suspend
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              {/* Pagination */}
+              {pagination.totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#f1f5f9]">
+                  <p className="text-xs text-[#64748b]">
+                    Page {pagination.page} of {pagination.totalPages} ({pagination.total} results)
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline" size="sm"
+                      disabled={pagination.page <= 1}
+                      onClick={() => fetchUsers(pagination.page - 1)}
+                    >
+                      <ChevronLeft size={14} />
+                    </Button>
+                    <Button
+                      variant="outline" size="sm"
+                      disabled={pagination.page >= pagination.totalPages}
+                      onClick={() => fetchUsers(pagination.page + 1)}
+                    >
+                      <ChevronRight size={14} />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

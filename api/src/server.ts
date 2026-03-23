@@ -16,8 +16,7 @@ import agentRoutes from './routes/agent.routes';
 import customerRoutes from './routes/customer.routes';
 import paymentRoutes from './routes/payment.routes';
 import uploadRoutes from './routes/upload.routes';
-import adminRoutes from './routes/admin.routes';
-
+// import adminRoutes from './routes/admin.routes';
 import { errorHandler } from './middleware/error-handler';
 import { requestId } from './middleware/request-id';
 import { requestTimeout } from './middleware/timeout';
@@ -73,7 +72,7 @@ app.use('/api/v1/agent', agentRoutes);
 app.use('/api/v1/customer', customerRoutes);
 app.use('/api/v1/payments', paymentRoutes);
 app.use('/api/v1/common', uploadLimiter, uploadRoutes);
-app.use('/api/v1/admin', adminRoutes);
+// app.use('/api/v1/admin', adminRoutes);
 
 // Static files
 app.use('/uploads', express.static(path.join(process.cwd(), 'public/uploads')));

@@ -11,31 +11,18 @@ import {
 } from 'lucide-react-native';
 
 import { Colors } from '../../../constants/theme';
+import { CustomTabBar } from '../../../components/navigation/CustomTabBar';
 
 export default function MerchantTabLayout() {
     const insets = useSafeAreaInsets();
 
     return (
         <Tabs
+            tabBar={props => <CustomTabBar {...props} />}
             screenOptions={{
                 headerShown: false,
-                tabBarActiveTintColor: Colors.primary,
+                tabBarActiveTintColor: '#FFFFFF',
                 tabBarInactiveTintColor: '#94A3B8',
-                tabBarStyle: [
-                    styles.tabBar,
-                    {
-                        height: 68 + insets.bottom,
-                        paddingBottom: insets.bottom > 0 ? insets.bottom : 14,
-                    },
-                ],
-                tabBarLabelStyle: styles.tabLabel,
-                tabBarBackground: () => (
-                    Platform.OS === 'ios' ? (
-                        <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
-                    ) : (
-                        <View style={[StyleSheet.absoluteFill, styles.tabBarAndroid]} />
-                    )
-                ),
             }}
         >
             <Tabs.Screen
@@ -43,9 +30,7 @@ export default function MerchantTabLayout() {
                 options={{
                     title: 'Home',
                     tabBarIcon: ({ color, focused }) => (
-                        <View style={focused ? styles.activeIconWrap : undefined}>
-                            <LayoutGrid size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
-                        </View>
+                        <LayoutGrid size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
                     ),
                 }}
             />
@@ -54,9 +39,7 @@ export default function MerchantTabLayout() {
                 options={{
                     title: 'Orders',
                     tabBarIcon: ({ color, focused }) => (
-                        <View style={focused ? styles.activeIconWrap : undefined}>
-                            <ClipboardList size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
-                        </View>
+                        <ClipboardList size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
                     ),
                 }}
             />
@@ -65,9 +48,7 @@ export default function MerchantTabLayout() {
                 options={{
                     title: 'Catalog',
                     tabBarIcon: ({ color, focused }) => (
-                        <View style={focused ? styles.activeIconWrap : undefined}>
-                            <BookOpen size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
-                        </View>
+                        <BookOpen size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
                     ),
                 }}
             />
@@ -76,9 +57,7 @@ export default function MerchantTabLayout() {
                 options={{
                     title: 'Chats',
                     tabBarIcon: ({ color, focused }) => (
-                        <View style={focused ? styles.activeIconWrap : undefined}>
-                            <MessageCircle size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
-                        </View>
+                        <MessageCircle size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
                     ),
                 }}
             />
@@ -87,9 +66,7 @@ export default function MerchantTabLayout() {
                 options={{
                     title: 'Settings',
                     tabBarIcon: ({ color, focused }) => (
-                        <View style={focused ? styles.activeIconWrap : undefined}>
-                            <Settings size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
-                        </View>
+                        <Settings size={22} color={color} strokeWidth={focused ? 2.5 : 2} />
                     ),
                 }}
             />
@@ -119,11 +96,5 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         marginTop: 4,
         letterSpacing: 0.2,
-    },
-    activeIconWrap: {
-        backgroundColor: Colors.primary + '12',
-        borderRadius: 10,
-        padding: 6,
-        marginBottom: -2,
     },
 });

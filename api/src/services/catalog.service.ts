@@ -97,7 +97,7 @@ export async function listServices(options: {
             include: {
                 category: { select: { id: true, name: true, slug: true } },
                 merchantServices: {
-                    where: { 
+                    where: {
                         isActive: true,
                         merchant: { isVerified: true }
                     },
@@ -132,7 +132,7 @@ export async function getServiceBySlug(slug: string) {
         include: {
             category: { select: { id: true, name: true, slug: true } },
             merchantServices: {
-                where: { 
+                where: {
                     isActive: true,
                     merchant: { isVerified: true }
                 },
@@ -155,8 +155,8 @@ export async function getServiceBySlug(slug: string) {
 export async function getAvailableSlots(serviceId: string, date: string) {
     // Find merchants that offer this service AND are verified
     const merchantServices = await prisma.merchantService.findMany({
-        where: { 
-            serviceId, 
+        where: {
+            serviceId,
             isActive: true,
             merchant: { isVerified: true }
         },
@@ -374,7 +374,7 @@ export async function getNearbyMerchants({
             merchantServices: {
                 where: { isActive: true },
                 include: { service: { select: { name: true, category: { select: { name: true } } } } },
-                take: 3, 
+                take: 3,
             },
         },
     });
@@ -406,7 +406,6 @@ export async function getNearbyMerchants({
 }
 
 // ─── Nearby Promotions ───
-
 export async function getNearbyPromotions({
     latitude,
     longitude,

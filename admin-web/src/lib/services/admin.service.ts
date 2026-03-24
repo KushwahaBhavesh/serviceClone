@@ -210,6 +210,56 @@ export async function updateMerchantVerification(
     return merchant;
 }
 
+export async function updateDocVerification(
+    docId: string,
+    status: string,
+    reviewNote?: string,
+) {
+    const validStatuses = ['PENDING_REVIEW', 'APPROVED', 'REJECTED'];
+    if (!validStatuses.includes(status)) {
+        throw new BadRequestError(`Invalid doc status. Must be one of: ${validStatuses.join(', ')}`);
+    }
+
+    return prisma.verificationDoc.update({
+        where: { id: docId },
+        data: {
+            status: status as any,
+            reviewNote: reviewNote || null,
+        },
+    });
+}
+
+export async function getMerchantDetail(merchantId: string) {
+    const merchant = await prisma.merchantProfile.findUnique({
+        where: { id: merchantId },
+        include: {
+            user: {
+                select: {
+                    id: true, name: true, email: true, phone: true,
+                    status: true, createdAt: true, avatarUrl: true,
+                },
+            },
+            verificationDocs: {
+                orderBy: { createdAt: 'desc' },
+            },
+            subscription: true,
+            _count: {
+                select: {
+                    agents: true,
+                    merchantServices: true,
+                    promos: true,
+                },
+            },
+        },
+    });
+
+    if (!merchant) {
+        throw new BadRequestError('Merchant not found');
+    }
+
+    return merchant;
+}
+
 // ─── Bookings ───
 
 export async function listBookings(options: {

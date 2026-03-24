@@ -1,9 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
     View,
     Text,
     StyleSheet,
-    ScrollView,
     Pressable,
     TextInput,
     Image,
@@ -12,25 +11,30 @@ import {
     RefreshControl,
     Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    interpolate,
+    Extrapolate,
+    withSpring
+} from 'react-native-reanimated';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Ionicons } from '@expo/vector-icons';
 import { catalogApi, bookingApi, customerApi, type Category, type Service, type Booking, type NearbyMerchant, type Promotion, type Address } from '../../lib/marketplace';
+import { HomeHeader } from '../../components/navigation/HomeHeader';
+import { PromotionBanner } from '../../components/ui/PromotionBanner';
+import { ModernCategoryGrid } from '../../components/ui/ModernCategoryGrid';
 
 const { width } = Dimensions.get('window');
 
-
-
-
-const CATEGORY_COLORS = ['#E3F2FD', '#FFF3E0', '#F3E5F5', '#E8F5E9', '#FCE4EC', '#FFFDE7', '#E0F2F1', '#F5F5F5'];
-
 export default function HomeScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const { user, updateLocation } = useAuthStore();
-    const [search, setSearch] = useState('');
     const [categories, setCategories] = useState<Category[]>([]);
     const [featuredServices, setFeaturedServices] = useState<Service[]>([]);
     const [nearbyMerchants, setNearbyMerchants] = useState<NearbyMerchant[]>([]);
@@ -43,6 +47,18 @@ export default function HomeScreen() {
     const [showLocationModal, setShowLocationModal] = useState(false);
     const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
     const [isAddressLoading, setIsAddressLoading] = useState(false);
+
+    // Animation state
+    const scrollY = useSharedValue(0);
+
+    const onScroll = (event: any) => {
+        scrollY.value = event.nativeEvent.contentOffset.y;
+    };
+
+    const headerAnimatedStyle = useAnimatedStyle(() => {
+        const opacity = interpolate(scrollY.value, [0, 50], [0, 1], Extrapolate.CLAMP);
+        return { opacity };
+    });
 
     const fetchAddresses = useCallback(async () => {
         try {
@@ -73,7 +89,7 @@ export default function HomeScreen() {
             setCategories(catRes.data.categories.slice(0, 8));
             setFeaturedServices(serRes.data.services);
 
-            // Fetch Nearby Merchants — use profile location, fallback to device GPS
+            // Fetch Nearby Merchants
             try {
                 let lat = user?.latitude;
                 let lng = user?.longitude;
@@ -100,17 +116,16 @@ export default function HomeScreen() {
                             limit: 5,
                         })
                     ]);
-                    
+
                     setNearbyMerchants(nearbyRes.data.merchants);
-                    
-                    // Transform promotions into banner format
+
                     if (promoRes.data.promotions.length > 0) {
                         const dynamicBanners = promoRes.data.promotions.map((p: Promotion) => ({
                             id: p.id,
                             title: p.merchant.businessName,
                             discount: p.type === 'PERCENTAGE' ? `${p.value}% OFF` : `₹${p.value} OFF`,
                             subtitle: p.code,
-                            color: Colors.primary, // Could be dynamic if we add a 'color' field to Promotion
+                            color: Colors.primary,
                             merchantId: p.merchantId
                         }));
                         setBanners(dynamicBanners);
@@ -120,7 +135,6 @@ export default function HomeScreen() {
                 console.log('Error fetching nearby merchants/promos', e);
             }
 
-            // Find the most urgent active booking
             const active = bookRes.data.bookings.find((b: Booking) =>
                 ['ACCEPTED', 'IN_PROGRESS', 'AGENT_ASSIGNED', 'EN_ROUTE', 'ARRIVED'].includes(b.status)
             );
@@ -156,7 +170,7 @@ export default function HomeScreen() {
             }
 
             await updateLocation(latitude, longitude, locationName);
-            fetchData(); // Refresh metrics for new location
+            fetchData();
         } catch (err) {
             console.error('Location update failed:', err);
         } finally {
@@ -187,93 +201,65 @@ export default function HomeScreen() {
         fetchData();
     };
 
-    const renderBanners = () => {
-        if (banners.length === 0 && !isLoading) return null;
-        
-        return (
-            <ScrollView
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                snapToInterval={width - Spacing.lg * 2 + Spacing.md}
-                decelerationRate="fast"
-                contentContainerStyle={styles.bannerContainer}
-            >
-                {banners.map((banner) => (
-                    <Pressable
-                        key={banner.id}
-                        style={[styles.banner, { backgroundColor: banner.color }]}
-                        onPress={() => banner.merchantId ? router.push({ pathname: '/(tabs)/explore', params: { merchantId: banner.merchantId } }) : null}
-                    >
-                        <View style={styles.bannerContent}>
-                            <Text style={styles.bannerTitle}>{banner.title}</Text>
-                            <Text style={styles.bannerDiscount}>{banner.discount}</Text>
-                            <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>
-                            <View style={styles.bannerBtn}>
-                                <Text style={styles.bannerBtnText}>Claim Offer</Text>
-                            </View>
-                        </View>
-                        <Ionicons name="gift-outline" size={80} color="rgba(255,255,255,0.2)" style={styles.bannerIcon} />
-                        <View style={styles.bannerCircle} />
-                    </Pressable>
-                ))}
-            </ScrollView>
-        );
+    const handlePromotionPress = (merchantId?: string) => {
+        if (merchantId) {
+            router.push({ pathname: '/(tabs)/explore', params: { merchantId } });
+        }
+    };
+
+    const handleCategoryPress = (cat: Category) => {
+        router.push({ pathname: '/(tabs)/explore', params: { categoryId: cat.id } });
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <ScrollView
+        <View style={styles.container}>
+            {/* Animated Sticky Header */}
+            <Animated.View style={[styles.stickyHeader, { paddingTop: insets.top }, headerAnimatedStyle]}>
+                <HomeHeader
+                    user={user}
+                    unreadCount={unreadCount}
+                    isUpdatingLocation={isUpdatingLocation}
+                    onLocationPress={handleLocationPress}
+                    onNotificationsPress={() => router.push('/(customer)/notifications' as any)}
+                    onProfilePress={() => router.push('/(tabs)/profile' as any)}
+                />
+            </Animated.View>
+
+            <Animated.ScrollView
+                onScroll={onScroll}
+                scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
+                contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top }]}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} progressViewOffset={insets.top + 20} />
                 }
             >
-                {/* Header: Location & Notifications */}
-                <View style={styles.header}>
-                    <Pressable style={styles.locationContainer} onPress={handleLocationPress} disabled={isUpdatingLocation}>
-                        {isUpdatingLocation ? (
-                            <ActivityIndicator size="small" color={Colors.primary} />
-                        ) : (
-                            <Ionicons name="location" size={20} color={Colors.primary} />
-                        )}
-                        <View style={styles.locationTextContainer}>
-                            <Text style={styles.locationLabel}>{isUpdatingLocation ? 'Updating...' : 'Location'}</Text>
-                            <Text style={styles.locationValue} numberOfLines={1}>
-                                {user?.locationName || 'Tap to set your location'}
-                            </Text>
+                {/* Hero Greeting Section */}
+                <View style={styles.heroSection}>
+                    <View style={styles.heroTop}>
+                        <View>
+                            <Text style={styles.greetingTitle}>Find your</Text>
+                            <Text style={styles.greetingTitleBold}>Next Service</Text>
                         </View>
-                        <Ionicons name={isUpdatingLocation ? 'sync' : 'chevron-down'} size={16} color={Colors.textMuted} />
-                    </Pressable>
-                    <Pressable
-                        style={styles.notificationBtn}
-                        onPress={() => router.push('/(customer)/notifications' as any)}
-                    >
-                        <Ionicons name="notifications-outline" size={24} color={Colors.text} />
-                        {unreadCount > 0 && (
-                            <View style={styles.notificationBadge}>
-                                <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                        <Pressable style={styles.heroAvatar} onPress={() => router.push('/(tabs)/profile' as any)}>
+                            {user?.avatarUrl ? (
+                                <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg} />
+                            ) : (
+                                <Ionicons name="person" size={24} color={Colors.primary} />
+                            )}
+                        </Pressable>
+                    </View>
+
+                    {/* Search Bar - Integrated into Hero */}
+                    <View style={styles.searchContainer}>
+                        <Pressable style={styles.searchBar} onPress={() => router.push('/(tabs)/explore')}>
+                            <Ionicons name="search" size={20} color={Colors.textMuted} />
+                            <Text style={styles.searchPlaceholder}>Try "AC Repair" or "Plumber"</Text>
+                            <View style={styles.filterBtn}>
+                                <Ionicons name="options-outline" size={20} color={Colors.textOnPrimary} />
                             </View>
-                        )}
-                    </Pressable>
-                </View>
-
-                {/* Greeting */}
-                <View style={styles.greetingSection}>
-                    <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0] || 'there'}! 👋</Text>
-                    <Text style={styles.subtitle}>Which service do you need today?</Text>
-                </View>
-
-                {/* Search Bar */}
-                <View style={styles.searchSection}>
-                    <Pressable style={styles.searchBar} onPress={() => router.push('/(tabs)/explore')}>
-                        <Ionicons name="search" size={20} color={Colors.textMuted} />
-                        <Text style={styles.searchPlaceholder}>Search for services...</Text>
-                        <View style={styles.filterBtn}>
-                            <Ionicons name="options-outline" size={20} color={Colors.textOnPrimary} />
-                        </View>
-                    </Pressable>
+                        </Pressable>
+                    </View>
                 </View>
 
                 {/* Active Booking Pulse Widget */}
@@ -282,148 +268,136 @@ export default function HomeScreen() {
                         style={styles.pulseWidget}
                         onPress={() => router.push(`/(booking)/tracking/${activeBooking.id}` as any)}
                     >
-                        <View style={styles.pulseContainer}>
-                            <View style={styles.pulseDot} />
-                            <View style={styles.pulseRing} />
+                        <View style={styles.pulseHeader}>
+                            <View style={styles.pulseIndicator}>
+                                <View style={styles.pulseDot} />
+                                <View style={styles.pulseRing} />
+                            </View>
+                            <Text style={styles.pulseBadgeText}>LIVE TRACKING</Text>
                         </View>
-                        <View style={styles.pulseContent}>
-                            <Text style={styles.pulseTitle}>Active Service: {activeBooking.status.replace('_', ' ')}</Text>
-                            <Text style={styles.pulseSub}>
-                                {activeBooking.items[0]?.service?.name || 'In Progress'} · Track Now
-                            </Text>
+                        <View style={styles.pulseBody}>
+                            <View style={styles.pulseContent}>
+                                <Text style={styles.pulseTitle}>{activeBooking.items[0]?.service?.name || 'Ongoing Service'}</Text>
+                                <Text style={styles.pulseStatus}>{activeBooking.status.replace('_', ' ')}</Text>
+                            </View>
+                            <Ionicons name="chevron-forward-circle" size={32} color={Colors.primary} />
                         </View>
-                        <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
                     </Pressable>
                 )}
 
-                {/* Banners */}
-                {renderBanners()}
+                {/* Banners - Horizontal Scroll */}
+                {banners.length > 0 && (
+                    <Animated.ScrollView
+                        horizontal
+                        pagingEnabled
+                        showsHorizontalScrollIndicator={false}
+                        snapToInterval={width - Spacing.lg * 2 + Spacing.md}
+                        decelerationRate="fast"
+                        contentContainerStyle={styles.bannerList}
+                    >
+                        {banners.map((banner) => (
+                            <PromotionBanner key={banner.id} banner={banner} onPress={handlePromotionPress} />
+                        ))}
+                    </Animated.ScrollView>
+                )}
 
-                {/* Categories */}
+                {/* Categories Section */}
                 <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Categories</Text>
-                    <Pressable onPress={() => router.push('/(tabs)/explore')}>
-                        <Text style={styles.seeAll}>See All</Text>
+                    <Text style={styles.sectionTitle}>Explore Categories</Text>
+                    <Pressable style={styles.seeAllBtn} onPress={() => router.push('/(tabs)/explore')}>
+                        <Text style={styles.seeAllText}>See All</Text>
+                        <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
                     </Pressable>
                 </View>
 
-                {isLoading ? (
-                    <ActivityIndicator size="small" color={Colors.primary} />
-                ) : (
-                    <View style={styles.categoryGrid}>
-                        {categories.map((cat, index) => (
-                            <Pressable
-                                key={cat.id}
-                                style={styles.categoryCard}
-                                onPress={() => router.push({ pathname: '/(tabs)/explore', params: { categoryId: cat.id } })}
-                            >
-                                <View style={[styles.iconContainer, { backgroundColor: CATEGORY_COLORS[index % CATEGORY_COLORS.length] }]}>
-                                    <Ionicons name="sparkles" size={24} color={Colors.text} />
-                                </View>
-                                <Text style={styles.categoryName} numberOfLines={1}>{cat.name}</Text>
-                            </Pressable>
-                        ))}
-                    </View>
-                )}
+                <ModernCategoryGrid
+                    categories={categories}
+                    onCategoryPress={handleCategoryPress}
+                    isLoading={isLoading}
+                />
 
-                {/* Nearby Providers */}
+                {/* Nearby Providers Section */}
                 {nearbyMerchants.length > 0 && (
-                    <>
+                    <View style={styles.nearbySection}>
                         <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>Nearby Providers</Text>
-                            <Pressable onPress={() => router.push('/(tabs)/explore')}>
-                                <Text style={styles.seeAll}>Map View</Text>
+                            <Text style={styles.sectionTitle}>Nearby Experts</Text>
+                            <Pressable style={styles.mapBtn} onPress={() => router.push('/(tabs)/explore')}>
+                                <Ionicons name="map-outline" size={16} color={Colors.primary} />
+                                <Text style={styles.mapBtnText}>Map View</Text>
                             </Pressable>
                         </View>
-                        <ScrollView
+
+                        <Animated.ScrollView
                             horizontal
                             showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.nearbyContainer}
+                            contentContainerStyle={styles.nearbyList}
                         >
                             {nearbyMerchants.map((merchant) => (
                                 <Pressable
                                     key={merchant.id}
-                                    style={styles.nearbyCard}
-                                    onPress={() => {
-                                        router.push({
-                                            pathname: '/(booking)/merchant-profile',
-                                            params: { id: merchant.id },
-                                        });
-                                    }}
+                                    style={styles.merchantCard}
+                                    onPress={() => router.push({ pathname: '/(booking)/merchant-profile', params: { id: merchant.id } })}
                                 >
-                                    <View style={styles.nearbyImagePlaceholder}>
+                                    <View style={styles.merchantImageContainer}>
                                         {merchant.logoUrl ? (
-                                            <Image source={{ uri: merchant.logoUrl }} style={{ width: '100%', height: '100%' }} />
+                                            <Image source={{ uri: merchant.logoUrl }} style={styles.merchantLogo} />
                                         ) : (
-                                            <Ionicons name="briefcase" size={32} color={Colors.primary} />
+                                            <Ionicons name="business" size={32} color={Colors.primary} />
                                         )}
+                                        <View style={styles.distanceBadge}>
+                                            <Text style={styles.distanceText}>{merchant.distance.toFixed(1)} km</Text>
+                                        </View>
                                     </View>
-                                    <View style={styles.nearbyContent}>
-                                        <Text style={styles.nearbyTitle} numberOfLines={1}>{merchant.businessName}</Text>
+                                    <View style={styles.merchantInfo}>
+                                        <Text style={styles.merchantName} numberOfLines={1}>{merchant.businessName}</Text>
                                         <View style={styles.ratingRow}>
                                             <Ionicons name="star" size={12} color="#FFB000" />
-                                            <Text style={styles.nearbyRating}>{merchant.rating.toFixed(1)}</Text>
-                                            <Text style={styles.nearbyDistance}> · {merchant.distance.toFixed(1)} km</Text>
+                                            <Text style={styles.ratingValue}>{merchant.rating.toFixed(1)}</Text>
                                         </View>
-                                        {merchant.merchantServices[0] && (
-                                            <Text style={styles.nearbyService} numberOfLines={1}>
-                                                {merchant.merchantServices[0].service.name}
-                                            </Text>
+                                        {merchant.isVerified && (
+                                            <View style={styles.verifRow}>
+                                                <Ionicons name="checkmark-circle" size={14} color={Colors.info} />
+                                                <Text style={styles.verifText}>Verified</Text>
+                                            </View>
                                         )}
                                     </View>
-                                    {merchant.isVerified && (
-                                        <View style={styles.verifiedBadge}>
-                                            <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-                                        </View>
-                                    )}
                                 </Pressable>
                             ))}
-                        </ScrollView>
-                    </>
+                        </Animated.ScrollView>
+                    </View>
                 )}
 
-                {/* Featured Services */}
+                {/* Recommended Section */}
                 {featuredServices.length > 0 && (
-                    <>
+                    <View style={styles.recommendedSection}>
                         <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>Recommended for You</Text>
-                            <Pressable onPress={() => router.push('/(tabs)/explore')}>
-                                <Text style={styles.seeAll}>See All</Text>
-                            </Pressable>
+                            <Text style={styles.sectionTitle}>Recommended Services</Text>
                         </View>
-
-                        <View style={styles.featuredContainer}>
-                            {featuredServices.map((service) => {
-                                const providerCount = service._count?.merchantServices || service.merchantServices?.length || 0;
-                                return (
-                                    <Pressable
-                                        key={service.id}
-                                        style={styles.featuredCard}
-                                        onPress={() => router.push(`/(booking)/${service.slug}` as any)}
-                                    >
-                                        <View style={styles.featuredImagePlaceholder}>
-                                            <Ionicons name="construct" size={40} color={Colors.primary} />
-                                        </View>
-                                        <View style={styles.featuredContent}>
-                                            <Text style={styles.featuredTitle}>{service.name}</Text>
-                                            <View style={styles.ratingRow}>
-                                                <Ionicons name="time-outline" size={14} color={Colors.textMuted} />
-                                                <Text style={styles.ratingText}>{service.duration} min</Text>
-                                                {providerCount > 0 && (
-                                                    <Text style={styles.ratingText}> · {providerCount} provider{providerCount > 1 ? 's' : ''}</Text>
-                                                )}
-                                            </View>
-                                            <Text style={styles.priceText}>₹{service.basePrice}</Text>
-                                        </View>
-                                    </Pressable>
-                                );
-                            })}
+                        <View style={styles.recommendedList}>
+                            {featuredServices.map((service) => (
+                                <Pressable
+                                    key={service.id}
+                                    style={styles.serviceCard}
+                                    onPress={() => router.push(`/(booking)/${service.slug}` as any)}
+                                >
+                                    <View style={styles.serviceIconWrap}>
+                                        <Ionicons name="sparkles" size={24} color={Colors.primary} />
+                                    </View>
+                                    <View style={styles.serviceInfo}>
+                                        <Text style={styles.serviceName}>{service.name}</Text>
+                                        <Text style={styles.serviceMeta}>{service.duration} mins • Starting at ₹{service.basePrice}</Text>
+                                    </View>
+                                    <View style={styles.bookBtn}>
+                                        <Text style={styles.bookBtnText}>Book</Text>
+                                    </View>
+                                </Pressable>
+                            ))}
                         </View>
-                    </>
+                    </View>
                 )}
-            </ScrollView>
+            </Animated.ScrollView>
 
-            {/* Location Selection Modal */}
+            {/* Location Selection Modal (Unchanged functionality, improved UI) */}
             <Modal
                 visible={showLocationModal}
                 animationType="slide"
@@ -439,40 +413,34 @@ export default function HomeScreen() {
                             </Pressable>
                         </View>
 
-                        <ScrollView showsVerticalScrollIndicator={false}>
-                            {/* Current Location Option */}
-                            <Pressable 
-                                style={styles.locationOption} 
-                                onPress={handleUpdateToCurrentLocation}
-                            >
+                        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScroll}>
+                            <Pressable style={styles.locationOption} onPress={handleUpdateToCurrentLocation}>
                                 <View style={[styles.optionIcon, { backgroundColor: Colors.primary + '15' }]}>
-                                    <Ionicons name="location" size={20} color={Colors.primary} />
+                                    <Ionicons name="locate" size={20} color={Colors.primary} />
                                 </View>
                                 <View style={styles.optionTextContainer}>
                                     <Text style={styles.optionTitle}>Use Current Location</Text>
-                                    <Text style={styles.optionSub}>Using GPS</Text>
+                                    <Text style={styles.optionSub}>Based on your GPS</Text>
                                 </View>
-                                <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
                             </Pressable>
 
-                            <View style={styles.divider} />
-
-                            <Text style={styles.modalSectionTitle}>Saved Addresses</Text>
+                            <View style={styles.modalDivider} />
+                            <Text style={styles.modalSubheading}>Saved Addresses</Text>
 
                             {isAddressLoading ? (
-                                <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: Spacing.xl }} />
+                                <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 20 }} />
                             ) : savedAddresses.length > 0 ? (
                                 savedAddresses.map((addr) => (
-                                    <Pressable 
-                                        key={addr.id} 
+                                    <Pressable
+                                        key={addr.id}
                                         style={styles.locationOption}
                                         onPress={() => handleAddressSelect(addr)}
                                     >
                                         <View style={[styles.optionIcon, { backgroundColor: Colors.backgroundAlt }]}>
-                                            <Ionicons 
-                                                name={addr.label?.toLowerCase() === 'home' ? 'home' : addr.label?.toLowerCase() === 'work' ? 'briefcase' : 'location'} 
-                                                size={20} 
-                                                color={Colors.text} 
+                                            <Ionicons
+                                                name={addr.label?.toLowerCase() === 'home' ? 'home' : addr.label?.toLowerCase() === 'work' ? 'briefcase' : 'location'}
+                                                size={20}
+                                                color={Colors.text}
                                             />
                                         </View>
                                         <View style={styles.optionTextContainer}>
@@ -481,339 +449,236 @@ export default function HomeScreen() {
                                                 {[addr.line1, addr.city].filter(Boolean).join(', ')}
                                             </Text>
                                         </View>
-                                        <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
                                     </Pressable>
                                 ))
                             ) : (
                                 <View style={styles.emptyState}>
                                     <Text style={styles.emptyText}>No saved addresses found</Text>
-                                    <Pressable 
-                                        style={styles.addBtn}
-                                        onPress={() => {
-                                            setShowLocationModal(false);
-                                            router.push('/(customer)/address/new' as any);
-                                        }}
-                                    >
+                                    <Pressable style={styles.addBtn} onPress={() => { setShowLocationModal(false); router.push('/(customer)/address/new' as any); }}>
                                         <Text style={styles.addBtnText}>+ Add New Address</Text>
                                     </Pressable>
                                 </View>
                             )}
-                        </ScrollView>
+                        </Animated.ScrollView>
                     </View>
                 </View>
             </Modal>
-        </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    nearbyContainer: { paddingHorizontal: Spacing.lg, gap: Spacing.md, marginBottom: Spacing.xl },
-    nearbyCard: {
-        width: 160,
-        backgroundColor: Colors.backgroundAlt,
-        borderRadius: BorderRadius.xl,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: Colors.border,
-        paddingBottom: Spacing.sm,
+    container: { flex: 1, backgroundColor: Colors.background },
+    stickyHeader: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 1000,
     },
-    nearbyImagePlaceholder: {
-        width: '100%',
-        height: 100,
+    scrollContent: { paddingBottom: 120 },
+    heroSection: {
+        paddingHorizontal: Spacing.lg,
+        paddingTop: Spacing.md,
+        paddingBottom: Spacing.xl,
+        backgroundColor: Colors.background,
+    },
+    heroTop: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: Spacing.lg,
+    },
+    greetingTitle: {
+        fontSize: 24,
+        color: Colors.textSecondary,
+        fontWeight: '500',
+    },
+    greetingTitleBold: {
+        fontSize: 32,
+        color: Colors.text,
+        fontWeight: '900',
+        lineHeight: 36,
+    },
+    heroAvatar: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
         backgroundColor: Colors.primary + '10',
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    nearbyContent: { padding: Spacing.sm },
-    nearbyTitle: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.text },
-    nearbyRating: { fontSize: 12, color: Colors.textSecondary, marginLeft: 2 },
-    nearbyDistance: { fontSize: 11, color: Colors.textMuted },
-    nearbyService: { fontSize: 11, color: Colors.primary, marginTop: 4, fontWeight: '600' },
-    verifiedBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: '#FFF', borderRadius: 12 },
-    container: { flex: 1, backgroundColor: Colors.background },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: Spacing.lg,
-        paddingVertical: Spacing.md,
-        justifyContent: 'space-between',
-    },
-    locationContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.backgroundAlt,
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
-        borderRadius: BorderRadius.full,
-        flex: 1,
-        marginRight: Spacing.md,
-    },
-    locationTextContainer: { marginLeft: Spacing.xs, flex: 1 },
-    locationLabel: { fontSize: 10, color: Colors.textMuted, textTransform: 'uppercase', fontWeight: 'bold' },
-    locationValue: { fontSize: 13, color: Colors.text, fontWeight: '700' },
-    notificationBtn: {
-        width: 44,
-        height: 44,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: Colors.backgroundAlt,
-        borderRadius: BorderRadius.md,
-    },
-    notificationBadge: {
-        position: 'absolute',
-        top: -2,
-        right: -4,
-        minWidth: 18,
-        height: 18,
-        borderRadius: 9,
-        backgroundColor: Colors.primary,
         borderWidth: 2,
-        borderColor: Colors.background,
-        justifyContent: 'center' as const,
-        alignItems: 'center' as const,
-        paddingHorizontal: 3,
+        borderColor: Colors.backgroundAlt,
     },
-    badgeText: { fontSize: 9, fontWeight: '800' as const, color: '#fff' },
-    scrollContent: { paddingBottom: 160 },
-    greetingSection: { paddingHorizontal: Spacing.lg, marginVertical: Spacing.md },
-    greeting: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text },
-    subtitle: { fontSize: FontSize.md, color: Colors.textSecondary, marginTop: Spacing.xs },
-    searchSection: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg },
+    avatarImg: { width: '100%', height: '100%', borderRadius: 28 },
+    searchContainer: { marginTop: Spacing.md },
     searchBar: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: Colors.backgroundAlt,
-        borderRadius: BorderRadius.lg,
+        borderRadius: BorderRadius.xl,
         paddingHorizontal: Spacing.md,
-        height: 56,
+        height: 60,
+        borderWidth: 1,
+        borderColor: Colors.border,
     },
-    searchInput: { flex: 1, marginLeft: Spacing.sm, fontSize: FontSize.md, color: Colors.text },
-    searchPlaceholder: { flex: 1, marginLeft: Spacing.sm, fontSize: FontSize.md, color: Colors.textMuted },
+    searchPlaceholder: {
+        flex: 1,
+        marginLeft: Spacing.sm,
+        fontSize: FontSize.md,
+        color: Colors.textMuted,
+        fontWeight: '500',
+    },
     filterBtn: {
         backgroundColor: Colors.primary,
-        width: 40,
-        height: 40,
-        borderRadius: BorderRadius.md,
+        width: 44,
+        height: 44,
+        borderRadius: BorderRadius.lg,
         justifyContent: 'center',
         alignItems: 'center',
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
     },
     pulseWidget: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.primary + '10',
+        backgroundColor: '#000', // Premium black widget
         marginHorizontal: Spacing.lg,
         marginBottom: Spacing.xl,
-        padding: Spacing.md,
-        borderRadius: BorderRadius.xl,
-        borderWidth: 1,
-        borderColor: Colors.primary + '20',
-        gap: Spacing.md,
-    },
-    pulseContainer: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    pulseDot: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: Colors.primary,
-        zIndex: 2,
-    },
-    pulseRing: {
-        position: 'absolute',
-        width: 30,
-        height: 30,
-        borderRadius: 15,
-        borderWidth: 2,
-        borderColor: Colors.primary,
-        opacity: 0.3,
-    },
-    pulseContent: { flex: 1 },
-    pulseTitle: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.text },
-    pulseSub: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
-    bannerContainer: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
-    banner: {
-        width: width - Spacing.lg * 2,
-        height: 160,
-        borderRadius: BorderRadius.xl,
         padding: Spacing.lg,
-        flexDirection: 'row',
-        alignItems: 'center',
-        overflow: 'hidden',
-        marginRight: Spacing.md,
+        borderRadius: BorderRadius.xxl,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 8,
     },
-    bannerIcon: {
-        position: 'absolute',
-        right: 10,
-        top: 40,
-        transform: [{ rotate: '-15deg' }],
-    },
-    bannerContent: { flex: 1, zIndex: 1, justifyContent: 'center' },
-    bannerTitle: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '700' },
-    bannerDiscount: { color: '#FFF', fontSize: 32, fontWeight: '900', marginVertical: 4 },
-    bannerSubtitle: { color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: '600' },
-    bannerBtn: {
-        backgroundColor: '#FFF',
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.xs,
-        borderRadius: BorderRadius.sm,
-        alignSelf: 'flex-start',
-        marginTop: Spacing.md,
-    },
-    bannerBtnText: { color: Colors.text, fontWeight: '700', fontSize: 12 },
-    bannerCircle: {
-        position: 'absolute',
-        right: -50,
-        bottom: -50,
-        width: 150,
-        height: 150,
-        borderRadius: 75,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-    },
+    pulseHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+    pulseIndicator: { width: 24, height: 24, justifyContent: 'center', alignItems: 'center' },
+    pulseDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
+    pulseRing: { position: 'absolute', width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: Colors.primary, opacity: 0.5 },
+    pulseBadgeText: { color: Colors.primary, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+    pulseBody: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    pulseContent: { flex: 1 },
+    pulseTitle: { color: '#FFF', fontSize: 18, fontWeight: '800' },
+    pulseStatus: { color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 2, textTransform: 'capitalize' },
+    bannerList: { paddingLeft: Spacing.lg, paddingRight: Spacing.md, marginBottom: Spacing.xl },
     sectionHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: Spacing.lg,
-        marginBottom: Spacing.md,
+        marginBottom: Spacing.lg,
     },
-    sectionTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
-    seeAll: { color: Colors.primary, fontWeight: '700', fontSize: FontSize.sm },
-    categoryGrid: {
+    sectionTitle: { fontSize: 20, fontWeight: '900', color: Colors.text },
+    seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    seeAllText: { color: Colors.primary, fontWeight: '700', fontSize: 14 },
+    nearbySection: { marginBottom: Spacing.xl },
+    mapBtn: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
-        paddingHorizontal: Spacing.lg,
-        justifyContent: 'space-between',
-        marginBottom: Spacing.xl,
-    },
-    categoryCard: { width: (width - Spacing.lg * 2 - Spacing.md * 3) / 4, alignItems: 'center', marginBottom: Spacing.md },
-    iconContainer: {
-        width: 56,
-        height: 56,
-        borderRadius: BorderRadius.lg,
-        justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: Spacing.xs,
+        gap: 6,
+        backgroundColor: Colors.primary + '10',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: BorderRadius.full,
     },
-    categoryName: { fontSize: 11, fontWeight: '600', color: Colors.text, textAlign: 'center' },
-    featuredContainer: { paddingHorizontal: Spacing.lg },
-    featuredCard: {
-        flexDirection: 'row',
+    mapBtnText: { color: Colors.primary, fontWeight: '700', fontSize: 12 },
+    nearbyList: { paddingLeft: Spacing.lg, paddingRight: Spacing.md, gap: Spacing.md },
+    merchantCard: {
+        width: 180,
+        backgroundColor: '#fff',
+        borderRadius: BorderRadius.xl,
+        padding: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    merchantImageContainer: {
+        width: '100%',
+        height: 110,
+        borderRadius: BorderRadius.lg,
         backgroundColor: Colors.backgroundAlt,
-        borderRadius: BorderRadius.lg,
-        overflow: 'hidden',
-        padding: Spacing.sm,
+        justifyContent: 'center',
         alignItems: 'center',
+        overflow: 'hidden',
+        marginBottom: 10,
     },
-    featuredImagePlaceholder: {
-        width: 80,
-        height: 80,
-        borderRadius: BorderRadius.md,
-        backgroundColor: '#FFF',
+    merchantLogo: { width: '100%', height: '100%' },
+    distanceBadge: {
+        position: 'absolute',
+        bottom: 8,
+        left: 8,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    distanceText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+    merchantInfo: { gap: 2 },
+    merchantName: { fontSize: 15, fontWeight: '800', color: Colors.text },
+    ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    ratingValue: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
+    verifRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+    verifText: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
+    recommendedSection: { paddingHorizontal: Spacing.lg },
+    recommendedList: { gap: Spacing.md },
+    serviceCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderRadius: BorderRadius.xl,
+        padding: Spacing.md,
+        borderWidth: 1,
+        borderColor: Colors.border,
+    },
+    serviceIconWrap: {
+        width: 52,
+        height: 52,
+        borderRadius: BorderRadius.lg,
+        backgroundColor: Colors.primary + '10',
         justifyContent: 'center',
         alignItems: 'center',
     },
-    featuredContent: { marginLeft: Spacing.md, flex: 1 },
-    featuredTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
-    ratingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-    ratingText: { fontSize: 12, color: Colors.textSecondary, marginLeft: 4 },
-    priceText: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.primary, marginTop: Spacing.xs },
-    
-    // Modal Styles
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-end',
+    serviceInfo: { flex: 1, marginLeft: Spacing.md },
+    serviceName: { fontSize: 16, fontWeight: '800', color: Colors.text },
+    serviceMeta: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
+    bookBtn: {
+        backgroundColor: Colors.primary,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: BorderRadius.md,
     },
+    bookBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+
+    // Modal Styles
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
     modalContent: {
-        backgroundColor: Colors.background,
-        borderTopLeftRadius: BorderRadius.xxl,
-        borderTopRightRadius: BorderRadius.xxl,
-        paddingTop: Spacing.lg,
-        paddingBottom: Spacing.xxl,
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        paddingTop: 20,
+        paddingBottom: 40,
         maxHeight: '80%',
     },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: Spacing.lg,
-        marginBottom: Spacing.xl,
-    },
-    modalTitle: {
-        fontSize: FontSize.xl,
-        fontWeight: '800',
-        color: Colors.text,
-    },
-    closeBtn: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: Colors.backgroundAlt,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    modalSectionTitle: {
-        fontSize: FontSize.md,
-        fontWeight: '700',
-        color: Colors.text,
-        paddingHorizontal: Spacing.lg,
-        marginBottom: Spacing.md,
-    },
-    locationOption: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: Spacing.lg,
-        paddingVertical: Spacing.md,
-    },
-    optionIcon: {
-        width: 44,
-        height: 44,
-        borderRadius: BorderRadius.lg,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: Spacing.md,
-    },
-    optionTextContainer: {
-        flex: 1,
-    },
-    optionTitle: {
-        fontSize: FontSize.md,
-        fontWeight: '700',
-        color: Colors.text,
-    },
-    optionSub: {
-        fontSize: FontSize.xs,
-        color: Colors.textMuted,
-        marginTop: 2,
-    },
-    divider: {
-        height: 1,
-        backgroundColor: Colors.border,
-        marginHorizontal: Spacing.lg,
-        marginVertical: Spacing.lg,
-    },
-    emptyState: {
-        alignItems: 'center',
-        paddingVertical: Spacing.xl,
-    },
-    emptyText: {
-        fontSize: FontSize.sm,
-        color: Colors.textMuted,
-        marginBottom: Spacing.md,
-    },
-    addBtn: {
-        paddingHorizontal: Spacing.lg,
-        paddingVertical: Spacing.sm,
-        backgroundColor: Colors.primary + '10',
-        borderRadius: BorderRadius.md,
-    },
-    addBtnText: {
-        color: Colors.primary,
-        fontWeight: '700',
-        fontSize: FontSize.sm,
-    },
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
+    modalTitle: { fontSize: 24, fontWeight: '900', color: Colors.text },
+    closeBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.backgroundAlt, justifyContent: 'center', alignItems: 'center' },
+    modalScroll: { paddingHorizontal: 24 },
+    locationOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderRadius: 16 },
+    optionIcon: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+    optionTextContainer: { flex: 1 },
+    optionTitle: { fontSize: 16, fontWeight: '800', color: Colors.text },
+    optionSub: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
+    modalDivider: { height: 1, backgroundColor: Colors.border, marginVertical: 20 },
+    modalSubheading: { fontSize: 15, fontWeight: '800', color: Colors.textMuted, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
+    emptyState: { alignItems: 'center', paddingVertical: 32 },
+    emptyText: { color: Colors.textMuted, marginBottom: 16 },
+    addBtn: { backgroundColor: Colors.primary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 },
+    addBtnText: { color: '#fff', fontWeight: '800' },
 });

@@ -4,24 +4,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '../../../constants/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { CustomTabBar } from '../../../components/navigation/CustomTabBar';
 
 export default function AgentTabLayout() {
     const insets = useSafeAreaInsets();
 
     return (
         <Tabs
+            tabBar={props => <CustomTabBar {...props} />}
             screenOptions={{
                 headerShown: false,
-                tabBarActiveTintColor: Colors.primary,
+                tabBarActiveTintColor: '#FFFFFF',
                 tabBarInactiveTintColor: Colors.textMuted,
-                tabBarStyle: [
-                    styles.tabBar,
-                    {
-                        height: 64 + insets.bottom,
-                        paddingBottom: insets.bottom > 0 ? insets.bottom : 12,
-                    }
-                ],
-                tabBarLabelStyle: styles.tabLabel,
             }}
         >
             <Tabs.Screen

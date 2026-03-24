@@ -13,6 +13,7 @@ import {
     ChevronLeft, Pencil, Check, Camera, Store,
     Phone, MapPin, ShieldCheck, Star, ChevronRight, AlertCircle,
 } from 'lucide-react-native';
+import * as Location from 'expo-location';
 
 import { Colors, Spacing } from '../../constants/theme';
 import { merchantApi, MerchantSettings } from '../../lib/merchant';
@@ -30,6 +31,8 @@ export default function MerchantProfileScreen() {
         businessName: '', description: '', phone: '',
         address: '', city: '', state: '', zipCode: '',
         logoUrl: '', coverImageUrl: '',
+        latitude: null as number | null, longitude: null as number | null,
+        serviceRadius: 50,
     });
 
     const fetchSettings = useCallback(async () => {
@@ -42,6 +45,8 @@ export default function MerchantProfileScreen() {
                 phone: s.phone || '', address: s.address || '', city: s.city || '',
                 state: s.state || '', zipCode: s.zipCode || '',
                 logoUrl: s.logoUrl || '', coverImageUrl: s.coverImageUrl || '',
+                latitude: s.latitude, longitude: s.longitude,
+                serviceRadius: s.serviceRadius || 50,
             });
         } catch { console.error('Error fetching settings'); }
         finally { setLoading(false); setRefreshing(false); }
@@ -245,6 +250,47 @@ export default function MerchantProfileScreen() {
                                 <TextInput style={[styles.input, { width: 80 }]} value={form.zipCode}
                                     onChangeText={(t) => setForm(p => ({ ...p, zipCode: t }))} placeholder="Zip" keyboardType="number-pad" placeholderTextColor="#CBD5E1" />
                             </View>
+                            
+                            <View style={styles.radiusControl}>
+                                <Text style={styles.cardLabel}>SERVICE RANGE (KM)</Text>
+                                <View style={styles.row}>
+                                    <View style={styles.radiusInputWrapper}>
+                                        <TextInput 
+                                            style={styles.input} 
+                                            value={String(form.serviceRadius)}
+                                            onChangeText={(t) => setForm(p => ({ ...p, serviceRadius: parseInt(t) || 0 }))} 
+                                            keyboardType="number-pad" 
+                                        />
+                                        <Text style={styles.unitText}>KM</Text>
+                                    </View>
+                                    <Pressable 
+                                        style={styles.locationSyncBtn}
+                                        onPress={async () => {
+                                            try {
+                                                const { status } = await Location.requestForegroundPermissionsAsync();
+                                                if (status !== 'granted') {
+                                                    Alert.alert('Permission Denied', 'Location permission is required to sync your business coordinates.');
+                                                    return;
+                                                }
+                                                const location = await Location.getCurrentPositionAsync({});
+                                                setForm(p => ({ 
+                                                    ...p, 
+                                                    latitude: location.coords.latitude, 
+                                                    longitude: location.coords.longitude 
+                                                }));
+                                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                                Alert.alert('Location Updated', 'Your business coordinates have been set to your current position. Save to apply.');
+                                            } catch (err) {
+                                                Alert.alert('Error', 'Failed to fetch location. Please try again.');
+                                            }
+                                        }}
+                                    >
+                                        <MapPin size={16} color="white" />
+                                        <Text style={styles.syncBtnText}>Get Current GPS</Text>
+                                    </Pressable>
+                                </View>
+                                <Text style={styles.helperText}>Customers within this range will see your business.</Text>
+                            </View>
                         </View>
                     )}
 
@@ -406,4 +452,14 @@ const styles = StyleSheet.create({
         paddingVertical: 16, gap: 8,
     },
     verifyBtnText: { color: '#FFF', fontSize: 16, fontWeight: '800' },
+
+    radiusControl: { marginTop: 12, gap: 8 },
+    radiusInputWrapper: { flex: 1, position: 'relative', justifyContent: 'center' },
+    unitText: { position: 'absolute', right: 12, fontSize: 12, fontWeight: '700', color: '#94A3B8' },
+    locationSyncBtn: {
+        flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.primary,
+        paddingHorizontal: 16, borderRadius: 12, gap: 8, height: 44,
+    },
+    syncBtnText: { color: 'white', fontSize: 13, fontWeight: '700' },
+    helperText: { fontSize: 11, color: '#94A3B8', fontStyle: 'italic' },
 });

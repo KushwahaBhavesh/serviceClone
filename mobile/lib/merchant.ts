@@ -123,6 +123,8 @@ export interface MerchantSettings {
     city: string | null;
     state: string | null;
     zipCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
     serviceRadius: number;
     rating: number;
     totalReviews: number;

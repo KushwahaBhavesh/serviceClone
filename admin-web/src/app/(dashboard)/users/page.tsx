@@ -185,7 +185,7 @@ export default function UsersPage() {
                           {editingRoleId === user.id ? (
                             <div className="flex items-center gap-1">
                               <select
-                                className="text-[10px] font-bold border rounded p-1 bg-white outline-none"
+                                className="text-[10px] font-bold border-2 border-slate-100 rounded-xl px-2 py-1 bg-white outline-none focus:border-[#FF6B00] transition-colors shadow-sm"
                                 value={selectedRole}
                                 onChange={(e) => setSelectedRole(e.target.value)}
                               >

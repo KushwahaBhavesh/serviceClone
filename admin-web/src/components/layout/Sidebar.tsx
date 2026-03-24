@@ -10,7 +10,8 @@ import {
   CalendarDays,
   Layers,
   LogOut,
-  ShieldAlert
+  ShieldAlert,
+  XCircle
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -24,7 +25,7 @@ const NAV_ITEMS = [
   { href: '/catalog', label: 'Catalog', icon: Layers },
 ];
 
-export function Sidebar() {
+export function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { logout, user } = useAuthStore();
@@ -44,14 +45,22 @@ export function Sidebar() {
   return (
     <aside className="w-68 border-r border-slate-200 bg-white hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 enterprise-shadow">
       {/* Brand */}
-      <div className="h-20 flex items-center px-6 border-b border-slate-100">
-        <div className="h-10 w-10 bg-[#FF6B00] rounded-xl flex items-center justify-center mr-3 shadow-lg shadow-orange-200/50 rotate-3 transform">
-          <span className="text-white font-black text-lg tracking-tight">S</span>
+      <div className="h-20 flex items-center px-6 border-b border-slate-100 justify-between">
+        <div className="flex items-center">
+          <div className="h-10 w-10 bg-[#FF6B00] rounded-xl flex items-center justify-center mr-3 shadow-lg shadow-orange-200/50 rotate-3 transform">
+            <span className="text-white font-black text-lg tracking-tight">S</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="font-bold text-slate-900 text-base leading-tight tracking-tight">ServiceClone</span>
+            <span className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400">Admin Portal</span>
+          </div>
         </div>
-        <div className="flex flex-col">
-          <span className="font-bold text-slate-900 text-base leading-tight tracking-tight">ServiceClone</span>
-          <span className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400">Admin Portal</span>
-        </div>
+        <button
+          onClick={onClose}
+          className="md:hidden p-2 text-slate-400 hover:text-slate-900"
+        >
+          <XCircle size={20} />
+        </button>
       </div>
 
       {/* Nav Links */}
@@ -63,6 +72,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onClose}
               className="relative block group"
             >
               <div className={cn(

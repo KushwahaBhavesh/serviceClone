@@ -13,10 +13,9 @@ const PAGE_TITLES: Record<string, string> = {
   '/catalog': 'Service Catalog',
 };
 
-export function Header() {
+export function Header({ onMenuClick }: { onMenuClick?: () => void }) {
   const { user } = useAuthStore();
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   const pageTitle = Object.entries(PAGE_TITLES).find(([path]) => pathname.startsWith(path))?.[1] || 'Dashboard';
 
@@ -24,7 +23,7 @@ export function Header() {
     <header className="h-20 flex items-center justify-between px-8 bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-20">
       <div className="flex items-center md:hidden">
         <button
-          onClick={() => setMobileOpen(!mobileOpen)}
+          onClick={onMenuClick}
           className="text-slate-900 p-2 -ml-2 rounded-xl hover:bg-slate-100 transition-colors"
         >
           <Menu size={22} />

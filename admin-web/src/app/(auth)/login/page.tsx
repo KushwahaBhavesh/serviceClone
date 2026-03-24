@@ -40,7 +40,7 @@ export default function LoginPage() {
       setAuth(user, token);
       router.push('/'); // Dashboard
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Invalid credentials.');
+      setError(err.response?.data?.message || err.response?.data?.error || 'Invalid credentials.');
     } finally {
       setLoading(false);
     }

@@ -12,8 +12,9 @@ import {
     Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import MapView, { Marker, Callout } from 'react-native-maps';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../constants/theme';
@@ -43,6 +44,7 @@ const SORT_OPTIONS: { value: SortByOption; label: string; icon: keyof typeof Ion
 
 export default function ExploreScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const { user } = useAuthStore();
     const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
     const [categories, setCategories] = useState<Category[]>([]);
@@ -134,18 +136,20 @@ export default function ExploreScreen() {
         );
     };
 
-    const renderServiceCard = ({ item }: { item: Service }) => {
+    const renderServiceCard = ({ item, index }: { item: Service, index: number }) => {
         const merchantCount = item._count?.merchantServices || 0;
         const prices = (item.merchantServices || []).map(ms => ms.price);
         const minPrice = prices.length > 0 ? Math.min(...prices) : item.basePrice;
         const avgRating = (item.merchantServices || []).reduce((acc, curr) => acc + curr.merchant.rating, 0) / (item.merchantServices?.length || 1);
-        const totalReviews = (item.merchantServices || []).reduce((acc, curr) => acc + curr.merchant.totalReviews, 0);
 
         return (
-            <Pressable
-                style={styles.premiumCard}
-                onPress={() => router.push(`/(booking)/${item.slug}`)}
+            <Animated.View
+                entering={FadeInDown.delay(index * 50).springify()}
             >
+                <Pressable
+                    style={styles.premiumCard}
+                    onPress={() => router.push(`/(booking)/${item.slug}`)}
+                >
                 <View style={styles.cardImageContainer}>
                     {item.imageUrl ? (
                         <Image source={{ uri: getImageUrl(item.imageUrl) || '' }} style={styles.cardImage} />
@@ -215,13 +219,14 @@ export default function ExploreScreen() {
                     </View>
                 </View>
             </Pressable>
+            </Animated.View>
         );
     };
 
     const renderHeader = () => (
         <View style={styles.listHeader}>
             {/* Search + Filter Bar */}
-            <View style={styles.searchContainer}>
+            <View style={[styles.searchContainer, { paddingTop: insets.top + Spacing.sm }]}>
                 <View style={styles.searchBar}>
                     <Ionicons name="search" size={20} color={Colors.textMuted} />
                     <TextInput
@@ -305,12 +310,12 @@ export default function ExploreScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.container}>
             <View style={{ flex: 1 }}>
                 {viewMode === 'map' ? (
                     <>
                         {/* Map Header stays fixed in map mode */}
-                        <View style={styles.searchContainer}>
+                        <View style={[styles.searchContainer, { paddingTop: insets.top + Spacing.sm }]}>
                             <View style={styles.searchBar}>
                                 <Ionicons name="search" size={20} color={Colors.textMuted} />
                                 <TextInput
@@ -459,7 +464,7 @@ export default function ExploreScreen() {
                     </View>
                 </View>
             </Modal>
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -469,15 +474,21 @@ const styles = StyleSheet.create({
     searchContainer: { flexDirection: 'row', paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm, paddingBottom: Spacing.sm, gap: Spacing.sm },
     searchBar: {
         flex: 1, flexDirection: 'row', alignItems: 'center',
-        backgroundColor: Colors.backgroundAlt, borderRadius: BorderRadius.lg,
-        paddingHorizontal: Spacing.md, height: 48, gap: Spacing.sm,
+        backgroundColor: Colors.backgroundAlt, borderRadius: 24,
+        paddingHorizontal: Spacing.md, height: 54, gap: Spacing.sm,
+        borderWidth: 1, borderColor: 'rgba(0,0,0,0.03)',
     },
-    searchInput: { flex: 1, fontSize: FontSize.md, color: Colors.text },
+    searchInput: { flex: 1, fontSize: 15, color: Colors.text, fontWeight: '700' },
     filterToggle: {
-        width: 48, height: 48, borderRadius: BorderRadius.lg,
+        width: 54, height: 54, borderRadius: 24,
         backgroundColor: Colors.backgroundAlt, justifyContent: 'center', alignItems: 'center',
+        borderWidth: 1, borderColor: 'rgba(0,0,0,0.03)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.02,
+        shadowRadius: 8,
     },
-    filterToggleActive: { backgroundColor: Colors.primary },
+    filterToggleActive: { backgroundColor: Colors.primary, borderWidth: 0, shadowColor: Colors.primary, shadowOpacity: 0.2 },
     // ─── Sort Row ───
     sortRow: { paddingHorizontal: Spacing.lg, gap: Spacing.sm, paddingBottom: Spacing.sm, alignItems: 'center' },
     sortChip: {
@@ -495,11 +506,25 @@ const styles = StyleSheet.create({
     chipsList: { paddingHorizontal: Spacing.lg, gap: Spacing.sm },
     categoryChip: {
         flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
-        borderRadius: BorderRadius.full, backgroundColor: Colors.backgroundAlt, gap: 6,
+        paddingHorizontal: Spacing.lg, paddingVertical: 12,
+        borderRadius: 24, backgroundColor: '#fff', gap: 10,
+        borderWidth: 1, borderColor: 'rgba(0,0,0,0.02)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.03,
+        shadowRadius: 12,
+        elevation: 1,
     },
-    categoryChipActive: { backgroundColor: Colors.primary },
-    chipText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text },
+    categoryChipActive: { 
+        backgroundColor: Colors.primary,
+        borderColor: Colors.primary,
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.25,
+        shadowRadius: 10,
+        elevation: 4,
+    },
+    chipText: { fontSize: 13, fontWeight: '800', color: Colors.text },
     chipTextActive: { color: '#fff' },
     // ─── List ───
     loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -511,21 +536,21 @@ const styles = StyleSheet.create({
     // ─── Premium Card ───
     premiumCard: {
         backgroundColor: Colors.surface,
-        borderRadius: BorderRadius.xl,
+        borderRadius: 24, // Consistent 24px rounding
         marginHorizontal: Spacing.lg,
         marginBottom: Spacing.md,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: Colors.borderLight,
+        borderColor: 'rgba(0,0,0,0.03)',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: 12 },
         shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 2,
+        shadowRadius: 20,
+        elevation: 4,
     },
     cardImageContainer: {
         width: '100%',
-        height: 160,
+        height: 180, // Slightly taller for more impact
         position: 'relative',
     },
     cardImage: {
@@ -538,94 +563,102 @@ const styles = StyleSheet.create({
         height: '100%',
         justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: Colors.primary + '08',
     },
     ratingBadgeOver: {
         position: 'absolute',
         top: 12,
         right: 12,
-        backgroundColor: 'rgba(255,255,255,0.92)',
+        backgroundColor: 'rgba(255,255,255,0.95)',
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: BorderRadius.md,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 14,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
     },
     ratingBadgeText: {
-        fontSize: 12,
-        fontWeight: '800',
+        fontSize: 13,
+        fontWeight: '900',
         color: Colors.text,
     },
     cardContent: {
-        padding: Spacing.md,
+        padding: Spacing.lg,
     },
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: 4,
+        marginBottom: 8,
     },
     serviceNamePremium: {
-        fontSize: FontSize.lg,
-        fontWeight: '800',
+        fontSize: 20,
+        fontWeight: '900',
         color: Colors.text,
+        letterSpacing: -0.5,
         flex: 1,
     },
     trendingBadge: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
-        backgroundColor: '#FFF5F5',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 4,
+        backgroundColor: '#FFE5E5',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 10,
     },
     trendingText: {
         fontSize: 10,
-        fontWeight: '800',
+        fontWeight: '900',
         color: '#FF4B2B',
     },
     serviceDescPremium: {
-        fontSize: FontSize.sm,
+        fontSize: 14,
         color: Colors.textSecondary,
-        lineHeight: 20,
-        marginBottom: Spacing.md,
+        lineHeight: 22,
+        marginBottom: Spacing.lg,
     },
     cardFooterPremium: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-end',
-        paddingTop: Spacing.md,
+        paddingTop: Spacing.lg,
         borderTopWidth: 1,
-        borderTopColor: Colors.borderLight,
+        borderTopColor: 'rgba(0,0,0,0.03)',
     },
     startsFromText: {
         fontSize: 10,
-        fontWeight: '600',
+        fontWeight: '800',
         color: Colors.textMuted,
         textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        letterSpacing: 1,
     },
     priceRowPremium: {
         flexDirection: 'row',
         alignItems: 'baseline',
-        marginTop: 2,
+        marginTop: 4,
     },
     priceSymbol: {
-        fontSize: 14,
-        fontWeight: '800',
-        color: Colors.primary,
-        marginRight: 1,
-    },
-    priceValuePremium: {
-        fontSize: FontSize.xl,
+        fontSize: 16,
         fontWeight: '900',
         color: Colors.primary,
+        marginRight: 2,
+    },
+    priceValuePremium: {
+        fontSize: 26,
+        fontWeight: '900',
+        color: Colors.primary,
+        letterSpacing: -1,
     },
     unitTextPremium: {
-        fontSize: 12,
+        fontSize: 14,
         color: Colors.textMuted,
-        marginLeft: 2,
+        marginLeft: 4,
+        fontWeight: '600',
     },
     providerInfoPremium: {
         alignItems: 'flex-end',

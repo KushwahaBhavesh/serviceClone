@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../../constants/theme';
 import { customerApi, type WalletTransaction } from '../../../lib/marketplace';
 
@@ -94,7 +95,12 @@ export default function WalletScreen() {
 
             {/* Wallet Card */}
             <View style={styles.cardContainer}>
-                <View style={styles.walletCard}>
+                <LinearGradient
+                    colors={[Colors.primary, '#1E293B']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.walletCard}
+                >
                     <View style={styles.cardHighlight} />
                     <View style={styles.cardContent}>
                         <Text style={styles.balanceLabel}>Current Balance</Text>
@@ -102,12 +108,12 @@ export default function WalletScreen() {
 
                         <View style={styles.cardActionRow}>
                             <Pressable style={styles.cardActionBtn}>
-                                <Ionicons name="add" size={20} color="white" />
+                                <Ionicons name="add" size={20} color={Colors.primary} />
                                 <Text style={styles.cardActionText}>Add Money</Text>
                             </Pressable>
                         </View>
                     </View>
-                </View>
+                </LinearGradient>
             </View>
 
             {/* Transactions Section */}
@@ -148,26 +154,33 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.md,
     },
     backBtn: {
-        width: 44, height: 44,
-        borderRadius: BorderRadius.md,
-        backgroundColor: Colors.backgroundAlt,
+        width: 48, height: 48,
+        borderRadius: 24,
+        backgroundColor: '#FFF',
         justifyContent: 'center',
         alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.05)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.03,
+        shadowRadius: 10,
+        elevation: 2,
     },
     headerTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
     cardContainer: { padding: Spacing.lg },
     walletCard: {
         width: '100%',
-        height: 180,
+        height: 190,
         backgroundColor: Colors.primary,
-        borderRadius: BorderRadius.xxl || 24, // Use xxl or fallback
+        borderRadius: 32,
         overflow: 'hidden',
         padding: Spacing.xl,
         justifyContent: 'center',
         shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
         elevation: 10,
     },
     cardHighlight: {
@@ -184,22 +197,26 @@ const styles = StyleSheet.create({
     cardActionBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        paddingHorizontal: Spacing.md,
-        paddingVertical: Spacing.sm,
-        borderRadius: BorderRadius.full,
-        gap: 4,
+        backgroundColor: '#FFF',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 14,
+        gap: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
     },
-    cardActionText: { color: 'white', fontWeight: '700', fontSize: FontSize.sm },
+    cardActionText: { color: Colors.primary, fontWeight: '800', fontSize: 13 },
     historySection: { flex: 1, paddingHorizontal: Spacing.lg },
     sectionTitle: { fontSize: FontSize.md, fontWeight: '800', color: Colors.text, marginBottom: Spacing.md },
     listContent: { paddingBottom: Spacing.xxl + 20 },
     transactionItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: Spacing.md,
+        paddingVertical: 18,
         borderBottomWidth: 1,
-        borderBottomColor: Colors.borderLight,
+        borderBottomColor: 'rgba(0,0,0,0.04)',
     },
     iconBox: {
         width: 44, height: 44,

@@ -27,7 +27,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { catalogApi, bookingApi, customerApi, type Category, type Service, type Booking, type NearbyMerchant, type Promotion, type Address } from '../../lib/marketplace';
 import { HomeHeader } from '../../components/navigation/HomeHeader';
 import { PromotionBanner } from '../../components/ui/PromotionBanner';
-import { ModernCategoryGrid } from '../../components/ui/ModernCategoryGrid';
+import { ImmersiveHero } from '../../components/ui/ImmersiveHero';
+import { BentoCategoryGrid } from '../../components/ui/BentoCategoryGrid';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
@@ -56,8 +58,13 @@ export default function HomeScreen() {
     };
 
     const headerAnimatedStyle = useAnimatedStyle(() => {
-        const opacity = interpolate(scrollY.value, [0, 50], [0, 1], Extrapolate.CLAMP);
-        return { opacity };
+        // Only show the minimalist sticky header after scrolling past the main hero content
+        const opacity = interpolate(scrollY.value, [100, 200], [0, 1], Extrapolate.CLAMP);
+        const translateY = interpolate(scrollY.value, [100, 200], [-20, 0], Extrapolate.CLAMP);
+        return {
+            opacity,
+            transform: [{ translateY }]
+        };
     });
 
     const fetchAddresses = useCallback(async () => {
@@ -213,7 +220,7 @@ export default function HomeScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Animated Sticky Header */}
+            {/* Animated Sticky Header - Minimalist version when scrolled */}
             <Animated.View style={[styles.stickyHeader, { paddingTop: insets.top }, headerAnimatedStyle]}>
                 <HomeHeader
                     user={user}
@@ -229,38 +236,19 @@ export default function HomeScreen() {
                 onScroll={onScroll}
                 scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top }]}
+                contentContainerStyle={[styles.scrollContent]}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} progressViewOffset={insets.top + 20} />
                 }
             >
-                {/* Hero Greeting Section */}
-                <View style={styles.heroSection}>
-                    <View style={styles.heroTop}>
-                        <View>
-                            <Text style={styles.greetingTitle}>Find your</Text>
-                            <Text style={styles.greetingTitleBold}>Next Service</Text>
-                        </View>
-                        <Pressable style={styles.heroAvatar} onPress={() => router.push('/(tabs)/profile' as any)}>
-                            {user?.avatarUrl ? (
-                                <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg} />
-                            ) : (
-                                <Ionicons name="person" size={24} color={Colors.primary} />
-                            )}
-                        </Pressable>
-                    </View>
+                {/* Premium Hero Section */}
+                <ImmersiveHero
+                    user={user}
+                    onProfilePress={() => router.push('/(tabs)/profile' as any)}
+                    onSearchPress={() => router.push('/(tabs)/explore')}
+                />
 
-                    {/* Search Bar - Integrated into Hero */}
-                    <View style={styles.searchContainer}>
-                        <Pressable style={styles.searchBar} onPress={() => router.push('/(tabs)/explore')}>
-                            <Ionicons name="search" size={20} color={Colors.textMuted} />
-                            <Text style={styles.searchPlaceholder}>Try "AC Repair" or "Plumber"</Text>
-                            <View style={styles.filterBtn}>
-                                <Ionicons name="options-outline" size={20} color={Colors.textOnPrimary} />
-                            </View>
-                        </Pressable>
-                    </View>
-                </View>
+                <View style={{ height: 40 }} /> {/* Spacer for floating search bar */}
 
                 {/* Active Booking Pulse Widget */}
                 {activeBooking && (
@@ -268,20 +256,27 @@ export default function HomeScreen() {
                         style={styles.pulseWidget}
                         onPress={() => router.push(`/(booking)/tracking/${activeBooking.id}` as any)}
                     >
-                        <View style={styles.pulseHeader}>
-                            <View style={styles.pulseIndicator}>
-                                <View style={styles.pulseDot} />
-                                <View style={styles.pulseRing} />
+                        <LinearGradient
+                            colors={['#1e293b', '#0f172a']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.pulseGradient}
+                        >
+                            <View style={styles.pulseHeader}>
+                                <View style={styles.pulseIndicator}>
+                                    <View style={styles.pulseDot} />
+                                    <View style={styles.pulseRing} />
+                                </View>
+                                <Text style={styles.pulseBadgeText}>LIVE TRACKING</Text>
                             </View>
-                            <Text style={styles.pulseBadgeText}>LIVE TRACKING</Text>
-                        </View>
-                        <View style={styles.pulseBody}>
-                            <View style={styles.pulseContent}>
-                                <Text style={styles.pulseTitle}>{activeBooking.items[0]?.service?.name || 'Ongoing Service'}</Text>
-                                <Text style={styles.pulseStatus}>{activeBooking.status.replace('_', ' ')}</Text>
+                            <View style={styles.pulseBody}>
+                                <View style={styles.pulseContent}>
+                                    <Text style={styles.pulseTitle}>{activeBooking.items[0]?.service?.name || 'Ongoing Service'}</Text>
+                                    <Text style={styles.pulseStatus}>{activeBooking.status.replace('_', ' ')}</Text>
+                                </View>
+                                <Ionicons name="chevron-forward-circle" size={32} color={Colors.primary} />
                             </View>
-                            <Ionicons name="chevron-forward-circle" size={32} color={Colors.primary} />
-                        </View>
+                        </LinearGradient>
                     </Pressable>
                 )}
 
@@ -310,10 +305,9 @@ export default function HomeScreen() {
                     </Pressable>
                 </View>
 
-                <ModernCategoryGrid
+                <BentoCategoryGrid
                     categories={categories}
                     onCategoryPress={handleCategoryPress}
-                    isLoading={isLoading}
                 />
 
                 {/* Nearby Providers Section */}
@@ -327,12 +321,8 @@ export default function HomeScreen() {
                             </Pressable>
                         </View>
 
-                        <Animated.ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.nearbyList}
-                        >
-                            {nearbyMerchants.map((merchant) => (
+                        <View style={styles.nearbyList}>
+                            {nearbyMerchants.slice(0, 3).map((merchant) => (
                                 <Pressable
                                     key={merchant.id}
                                     style={styles.merchantCard}
@@ -342,28 +332,40 @@ export default function HomeScreen() {
                                         {merchant.logoUrl ? (
                                             <Image source={{ uri: merchant.logoUrl }} style={styles.merchantLogo} />
                                         ) : (
-                                            <Ionicons name="business" size={32} color={Colors.primary} />
+                                            <View style={styles.logoPlaceholder}>
+                                                <Ionicons name="business" size={32} color={Colors.primary} />
+                                            </View>
                                         )}
                                         <View style={styles.distanceBadge}>
+                                            <Ionicons name="navigate" size={12} color="#fff" />
                                             <Text style={styles.distanceText}>{merchant.distance.toFixed(1)} km</Text>
                                         </View>
                                     </View>
                                     <View style={styles.merchantInfo}>
-                                        <Text style={styles.merchantName} numberOfLines={1}>{merchant.businessName}</Text>
-                                        <View style={styles.ratingRow}>
-                                            <Ionicons name="star" size={12} color="#FFB000" />
-                                            <Text style={styles.ratingValue}>{merchant.rating.toFixed(1)}</Text>
-                                        </View>
-                                        {merchant.isVerified && (
-                                            <View style={styles.verifRow}>
-                                                <Ionicons name="checkmark-circle" size={14} color={Colors.info} />
-                                                <Text style={styles.verifText}>Verified</Text>
+                                        <View style={styles.merchantMainInfo}>
+                                            <Text style={styles.merchantName} numberOfLines={1}>{merchant.businessName}</Text>
+                                            <View style={styles.ratingRow}>
+                                                <Ionicons name="star" size={14} color="#FFB000" />
+                                                <Text style={styles.ratingValue}>{merchant.rating.toFixed(1)}</Text>
                                             </View>
-                                        )}
+                                        </View>
+                                        
+                                        <View style={styles.merchantFooter}>
+                                            {merchant.isVerified && (
+                                                <View style={styles.verifRow}>
+                                                    <Ionicons name="checkmark-circle" size={14} color={Colors.info} />
+                                                    <Text style={styles.verifText}>Verified Professional</Text>
+                                                </View>
+                                            )}
+                                            <View style={styles.viewProfileBtn}>
+                                                <Text style={styles.viewProfileText}>View Profile</Text>
+                                                <Ionicons name="arrow-forward" size={12} color={Colors.primary} />
+                                            </View>
+                                        </View>
                                     </View>
                                 </Pressable>
                             ))}
-                        </Animated.ScrollView>
+                        </View>
                     </View>
                 )}
 
@@ -477,82 +479,19 @@ const styles = StyleSheet.create({
         zIndex: 1000,
     },
     scrollContent: { paddingBottom: 120 },
-    heroSection: {
-        paddingHorizontal: Spacing.lg,
-        paddingTop: Spacing.md,
-        paddingBottom: Spacing.xl,
-        backgroundColor: Colors.background,
-    },
-    heroTop: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: Spacing.lg,
-    },
-    greetingTitle: {
-        fontSize: 24,
-        color: Colors.textSecondary,
-        fontWeight: '500',
-    },
-    greetingTitleBold: {
-        fontSize: 32,
-        color: Colors.text,
-        fontWeight: '900',
-        lineHeight: 36,
-    },
-    heroAvatar: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: Colors.primary + '10',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: Colors.backgroundAlt,
-    },
-    avatarImg: { width: '100%', height: '100%', borderRadius: 28 },
-    searchContainer: { marginTop: Spacing.md },
-    searchBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.backgroundAlt,
-        borderRadius: BorderRadius.xl,
-        paddingHorizontal: Spacing.md,
-        height: 60,
-        borderWidth: 1,
-        borderColor: Colors.border,
-    },
-    searchPlaceholder: {
-        flex: 1,
-        marginLeft: Spacing.sm,
-        fontSize: FontSize.md,
-        color: Colors.textMuted,
-        fontWeight: '500',
-    },
-    filterBtn: {
-        backgroundColor: Colors.primary,
-        width: 44,
-        height: 44,
-        borderRadius: BorderRadius.lg,
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 4,
-    },
     pulseWidget: {
-        backgroundColor: '#000', // Premium black widget
         marginHorizontal: Spacing.lg,
         marginBottom: Spacing.xl,
-        padding: Spacing.lg,
-        borderRadius: BorderRadius.xxl,
+        borderRadius: 24,
+        overflow: 'hidden',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.2,
+        shadowRadius: 16,
         elevation: 8,
+    },
+    pulseGradient: {
+        padding: Spacing.lg,
     },
     pulseHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
     pulseIndicator: { width: 24, height: 24, justifyContent: 'center', alignItems: 'center' },
@@ -571,7 +510,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
         marginBottom: Spacing.lg,
     },
-    sectionTitle: { fontSize: 20, fontWeight: '900', color: Colors.text },
+    sectionTitle: { fontSize: 20, fontWeight: '900', color: Colors.text, letterSpacing: -0.5 },
     seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     seeAllText: { color: Colors.primary, fontWeight: '700', fontSize: 14 },
     nearbySection: { marginBottom: Spacing.xl },
@@ -579,63 +518,97 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        backgroundColor: Colors.primary + '10',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: BorderRadius.full,
-    },
-    mapBtnText: { color: Colors.primary, fontWeight: '700', fontSize: 12 },
-    nearbyList: { paddingLeft: Spacing.lg, paddingRight: Spacing.md, gap: Spacing.md },
-    merchantCard: {
-        width: 180,
-        backgroundColor: '#fff',
-        borderRadius: BorderRadius.xl,
-        padding: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
+        backgroundColor: Colors.primary + '12',
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 24,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: Colors.primary + '20',
+    },
+    mapBtnText: { color: Colors.primary, fontWeight: '800', fontSize: 12, letterSpacing: -0.2 },
+    nearbyList: { 
+        paddingHorizontal: Spacing.lg, 
+        gap: Spacing.lg,
+    },
+    merchantCard: {
+        width: '100%',
+        backgroundColor: '#fff',
+        borderRadius: 24,
+        padding: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.04,
+        shadowRadius: 18,
+        elevation: 4,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.02)',
     },
     merchantImageContainer: {
         width: '100%',
-        height: 110,
-        borderRadius: BorderRadius.lg,
+        height: 160,
+        borderRadius: 20,
         backgroundColor: Colors.backgroundAlt,
         justifyContent: 'center',
         alignItems: 'center',
         overflow: 'hidden',
-        marginBottom: 10,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.01)',
+    },
+    logoPlaceholder: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: Colors.primary + '05',
     },
     merchantLogo: { width: '100%', height: '100%' },
     distanceBadge: {
         position: 'absolute',
-        bottom: 8,
-        left: 8,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
+        top: 12,
+        right: 12,
+        backgroundColor: 'rgba(255,107,0,0.95)',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
     },
-    distanceText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-    merchantInfo: { gap: 2 },
-    merchantName: { fontSize: 15, fontWeight: '800', color: Colors.text },
-    ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    ratingValue: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
-    verifRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-    verifText: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
+    distanceText: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+    merchantInfo: { gap: 8 },
+    merchantMainInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    merchantName: { fontSize: 18, fontWeight: '900', color: Colors.text, letterSpacing: -0.5 },
+    ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    ratingValue: { fontSize: 14, fontWeight: '800', color: Colors.textSecondary },
+    merchantFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    verifRow: { 
+        flexDirection: 'row', alignItems: 'center', gap: 4,
+        backgroundColor: Colors.info + '10', paddingHorizontal: 10, paddingVertical: 5,
+        borderRadius: 8,
+    },
+    verifText: { fontSize: 11, fontWeight: '800', color: Colors.info, transform: [{ translateY: -0.5 }] },
+    viewProfileBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    viewProfileText: { fontSize: 13, fontWeight: '800', color: Colors.primary },
     recommendedSection: { paddingHorizontal: Spacing.lg },
     recommendedList: { gap: Spacing.md },
     serviceCard: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#fff',
-        borderRadius: BorderRadius.xl,
+        borderRadius: 24,
         padding: Spacing.md,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: 'rgba(0,0,0,0.02)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.03,
+        shadowRadius: 15,
+        elevation: 2,
     },
     serviceIconWrap: {
         width: 52,
@@ -650,11 +623,15 @@ const styles = StyleSheet.create({
     serviceMeta: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
     bookBtn: {
         backgroundColor: Colors.primary,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: BorderRadius.md,
+        paddingHorizontal: 18,
+        paddingVertical: 10,
+        borderRadius: 24,
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
     },
-    bookBtnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+    bookBtnText: { color: '#fff', fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
 
     // Modal Styles
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
@@ -662,9 +639,14 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
-        paddingTop: 20,
+        paddingTop: 24,
         paddingBottom: 40,
-        maxHeight: '80%',
+        maxHeight: '85%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -20 },
+        shadowOpacity: 0.1,
+        shadowRadius: 30,
+        elevation: 25,
     },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
     modalTitle: { fontSize: 24, fontWeight: '900', color: Colors.text },

@@ -9,9 +9,10 @@ import {
     RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../constants/theme';
+import Animated, { FadeInDown, useAnimatedStyle, withSpring, useSharedValue } from 'react-native-reanimated';
 import { bookingApi, type Booking } from '../../lib/marketplace';
 
 type TabKey = 'upcoming' | 'past';
@@ -27,6 +28,7 @@ const STATUS_CONFIG: Record<string, { color: string; icon: keyof typeof Ionicons
 
 export default function BookingsScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const [activeTab, setActiveTab] = useState<TabKey>('upcoming');
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -144,22 +146,25 @@ export default function BookingsScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <Text style={styles.screenTitle}>My Bookings</Text>
+        <View style={styles.container}>
+            <Text style={[styles.screenTitle, { paddingTop: insets.top + Spacing.md }]}>My Bookings</Text>
 
             {/* Tabs */}
             <View style={styles.tabRow}>
-                {(['upcoming', 'past'] as TabKey[]).map((tab) => (
-                    <Pressable
-                        key={tab}
-                        style={[styles.tab, activeTab === tab && styles.tabActive]}
-                        onPress={() => setActiveTab(tab)}
-                    >
-                        <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-                            {tab === 'upcoming' ? 'Upcoming' : 'Past'}
-                        </Text>
-                    </Pressable>
-                ))}
+                {(['upcoming', 'past'] as TabKey[]).map((tab) => {
+                    const isActive = activeTab === tab;
+                    return (
+                        <Pressable
+                            key={tab}
+                            style={[styles.tab, isActive && styles.tabActive]}
+                            onPress={() => setActiveTab(tab)}
+                        >
+                            <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+                                {tab === 'upcoming' ? 'Upcoming' : 'Past'}
+                            </Text>
+                        </Pressable>
+                    );
+                })}
             </View>
 
             {/* List */}
@@ -195,7 +200,7 @@ export default function BookingsScreen() {
                     }
                 />
             )}
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -206,68 +211,93 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         color: Colors.text,
         paddingHorizontal: Spacing.lg,
-        paddingTop: Spacing.md,
         paddingBottom: Spacing.sm,
     },
     tabRow: {
         flexDirection: 'row',
-        paddingHorizontal: Spacing.lg,
-        gap: Spacing.sm,
-        marginBottom: Spacing.md,
+        paddingHorizontal: 4,
+        marginHorizontal: Spacing.lg,
+        backgroundColor: Colors.backgroundAlt,
+        borderRadius: 24,
+        padding: 4,
+        marginBottom: Spacing.lg,
+        position: 'relative',
     },
     tab: {
         flex: 1,
-        paddingVertical: Spacing.sm + 2,
-        borderRadius: BorderRadius.full,
-        backgroundColor: Colors.backgroundAlt,
+        paddingVertical: 10,
+        borderRadius: 20,
         alignItems: 'center',
+        zIndex: 1,
     },
-    tabActive: { backgroundColor: Colors.primary },
-    tabText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary },
-    tabTextActive: { color: '#fff' },
+    tabActive: { 
+        backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    tabText: { fontSize: 14, fontWeight: '700', color: Colors.textSecondary },
+    tabTextActive: { color: Colors.primary },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: Spacing.sm },
-    emptyTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text },
+    emptyTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
     emptySubtext: { fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center', paddingHorizontal: Spacing.xl },
     list: { paddingHorizontal: Spacing.lg, paddingBottom: 160, gap: Spacing.md },
     bookingCard: {
-        backgroundColor: Colors.background,
-        borderRadius: BorderRadius.xl,
+        backgroundColor: '#fff',
+        borderRadius: 24, // Consistent premium rounding
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: 'rgba(0,0,0,0.03)',
         padding: Spacing.lg,
         gap: Spacing.sm,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.05,
+        shadowRadius: 15,
+        elevation: 3,
     },
     cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    bookingNumber: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted, letterSpacing: 0.5 },
+    bookingNumber: { fontSize: 10, fontWeight: '800', color: Colors.textMuted, letterSpacing: 1, textTransform: 'uppercase' },
     statusBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: Spacing.sm + 2,
-        paddingVertical: 4,
-        borderRadius: BorderRadius.full,
-        gap: 4,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 14,
+        gap: 6,
     },
-    statusText: { fontSize: FontSize.xs, fontWeight: '700' },
-    serviceNames: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
-    cardMeta: { flexDirection: 'row', gap: Spacing.lg },
-    metaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    metaText: { fontSize: FontSize.xs, color: Colors.textMuted },
-    cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
-    addressLabel: { fontSize: FontSize.sm, color: Colors.textSecondary },
-    totalPrice: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.primary },
+    statusText: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8 },
+    serviceNames: { fontSize: 18, fontWeight: '900', color: Colors.text, letterSpacing: -0.5 },
+    cardMeta: { flexDirection: 'row', gap: Spacing.lg, marginTop: 4 },
+    metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    metaText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
+    cardFooter: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginTop: 8,
+        paddingTop: Spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(0,0,0,0.03)',
+    },
+    addressLabel: { fontSize: 13, color: Colors.textMuted, fontWeight: '500' },
+    totalPrice: { fontSize: 20, fontWeight: '900', color: Colors.primary, letterSpacing: -0.5 },
     reorderBtn: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 6,
-        paddingVertical: 10,
-        backgroundColor: Colors.primary + '10',
-        borderRadius: BorderRadius.md,
-        marginTop: Spacing.md,
+        gap: 8,
+        paddingVertical: 16,
+        backgroundColor: Colors.primary + '08',
+        borderRadius: 24,
+        marginTop: Spacing.sm,
+        borderWidth: 1,
+        borderColor: Colors.primary + '15',
     },
     reorderText: {
-        fontSize: FontSize.md,
-        fontWeight: '700',
+        fontSize: 15,
+        fontWeight: '800',
         color: Colors.primary,
     },
 });

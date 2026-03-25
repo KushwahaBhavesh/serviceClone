@@ -9,6 +9,7 @@ import {
     ActivityIndicator,
     Dimensions,
     Linking,
+    Platform,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -97,14 +98,19 @@ export default function MerchantProfileScreen() {
                         <Pressable style={styles.navBtn} onPress={() => router.back()}>
                             <Ionicons name="arrow-back" size={22} color="white" />
                         </Pressable>
-                        <Pressable
-                            style={styles.navBtn}
-                            onPress={() => {
-                                if (merchant.phone) Linking.openURL(`tel:${merchant.phone}`);
-                            }}
-                        >
-                            <Ionicons name="call-outline" size={20} color="white" />
-                        </Pressable>
+                        <View style={styles.navRight}>
+                            <Pressable
+                                style={styles.navBtn}
+                                onPress={() => {
+                                    if (merchant.phone) Linking.openURL(`tel:${merchant.phone}`);
+                                }}
+                            >
+                                <Ionicons name="call" size={20} color="white" />
+                            </Pressable>
+                            <Pressable style={styles.navBtn}>
+                                <Ionicons name="share-social" size={20} color="white" />
+                            </Pressable>
+                        </View>
                     </SafeAreaView>
 
                     {/* Logo + Name */}
@@ -127,9 +133,13 @@ export default function MerchantProfileScreen() {
                             <Text style={styles.heroName} numberOfLines={2}>
                                 {merchant.businessName}
                             </Text>
-                            {merchant.businessCategory && (
-                                <Text style={styles.heroCategory}>{merchant.businessCategory}</Text>
-                            )}
+                            <View style={styles.heroMeta}>
+                                {merchant.businessCategory && (
+                                    <Text style={styles.heroCategory}>{merchant.businessCategory}</Text>
+                                )}
+                                <View style={styles.heroDot} />
+                                <Text style={styles.heroLocation}>{merchant.city || 'Local Area'}</Text>
+                            </View>
                         </View>
                     </View>
                 </View>
@@ -367,9 +377,11 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.md, paddingTop: Spacing.xs,
     },
     navBtn: {
-        width: 42, height: 42, borderRadius: 21,
-        backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center',
+        width: 48, height: 48, borderRadius: 24,
+        backgroundColor: 'rgba(0,0,0,0.25)', justifyContent: 'center', alignItems: 'center',
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
     },
+    navRight: { flexDirection: 'row', gap: Spacing.sm },
     heroInfo: {
         position: 'absolute', bottom: Spacing.lg, left: Spacing.lg, right: Spacing.lg,
         flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.md,
@@ -387,24 +399,26 @@ const styles = StyleSheet.create({
         backgroundColor: 'white', borderRadius: 12, padding: 1,
     },
     heroTextBlock: { flex: 1 },
-    heroName: { fontSize: FontSize.xxl, fontWeight: '800', color: 'white' },
-    heroCategory: {
-        fontSize: FontSize.sm, color: 'rgba(255,255,255,0.8)', marginTop: 2,
-    },
+    heroName: { fontSize: 26, fontWeight: '900', color: 'white', letterSpacing: -1 },
+    heroMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+    heroCategory: { fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: '600' },
+    heroDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.4)' },
+    heroLocation: { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
 
     // ─── Stats ───
     statsRow: {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        marginHorizontal: Spacing.lg, marginTop: -Spacing.lg,
-        backgroundColor: Colors.surface, borderRadius: BorderRadius.xl,
-        padding: Spacing.md, paddingVertical: Spacing.lg,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
+        marginHorizontal: Spacing.lg, marginTop: -30,
+        backgroundColor: Colors.surface, borderRadius: 24,
+        padding: Spacing.lg,
+        borderWidth: 1, borderColor: 'rgba(0,0,0,0.02)',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.05, shadowRadius: 20, elevation: 4,
     },
     statItem: { flex: 1, alignItems: 'center', gap: 4 },
-    statValue: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
-    statLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
-    statDivider: { width: 1, height: 36, backgroundColor: Colors.border },
+    statValue: { fontSize: 18, fontWeight: '900', color: Colors.text, letterSpacing: -0.5 },
+    statLabel: { fontSize: 10, color: Colors.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+    statDivider: { width: 1, height: 32, backgroundColor: 'rgba(0,0,0,0.04)' },
 
     // ─── Section ───
     section: {
@@ -415,10 +429,10 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.md,
     },
     sectionTitle: {
-        fontSize: FontSize.lg, fontWeight: '700', color: Colors.text, marginBottom: Spacing.md,
+        fontSize: 18, fontWeight: '900', color: Colors.text, marginBottom: Spacing.md, letterSpacing: -0.5,
     },
     aboutText: {
-        fontSize: FontSize.md, color: Colors.textSecondary, lineHeight: 24,
+        fontSize: 15, color: Colors.textSecondary, lineHeight: 22, fontWeight: '500',
     },
     locationRow: {
         flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
@@ -431,11 +445,12 @@ const styles = StyleSheet.create({
     serviceCard: {
         width: CARD_WIDTH,
         backgroundColor: Colors.surface,
-        borderRadius: BorderRadius.xl,
+        borderRadius: 24,
         marginRight: Spacing.md,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.04, shadowRadius: 15, elevation: 3,
         overflow: 'hidden',
+        borderWidth: 1, borderColor: 'rgba(0,0,0,0.02)',
     },
     serviceCardImage: {
         width: '100%', height: 130, backgroundColor: Colors.backgroundAlt,
@@ -464,11 +479,13 @@ const styles = StyleSheet.create({
     },
     serviceBookBtn: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-        backgroundColor: Colors.primary, borderRadius: BorderRadius.full,
-        paddingVertical: Spacing.sm + 2, marginTop: Spacing.md,
+        backgroundColor: Colors.primary, borderRadius: 24,
+        paddingVertical: 14, marginTop: Spacing.md,
+        shadowColor: Colors.primary, shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.25, shadowRadius: 10,
     },
     serviceBookBtnText: {
-        fontSize: FontSize.sm, fontWeight: '700', color: 'white',
+        fontSize: 14, fontWeight: '800', color: 'white',
     },
 
     // ─── Reviews ───
@@ -479,8 +496,13 @@ const styles = StyleSheet.create({
         fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary,
     },
     reviewCard: {
-        backgroundColor: Colors.backgroundAlt, borderRadius: BorderRadius.lg,
-        padding: Spacing.md, marginBottom: Spacing.sm,
+        backgroundColor: '#FFF',
+        borderRadius: 24,
+        padding: Spacing.lg,
+        marginBottom: Spacing.md,
+        borderWidth: 1, borderColor: 'rgba(0,0,0,0.02)',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.03, shadowRadius: 12, elevation: 2,
     },
     reviewHeader: {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
@@ -503,19 +525,21 @@ const styles = StyleSheet.create({
         position: 'absolute', bottom: 0, left: 0, right: 0,
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
         paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
-        paddingBottom: Spacing.xl + 10,
+        paddingBottom: Platform.OS === 'ios' ? 40 : Spacing.xl,
         backgroundColor: Colors.surface,
-        borderTopWidth: 1, borderTopColor: Colors.border,
-        shadowColor: '#000', shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 0.08, shadowRadius: 6, elevation: 8,
+        borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.03)',
+        shadowColor: '#000', shadowOffset: { width: 0, height: -12 },
+        shadowOpacity: 0.05, shadowRadius: 20, elevation: 15,
     },
-    bottomLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
-    bottomPrice: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
+    bottomLabel: { fontSize: 10, color: Colors.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+    bottomPrice: { fontSize: 24, fontWeight: '900', color: Colors.text, letterSpacing: -0.5 },
     bottomCta: {
         flexDirection: 'row', alignItems: 'center', gap: 8,
         backgroundColor: Colors.primary,
-        paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
-        borderRadius: BorderRadius.full,
+        paddingHorizontal: 28, paddingVertical: 16,
+        borderRadius: 24,
+        shadowColor: Colors.primary, shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3, shadowRadius: 15,
     },
-    bottomCtaText: { fontSize: FontSize.md, fontWeight: '700', color: 'white' },
+    bottomCtaText: { fontSize: 15, fontWeight: '800', color: 'white' },
 });

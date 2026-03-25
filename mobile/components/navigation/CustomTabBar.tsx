@@ -8,6 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import Animated, {
   useAnimatedStyle,
   withTiming,
@@ -75,7 +76,11 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
 
   return (
     <View style={[styles.container, { bottom: insets.bottom + 16 }]}>
-      <View style={styles.pill}>
+      <BlurView 
+        intensity={90} 
+        tint="light" 
+        style={styles.pill}
+      >
         {/* Animated Background Indicator */}
         <Animated.View
           style={[
@@ -133,7 +138,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
             </TouchableOpacity>
           );
         })}
-      </View>
+      </BlurView>
     </View>
   );
 }
@@ -184,19 +189,20 @@ const styles = StyleSheet.create({
   },
   pill: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 99,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    borderRadius: 36, // More rounded for premium feel
     padding: 8,
     height: 72,
     width: '100%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
+    shadowOffset: { width: 0, height: 20 },
     shadowOpacity: 0.1,
-    shadowRadius: 24,
+    shadowRadius: 30,
     elevation: 12,
     position: 'relative',
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    overflow: 'hidden', // Required for BlurView rounding
   },
   activeIndicator: {
     position: 'absolute',

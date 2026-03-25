@@ -1,13 +1,15 @@
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../constants/theme';
 import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ProfileScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const { logout, user } = useAuthStore();
 
     const MENU_ITEMS = [
@@ -19,15 +21,20 @@ export default function ProfileScreen() {
     ];
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.container}>
             <ScrollView 
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
             >
                 {/* Header / User Info */}
-                <View style={styles.header}>
+                <LinearGradient
+                    colors={[Colors.primary, '#1A1A1A']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.header, { paddingTop: insets.top + Spacing.xl }]}
+                >
                     <View style={styles.avatarContainer}>
-                        <Ionicons name="person" size={40} color={Colors.primary} />
+                        <Ionicons name="person" size={32} color={Colors.primary} />
                     </View>
                     <View style={styles.userInfo}>
                         <Text style={styles.userName}>{user?.name || 'Guest User'}</Text>
@@ -37,9 +44,9 @@ export default function ProfileScreen() {
                         style={styles.editBtn}
                         onPress={() => router.push('/(customer)/edit-profile')}
                     >
-                        <Ionicons name="create-outline" size={20} color={Colors.primary} />
+                        <Ionicons name="create" size={20} color="#FFF" />
                     </Pressable>
-                </View>
+                </LinearGradient>
 
                 {/* Account Section */}
                 <View style={styles.section}>
@@ -93,7 +100,7 @@ export default function ProfileScreen() {
                     <Text style={styles.versionText}>Version 1.0.4 Phase 1</Text>
                 </View>
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -103,51 +110,64 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: Spacing.lg,
-        backgroundColor: Colors.background,
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.borderLight,
+        padding: Spacing.xl,
+        paddingTop: Spacing.xl * 2,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
     },
     avatarContainer: {
-        width: 70,
-        height: 70,
-        borderRadius: 35,
-        backgroundColor: Colors.primary + '10',
+        width: 64,
+        height: 64,
+        borderRadius: 20,
+        backgroundColor: '#FFF',
         justifyContent: 'center',
         alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 15,
     },
     userInfo: { flex: 1, marginLeft: Spacing.md },
-    userName: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
-    userEmail: { fontSize: FontSize.sm, color: Colors.textMuted, marginTop: 2 },
+    userName: { fontSize: 22, fontWeight: '900', color: '#FFF', letterSpacing: -0.5 },
+    userEmail: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 2, fontWeight: '500' },
     editBtn: {
-        padding: Spacing.sm,
-        backgroundColor: Colors.primary + '08',
-        borderRadius: BorderRadius.md,
+        padding: 10,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        borderRadius: 14,
     },
-    section: { marginTop: Spacing.lg, paddingHorizontal: Spacing.lg },
-    sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, marginBottom: Spacing.md },
+    section: { marginTop: Spacing.xl, paddingHorizontal: Spacing.lg },
+    sectionTitle: { fontSize: 16, fontWeight: '800', color: Colors.text, marginBottom: Spacing.md, letterSpacing: 0.5, textTransform: 'uppercase' },
     menuCard: {
-        backgroundColor: Colors.backgroundAlt,
-        borderRadius: BorderRadius.xl,
+        backgroundColor: '#FFF',
+        borderRadius: 24,
         overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.02)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.04,
+        shadowRadius: 15,
+        elevation: 4,
     },
     menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: Spacing.md,
+        padding: Spacing.lg,
     },
     menuIconContainer: {
-        width: 40,
-        height: 40,
-        borderRadius: BorderRadius.md,
-        backgroundColor: Colors.background,
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        backgroundColor: Colors.backgroundAlt,
         justifyContent: 'center',
         alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.02)',
     },
     menuContent: { flex: 1, marginLeft: Spacing.md },
-    menuTitle: { fontSize: FontSize.md, fontWeight: '600', color: Colors.text },
-    menuSubtitle: { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
-    divider: { height: 1, backgroundColor: Colors.borderLight, marginHorizontal: Spacing.md },
+    menuTitle: { fontSize: 16, fontWeight: '700', color: Colors.text, letterSpacing: -0.2 },
+    menuSubtitle: { fontSize: 11, color: Colors.textMuted, marginTop: 2, fontWeight: '500' },
+    divider: { height: 1, backgroundColor: 'rgba(0,0,0,0.04)', marginHorizontal: Spacing.lg },
     footer: { padding: Spacing.xl, alignItems: 'center', gap: Spacing.md },
     logoutBtn: { width: '100%' },
     versionText: { fontSize: FontSize.xs, color: Colors.textMuted },

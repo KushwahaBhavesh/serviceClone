@@ -1,14 +1,5 @@
-'use client'
-import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { redirect } from 'next/navigation';
 
 export default function RootPage() {
-  const router = useRouter()
-
-  useEffect(() => {
-    // Basic redirect to dashboard
-    router.replace('/analytics')
-  }, [router])
-
-  return null
+    redirect('/analytics');
 }

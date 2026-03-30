@@ -5,9 +5,10 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Shield, Loader2, ChevronLeft, ChevronRight, Trash2, Edit2, Check, X } from 'lucide-react';
+import { Search, Shield, Loader2, ChevronLeft, ChevronRight, Trash2, Edit2, Check, X, Users, UserPlus, Zap, Filter } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface User {
   id: string;
@@ -27,7 +28,13 @@ interface Pagination {
   totalPages: number;
 }
 
-const ROLES = ['ALL', 'CUSTOMER', 'MERCHANT', 'AGENT', 'ADMIN'];
+const ROLES = [
+  { id: 'ALL', label: 'All Identities' },
+  { id: 'CUSTOMER', label: 'Customers' },
+  { id: 'MERCHANT', label: 'Merchants' },
+  { id: 'AGENT', label: 'Agents' },
+  { id: 'ADMIN', label: 'System Admins' },
+];
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -94,148 +101,184 @@ export default function UsersPage() {
       setPagination(prev => ({ ...prev, total: prev.total - 1 }));
     } catch (err) {
       console.error('Failed to delete user:', err);
-      alert('Failed to delete user. They might have active dependencies.');
     } finally {
       setUpdatingId(null);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-2">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-black tracking-tight text-slate-900">User Management</h1>
-          <p className="text-sm font-semibold text-slate-400 uppercase tracking-[0.2em]">Platform Account Control</p>
+    <div className="space-y-8">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col">
+          <div className="flex items-center space-x-2 mb-2">
+            <Users size={14} className="text-primary fill-primary" />
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Identity Intelligence</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tighter text-white uppercase italic">Global user management</h1>
         </div>
-        <div className="text-[11px] font-black uppercase tracking-[0.15em] text-slate-400 bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm">
-          {pagination.total} total accounts
-        </div>
-      </div>
 
-      <Card className="border-[#e2e8f0]">
-        <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#94a3b8]" />
-              <Input
-                placeholder="Search by name, email, phone..."
-                className="pl-9 h-10"
+        <div className="flex items-center gap-3">
+           <div className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 flex items-center space-x-3 w-72 group focus-within:border-primary/50 transition-all">
+              <Search size={16} className="text-slate-500 group-focus-within:text-primary" />
+              <input 
+                type="text" 
+                placeholder="Search profiles..." 
+                className="bg-transparent border-none text-xs font-bold text-white focus:ring-0 placeholder:text-slate-600" 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-            </div>
-            <div className="flex gap-2 p-1 bg-slate-50 border border-slate-100 rounded-2xl">
-              {ROLES.map((role) => (
-                <button
-                  key={role}
-                  onClick={() => setRoleFilter(role)}
-                  className={cn(
-                    "px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-200",
-                    roleFilter === role
-                      ? "bg-[#FF6B00] text-white shadow-lg shadow-orange-100/50"
-                      : "text-slate-400 hover:text-[#FF6B00] hover:bg-white"
-                  )}
-                >
-                  {role}
-                </button>
-              ))}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex h-40 items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-[#64748b]" />
-            </div>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Joined Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center h-24 text-[#64748b]">
-                        No users found.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>
-                        <div className="flex items-center space-x-3">
-                          <div className="h-8 w-8 rounded-full bg-[#f1f5f9] flex items-center justify-center text-sm font-semibold text-[#0f172a]">
-                            {user.name?.charAt(0) || '?'}
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="font-medium text-[#0f172a]">{user.name || 'Unnamed'}</span>
-                            <span className="text-xs text-[#64748b]">{user.email || user.phone}</span>
-                          </div>
+           </div>
+           <Button className="h-11">
+              <UserPlus size={16} className="mr-2" />
+              New Entry
+           </Button>
+        </div>
+      </div>
+
+      {/* Control Strip */}
+      <div className="flex flex-wrap items-center gap-4 bg-slate-900/50 p-2 rounded-2xl border border-slate-800">
+        <div className="flex gap-1 p-1 bg-slate-950 border border-slate-800 rounded-xl">
+          {ROLES.map((role) => (
+            <button
+              key={role.id}
+              onClick={() => setRoleFilter(role.id)}
+              className={cn(
+                "px-5 py-2.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all duration-300",
+                roleFilter === role.id
+                  ? "bg-primary text-white shadow-electric"
+                  : "text-slate-500 hover:text-white hover:bg-slate-900"
+              )}
+            >
+              {role.label}
+            </button>
+          ))}
+        </div>
+        
+        <div className="ml-auto flex items-center gap-6 px-4">
+           <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Index Size: {pagination.total}</span>
+           </div>
+           <Button variant="ghost" size="sm" className="h-10">
+              <Filter size={14} className="mr-2" />
+              Filter Matrix
+           </Button>
+        </div>
+      </div>
+
+      {/* Main Content Table */}
+      <Card className="border-slate-900 overflow-hidden bg-slate-950">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[350px]">Entity Identity</TableHead>
+              <TableHead>Authorization Role</TableHead>
+              <TableHead>Operational Status</TableHead>
+              <TableHead>Registration Timestamp</TableHead>
+              <TableHead className="text-right">Action Vectors</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-64 text-center">
+                  <div className="flex flex-col items-center justify-center space-y-4">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Decrypting identity matrix...</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : users.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="h-64 text-center">
+                  <div className="flex flex-col items-center justify-center space-y-4 opacity-50">
+                    <Users size={40} className="text-slate-700" />
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">No matching profiles detected</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              users.map((user) => (
+                <TableRow key={user.id} className="group">
+                  <TableCell>
+                    <div className="flex items-center space-x-4">
+                      <div className="h-12 w-12 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center group-hover:border-primary/50 transition-all font-black text-primary text-xl">
+                        {user.name?.charAt(0) || '?'}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                           <p className="text-sm font-black text-white tracking-tight">{user.name || 'Unnamed Identity'}</p>
+                           {user.role === 'ADMIN' && <Zap size={10} className="text-primary fill-primary" />}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          {editingRoleId === user.id ? (
-                            <div className="flex items-center gap-1">
-                              <select
-                                className="text-[10px] font-bold border-2 border-slate-100 rounded-xl px-2 py-1 bg-white outline-none focus:border-[#FF6B00] transition-colors shadow-sm"
-                                value={selectedRole}
-                                onChange={(e) => setSelectedRole(e.target.value)}
-                              >
-                                {ROLES.filter(r => r !== 'ALL').map(r => (
-                                  <option key={r} value={r}>{r}</option>
-                                ))}
-                              </select>
-                              <button onClick={() => handleRoleUpdate(user.id)} className="p-1 text-[#059669] hover:bg-emerald-50 rounded">
-                                <Check size={12} />
-                              </button>
-                              <button onClick={() => setEditingRoleId(null)} className="p-1 text-slate-400 hover:bg-slate-50 rounded">
-                                <X size={12} />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center group/role relative h-8 px-2 -ml-2 rounded-lg hover:bg-slate-50 cursor-pointer" onClick={() => { setEditingRoleId(user.id); setSelectedRole(user.role); }}>
-                              {user.role === 'ADMIN' && <Shield size={12} className="mr-1 text-[#FF6B00]" />}
-                              <span className="text-[11px] font-bold tracking-wider text-slate-700">{user.role}</span>
-                              <Edit2 size={10} className="ml-2 text-slate-300 opacity-0 group-hover/role:opacity-100" />
-                            </div>
-                          )}
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1 group-hover:text-slate-400">{user.email || user.phone}</p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center">
+                      {editingRoleId === user.id ? (
+                        <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+                          <select
+                            className="text-[10px] font-black uppercase tracking-widest bg-slate-950 border-none text-white focus:ring-0 py-1"
+                            value={selectedRole}
+                            onChange={(e) => setSelectedRole(e.target.value)}
+                          >
+                            {ROLES.filter(r => r.id !== 'ALL').map(r => (
+                              <option key={r.id} value={r.id}>{r.label}</option>
+                            ))}
+                          </select>
+                          <button onClick={() => handleRoleUpdate(user.id)} className="h-8 w-8 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white rounded-lg transition-all flex items-center justify-center">
+                            <Check size={14} />
+                          </button>
+                          <button onClick={() => setEditingRoleId(null)} className="h-8 w-8 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white rounded-lg transition-all flex items-center justify-center">
+                            <X size={14} />
+                          </button>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className={cn(
-                          "inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest",
-                          user.status === 'ACTIVE' && 'bg-emerald-50 text-emerald-600 border border-emerald-100',
-                          user.status === 'SUSPENDED' && 'bg-rose-50 text-rose-600 border border-rose-100',
-                          user.status === 'DEACTIVATED' && 'bg-slate-50 text-slate-400 border border-slate-100',
-                          (user.status === 'PENDING_VERIFICATION' || user.status === 'ONBOARDING') && 'bg-amber-50 text-amber-600 border border-amber-100',
-                        )}>
-                          {user.status.replace(/_/g, ' ')}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-[#64748b]">{new Date(user.createdAt).toLocaleDateString()}</TableCell>
-                      <TableCell className="text-right space-x-1">
-                        {user.status !== 'ACTIVE' && (
+                      ) : (
+                        <div 
+                          className="flex items-center gap-3 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 cursor-pointer hover:border-primary/50 transition-all group/role"
+                          onClick={() => { setEditingRoleId(user.id); setSelectedRole(user.role); }}
+                        >
+                          <span className="text-[10px] font-black text-white uppercase tracking-widest">{user.role}</span>
+                          <Edit2 size={10} className="text-slate-600 group-hover/role:text-primary transition-colors" />
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className={cn(
+                      "inline-flex items-center px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] border",
+                      user.status === 'ACTIVE' && "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+                      user.status === 'SUSPENDED' && "bg-rose-500/10 text-rose-400 border-rose-500/20",
+                      user.status === 'DEACTIVATED' && "bg-slate-900 text-slate-700 border-slate-800",
+                      (user.status === 'PENDING_VERIFICATION' || user.status === 'ONBOARDING') && "bg-amber-500/10 text-amber-400 border-amber-500/20",
+                    )}>
+                      {user.status.replace(/_/g, ' ')}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col">
+                       <p className="text-xs font-bold text-white tracking-tight">{new Date(user.createdAt).toLocaleDateString()}</p>
+                       <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-1">System Registered</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end space-x-2">
+                       {user.status !== 'ACTIVE' && (
                           <Button
-                            variant="ghost" size="sm"
-                            className="text-[#059669] text-[10px] font-black uppercase tracking-widest h-8"
+                            variant="outline" size="sm"
+                            className="h-10 min-w-[100px] border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white hover:border-emerald-500"
                             disabled={updatingId === user.id}
                             onClick={() => handleStatusUpdate(user.id, 'ACTIVE')}
                           >
-                            Activate
+                            Reactivate
                           </Button>
                         )}
                         {user.status !== 'SUSPENDED' && user.role !== 'ADMIN' && (
                           <Button
-                            variant="ghost" size="sm"
-                            className="text-amber-600 text-[10px] font-black uppercase tracking-widest h-8"
+                            variant="outline" size="sm"
+                            className="h-10 min-w-[100px] border-amber-500/20 text-amber-500 hover:bg-amber-500 hover:text-white hover:border-amber-500"
                             disabled={updatingId === user.id}
                             onClick={() => handleStatusUpdate(user.id, 'SUSPENDED')}
                           >
@@ -244,47 +287,37 @@ export default function UsersPage() {
                         )}
                         {user.role !== 'ADMIN' && (
                           <Button
-                            variant="ghost" size="sm"
-                            className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg p-2 h-8 w-8"
+                            variant="outline" size="sm"
+                            className="h-10 w-10 p-0 border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white hover:border-rose-500"
                             disabled={updatingId === user.id}
                             onClick={() => handleDeleteUser(user.id)}
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={16} />
                           </Button>
                         )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
 
-              {/* Pagination */}
-              {pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#f1f5f9]">
-                  <p className="text-xs text-[#64748b]">
-                    Page {pagination.page} of {pagination.totalPages} ({pagination.total} results)
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline" size="sm"
-                      disabled={pagination.page <= 1}
-                      onClick={() => fetchUsers(pagination.page - 1)}
-                    >
-                      <ChevronLeft size={14} />
-                    </Button>
-                    <Button
-                      variant="outline" size="sm"
-                      disabled={pagination.page >= pagination.totalPages}
-                      onClick={() => fetchUsers(pagination.page + 1)}
-                    >
-                      <ChevronRight size={14} />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </CardContent>
+        {pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between px-8 py-6 border-t border-slate-900 bg-slate-950/50">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+              Matrix Page {pagination.page} of {pagination.totalPages}
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="h-10 px-3" disabled={pagination.page <= 1} onClick={() => fetchUsers(pagination.page - 1)}>
+                <ChevronLeft size={16} />
+              </Button>
+              <Button variant="outline" size="sm" className="h-10 px-3" disabled={pagination.page >= pagination.totalPages} onClick={() => fetchUsers(pagination.page + 1)}>
+                <ChevronRight size={16} />
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );

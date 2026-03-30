@@ -5,6 +5,10 @@ import { HttpError, UnauthorizedError, ForbiddenError } from './errors';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'homeservice-jwt-secret-dev-2026';
 
+/**
+ * Validates the request's Bearer token and ensures the caller is an active Admin.
+ * Returns the admin record on success, throws on failure.
+ */
 export async function requireAdmin(req: NextRequest) {
     const authHeader = req.headers.get('authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -12,44 +16,34 @@ export async function requireAdmin(req: NextRequest) {
     }
 
     const token = authHeader.split(' ')[1];
+
     let decoded: any;
     try {
         decoded = jwt.verify(token, JWT_SECRET);
-    } catch (err) {
+    } catch {
         throw new UnauthorizedError('Invalid or expired token');
     }
 
-    // Check both Admin and User tables for the ADMIN role
-    const [admin, user] = await Promise.all([
-        prisma.admin.findUnique({
-            where: { id: decoded.userId },
-            select: { id: true, status: true },
-        }),
-        prisma.user.findUnique({
-            where: { id: decoded.userId },
-            select: { id: true, role: true, status: true, email: true, name: true },
-        })
-    ]);
+    // Only check the Admin table
+    const admin = await prisma.admin.findUnique({
+        where: { id: decoded.userId },
+        select: { id: true, email: true, name: true, status: true },
+    });
 
-    const record = admin || user;
-
-    if (!record) {
-        throw new UnauthorizedError('User not found');
+    if (!admin) {
+        throw new UnauthorizedError('Admin not found');
     }
 
-    // Check if it's from the user table, it MUST have the ADMIN role
-    if (!admin && user && user.role !== 'ADMIN') {
-        throw new ForbiddenError('Forbidden. Requires ADMIN role.');
+    if (admin.status === 'DEACTIVATED' || admin.status === 'SUSPENDED') {
+        throw new ForbiddenError(`Account is ${admin.status.toLowerCase()}`);
     }
 
-    if (record.status === 'DEACTIVATED' || record.status === 'SUSPENDED') {
-        throw new ForbiddenError(`Account is ${record.status.toLowerCase()}`);
-    }
-
-    return record;
+    return admin;
 }
 
-// Wrapper for error handling
+/**
+ * Wraps an API handler with consistent error handling.
+ */
 export function withErrorHandler(handler: Function) {
     return async (req: NextRequest, ...args: any[]) => {
         try {

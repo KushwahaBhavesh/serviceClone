@@ -30,6 +30,12 @@ import { Colors, Spacing } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import type { UserRole } from '../../types/auth';
 
+// ─── Constants ───
+const DARK_SLATE = '#0F172A';
+const ELECTRIC_ORANGE = '#FF6B00';
+const GLASS_WHITE = 'rgba(255, 255, 255, 0.08)';
+const GLASS_BORDER = 'rgba(255, 255, 255, 0.12)';
+
 const INITIAL_REGION: Region = {
     latitude: 28.6273928,
     longitude: 77.3725807,
@@ -291,10 +297,13 @@ export default function LocationScreen() {
     // ─── RENDER ───
     return (
         <View style={styles.container}>
-            <StatusBar style="dark" />
+            <StatusBar style="light" />
 
             {/* ═══ Header ═══ */}
-            <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
+            <LinearGradient
+                colors={[DARK_SLATE, '#1E293B']}
+                style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}
+            >
                 <View style={styles.navbar}>
                     <Pressable
                         onPress={() => router.back()}
@@ -303,21 +312,21 @@ export default function LocationScreen() {
                             pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
                         ]}
                     >
-                        <ChevronLeft size={24} color="#1E293B" />
+                        <ChevronLeft size={24} color="#FFF" />
                     </Pressable>
 
                     <View style={styles.headerInfo}>
-                        <Text style={styles.headerTitle}>Set Location</Text>
-                        <Text style={styles.headerSubtitle}>
+                        <Animated.Text entering={FadeInUp.delay(100)} style={styles.headerTitle}>Set Location</Animated.Text>
+                        <Animated.Text entering={FadeInUp.delay(200)} style={styles.headerSubtitle}>
                             Pin your {getRoleLabel()} area on the map
-                        </Text>
+                        </Animated.Text>
                     </View>
 
-                    <View style={styles.stepBadge}>
+                    <Animated.View entering={FadeInUp.delay(300)} style={styles.stepBadge}>
                         <Text style={styles.stepBadgeText}>Final</Text>
-                    </View>
+                    </Animated.View>
                 </View>
-            </View>
+            </LinearGradient>
 
             {/* ═══ Map ═══ */}
             <View style={styles.mapWrapper}>
@@ -330,6 +339,7 @@ export default function LocationScreen() {
                     showsMyLocationButton={false}
                     showsCompass={false}
                     toolbarEnabled={false}
+                    userInterfaceStyle="dark"
                     mapPadding={{ top: 80, right: 0, bottom: 30, left: 0 }}
                 >
                     {/* Draggable Marker */}
@@ -341,7 +351,7 @@ export default function LocationScreen() {
                     >
                         <View style={styles.customMarker}>
                             <LinearGradient
-                                colors={[Colors.primary, Colors.primaryLight]}
+                                colors={[ELECTRIC_ORANGE, '#E66100']}
                                 style={styles.markerCircle}
                             >
                                 <MapPin size={22} color="#FFF" fill="#FFF" />
@@ -356,8 +366,8 @@ export default function LocationScreen() {
                         <Circle
                             center={markerCoord}
                             radius={500}
-                            fillColor={Colors.primary + '12'}
-                            strokeColor={Colors.primary + '30'}
+                            fillColor={ELECTRIC_ORANGE + '20'}
+                            strokeColor={ELECTRIC_ORANGE + '80'}
                             strokeWidth={2}
                         />
                     )}
@@ -365,20 +375,20 @@ export default function LocationScreen() {
 
                 {/* ─── Address Card (top) ─── */}
                 <Animated.View
-                    entering={FadeInUp.delay(200).springify()}
+                    entering={FadeInUp.delay(400).springify()}
                     style={styles.addressCard}
                 >
                     <View style={styles.addressRow}>
                         <View style={[
                             styles.searchIconBox,
-                            isLocationSet && { backgroundColor: Colors.success + '14' },
+                            isLocationSet && { backgroundColor: 'rgba(34, 197, 94, 0.15)' },
                         ]}>
                             {isReverseGeocoding ? (
-                                <ActivityIndicator size="small" color={Colors.primary} />
+                                <ActivityIndicator size="small" color={ELECTRIC_ORANGE} />
                             ) : isLocationSet ? (
-                                <CheckCircle size={18} color={Colors.success} strokeWidth={2.5} />
+                                <CheckCircle size={18} color="#22C55E" strokeWidth={2.5} />
                             ) : (
-                                <Crosshair size={18} color={Colors.primary} strokeWidth={2.5} />
+                                <Crosshair size={18} color={ELECTRIC_ORANGE} strokeWidth={2.5} />
                             )}
                         </View>
                         <View style={styles.addressTextBox}>
@@ -398,7 +408,7 @@ export default function LocationScreen() {
                 </Animated.View>
 
                 {/* ─── Auto-Detect FAB ─── */}
-                <Animated.View entering={FadeIn.delay(400)} style={styles.fabContainer}>
+                <Animated.View entering={FadeIn.delay(500)} style={styles.fabContainer}>
                     <Pressable
                         onPress={handleAutoDetect}
                         disabled={isFetchingLocation}
@@ -409,13 +419,13 @@ export default function LocationScreen() {
                         ]}
                     >
                         {isFetchingLocation ? (
-                            <ActivityIndicator color={Colors.primary} size="small" />
+                            <ActivityIndicator color={ELECTRIC_ORANGE} size="small" />
                         ) : (
-                            <LocateFixed size={22} color={Colors.primary} strokeWidth={2.5} />
+                            <LocateFixed size={22} color={ELECTRIC_ORANGE} strokeWidth={2.5} />
                         )}
                     </Pressable>
                     {!isLocationSet && !isFetchingLocation && (
-                        <Animated.View entering={FadeIn.delay(500)} style={styles.fabLabel}>
+                        <Animated.View entering={FadeIn.delay(600)} style={styles.fabLabel}>
                             <Text style={styles.fabLabelText}>Detect</Text>
                         </Animated.View>
                     )}
@@ -434,20 +444,26 @@ export default function LocationScreen() {
             </View>
 
             {/* ═══ Footer ═══ */}
-            <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
+            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.lg) }]}>
+                <LinearGradient
+                    colors={['rgba(15, 23, 42, 0)', DARK_SLATE]}
+                    style={styles.footerGradient}
+                    pointerEvents="none"
+                />
+                
                 {/* Location info card */}
-                <View style={[
+                <Animated.View entering={FadeInUp.delay(700)} style={[
                     styles.infoRow,
                     isReady && styles.infoRowSuccess,
                 ]}>
                     <View style={[
                         styles.infoIconBox,
-                        isReady && { backgroundColor: Colors.success + '14' },
+                        isReady && { backgroundColor: 'rgba(34, 197, 94, 0.15)' },
                     ]}>
                         {isReady ? (
-                            <CheckCircle size={18} color={Colors.success} strokeWidth={2.5} />
+                            <CheckCircle size={18} color="#22C55E" strokeWidth={2.5} />
                         ) : (
-                            <MapPin size={18} color={Colors.primary} strokeWidth={2.5} />
+                            <MapPin size={18} color={ELECTRIC_ORANGE} strokeWidth={2.5} />
                         )}
                     </View>
                     <View style={styles.infoTextBox}>
@@ -458,46 +474,48 @@ export default function LocationScreen() {
                             {locationName || 'Tap the map or use auto-detect to set your location'}
                         </Text>
                     </View>
-                </View>
+                </Animated.View>
 
                 {/* Privacy note */}
-                <View style={styles.privacyNote}>
+                <Animated.View entering={FadeInUp.delay(800)} style={styles.privacyNote}>
                     <Shield size={12} color="#94A3B8" strokeWidth={2.5} />
                     <Text style={styles.privacyText}>
                         Your location is private and only used to match nearby services
                     </Text>
-                </View>
+                </Animated.View>
 
                 {/* CTA */}
-                <Pressable
-                    onPress={handleFinishOnboarding}
-                    disabled={!isReady || isLoading}
-                    style={({ pressed }) => [
-                        styles.ctaBtn,
-                        (!isReady || isLoading) && styles.ctaBtnDisabled,
-                        pressed && isReady && !isLoading && styles.ctaBtnPressed,
-                    ]}
-                >
-                    <LinearGradient
-                        colors={
-                            !isReady || isLoading
-                                ? ['#CBD5E1', '#94A3B8']
-                                : [Colors.primary, Colors.primaryLight]
-                        }
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.ctaGradient}
+                <Animated.View entering={FadeInUp.delay(900)}>
+                    <Pressable
+                        onPress={handleFinishOnboarding}
+                        disabled={!isReady || isLoading}
+                        style={({ pressed }) => [
+                            styles.ctaBtn,
+                            (!isReady || isLoading) && styles.ctaBtnDisabled,
+                            pressed && isReady && !isLoading && styles.ctaBtnPressed,
+                        ]}
                     >
-                        {isLoading ? (
-                            <ActivityIndicator color="#FFF" />
-                        ) : (
-                            <>
-                                <Text style={styles.ctaText}>Finish Registration</Text>
-                                <ChevronRight size={20} color="#FFF" strokeWidth={3} />
-                            </>
-                        )}
-                    </LinearGradient>
-                </Pressable>
+                        <LinearGradient
+                            colors={
+                                !isReady || isLoading
+                                    ? ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']
+                                    : [ELECTRIC_ORANGE, '#E66100']
+                            }
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.ctaGradient}
+                        >
+                            {isLoading ? (
+                                <ActivityIndicator color={!isReady ? "#94A3B8" : "#FFF"} />
+                            ) : (
+                                <>
+                                    <Text style={[styles.ctaText, !isReady && { color: '#94A3B8' }]}>Finish Registration</Text>
+                                    <ChevronRight size={20} color={!isReady ? "#94A3B8" : "#FFF"} strokeWidth={3} />
+                                </>
+                            )}
+                        </LinearGradient>
+                    </Pressable>
+                </Animated.View>
             </View>
         </View>
     );
@@ -509,14 +527,13 @@ export default function LocationScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FAFAFA',
+        backgroundColor: DARK_SLATE,
     },
 
     // ─── Header ───
     header: {
-        backgroundColor: '#FAFAFA',
-        paddingBottom: 14,
         zIndex: 10,
+        paddingBottom: 14,
     },
     navbar: {
         flexDirection: 'row',
@@ -528,16 +545,11 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 14,
-        backgroundColor: '#FFF',
+        backgroundColor: GLASS_WHITE,
         borderWidth: 1,
-        borderColor: '#F1F5F9',
+        borderColor: GLASS_BORDER,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 2,
     },
     headerInfo: {
         flex: 1,
@@ -545,25 +557,27 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 22,
         fontWeight: '800',
-        color: '#0F172A',
+        color: '#FFFFFF',
         letterSpacing: -0.5,
     },
     headerSubtitle: {
         fontSize: 13,
-        color: '#64748B',
+        color: '#94A3B8',
         fontWeight: '600',
         marginTop: 2,
     },
     stepBadge: {
-        backgroundColor: Colors.primary + '12',
+        backgroundColor: 'rgba(255, 107, 0, 0.15)',
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 107, 0, 0.3)',
     },
     stepBadgeText: {
         fontSize: 11,
-        fontWeight: '800',
-        color: Colors.primary,
+        fontWeight: '900',
+        color: ELECTRIC_ORANGE,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
@@ -571,7 +585,7 @@ const styles = StyleSheet.create({
     // ─── Map ───
     mapWrapper: {
         flex: 1,
-        backgroundColor: '#E2E8F0',
+        backgroundColor: '#1E293B',
         overflow: 'hidden',
     },
     map: {
@@ -587,17 +601,17 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 3.5,
-        borderColor: '#FFF',
+        borderColor: '#1E293B',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.25,
+        shadowOpacity: 0.5,
         shadowRadius: 10,
         elevation: 12,
     },
     markerPointer: {
         width: 12,
         height: 12,
-        backgroundColor: Colors.primary,
+        backgroundColor: ELECTRIC_ORANGE,
         transform: [{ rotate: '45deg' }],
         marginTop: -7,
         borderBottomRightRadius: 2,
@@ -606,7 +620,7 @@ const styles = StyleSheet.create({
         width: 20,
         height: 6,
         borderRadius: 3,
-        backgroundColor: 'rgba(0,0,0,0.12)',
+        backgroundColor: 'rgba(0,0,0,0.3)',
         marginTop: 2,
     },
 
@@ -616,14 +630,16 @@ const styles = StyleSheet.create({
         top: 16,
         left: 16,
         right: 16,
-        backgroundColor: '#FFF',
-        borderRadius: 18,
+        backgroundColor: 'rgba(30, 41, 59, 0.95)',
+        borderRadius: 20,
         paddingHorizontal: 14,
-        paddingVertical: 12,
+        paddingVertical: 14,
+        borderWidth: 1,
+        borderColor: GLASS_BORDER,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.1,
-        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
         elevation: 12,
     },
     addressRow: {
@@ -632,12 +648,14 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     searchIconBox: {
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
         borderRadius: 12,
-        backgroundColor: Colors.primary + '10',
+        backgroundColor: 'rgba(255, 107, 0, 0.1)',
         justifyContent: 'center',
         alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 107, 0, 0.2)',
     },
     addressTextBox: {
         flex: 1,
@@ -645,9 +663,9 @@ const styles = StyleSheet.create({
         minHeight: 36,
     },
     addressText: {
-        fontSize: 14,
+        fontSize: 15,
         fontWeight: '700',
-        color: '#1E293B',
+        color: '#FFFFFF',
         lineHeight: 20,
     },
     addressPlaceholderText: {
@@ -665,34 +683,36 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     fab: {
-        width: 54,
-        height: 54,
-        borderRadius: 16,
-        backgroundColor: '#FFF',
+        width: 56,
+        height: 56,
+        borderRadius: 18,
+        backgroundColor: 'rgba(30, 41, 59, 0.95)',
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
         elevation: 8,
         borderWidth: 1,
-        borderColor: '#F1F5F9',
+        borderColor: GLASS_BORDER,
     },
     fabLoading: {
         opacity: 0.7,
     },
     fabLabel: {
         marginTop: 6,
-        backgroundColor: 'rgba(15, 23, 42, 0.75)',
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 6,
+        backgroundColor: 'rgba(15, 23, 42, 0.85)',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: GLASS_BORDER,
     },
     fabLabelText: {
         color: '#FFF',
-        fontSize: 10,
-        fontWeight: '700',
+        fontSize: 11,
+        fontWeight: '800',
     },
 
     // ─── Tap Hint ───
@@ -700,10 +720,12 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: 40,
         alignSelf: 'center',
-        backgroundColor: 'rgba(15, 23, 42, 0.78)',
-        paddingHorizontal: 18,
-        paddingVertical: 9,
+        backgroundColor: 'rgba(15, 23, 42, 0.85)',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
         borderRadius: 20,
+        borderWidth: 1,
+        borderColor: GLASS_BORDER,
     },
     tapHintText: {
         color: '#FFF',
@@ -714,77 +736,90 @@ const styles = StyleSheet.create({
     // ─── Footer ───
     footer: {
         paddingHorizontal: Spacing.xl,
-        paddingTop: 20,
-        backgroundColor: '#FFF',
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        marginTop: -24,
+        paddingTop: 24,
+        backgroundColor: DARK_SLATE,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        marginTop: -32,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: -8 },
-        shadowOpacity: 0.06,
-        shadowRadius: 16,
-        elevation: 12,
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.4,
+        shadowRadius: 20,
+        elevation: 16,
+        borderTopWidth: 1,
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        borderColor: GLASS_BORDER,
+    },
+    footerGradient: {
+        position: 'absolute',
+        top: -80,
+        left: 0,
+        right: 0,
+        height: 80,
     },
     infoRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 14,
-        marginBottom: 12,
-        backgroundColor: '#F8FAFC',
-        padding: 14,
-        borderRadius: 16,
+        marginBottom: 16,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        padding: 16,
+        borderRadius: 20,
         borderWidth: 1,
-        borderColor: '#F1F5F9',
+        borderColor: GLASS_BORDER,
     },
     infoRowSuccess: {
-        backgroundColor: Colors.success + '08',
-        borderColor: Colors.success + '20',
+        backgroundColor: 'rgba(34, 197, 94, 0.08)',
+        borderColor: 'rgba(34, 197, 94, 0.2)',
     },
     infoIconBox: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        backgroundColor: Colors.primary + '10',
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        backgroundColor: 'rgba(255, 107, 0, 0.1)',
         justifyContent: 'center',
         alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 107, 0, 0.2)',
     },
     infoTextBox: {
         flex: 1,
     },
     infoLabel: {
         fontSize: 12,
-        fontWeight: '800',
-        color: '#64748B',
+        fontWeight: '900',
+        color: '#94A3B8',
         textTransform: 'uppercase',
-        letterSpacing: 0.5,
+        letterSpacing: 1,
         marginBottom: 2,
     },
     infoValue: {
-        fontSize: 13,
-        color: '#334155',
+        fontSize: 14,
+        color: '#FFFFFF',
         fontWeight: '600',
-        lineHeight: 18,
+        lineHeight: 20,
     },
     privacyNote: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 6,
-        marginBottom: 16,
+        gap: 8,
+        marginBottom: 20,
     },
     privacyText: {
-        fontSize: 11,
-        color: '#94A3B8',
+        fontSize: 12,
+        color: '#64748B',
         fontWeight: '500',
     },
 
     // ─── CTA ───
     ctaBtn: {
-        borderRadius: 20,
+        borderRadius: 22,
         overflow: 'hidden',
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.25,
+        shadowColor: ELECTRIC_ORANGE,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3,
         shadowRadius: 15,
         elevation: 8,
     },
@@ -800,11 +835,12 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 10,
+        gap: 12,
     },
     ctaText: {
         fontSize: 18,
-        fontWeight: '800',
+        fontWeight: '900',
         color: '#FFF',
+        letterSpacing: 0.2,
     },
 });

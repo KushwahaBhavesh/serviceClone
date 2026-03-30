@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -14,24 +14,42 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import Animated, { 
+    FadeInUp, 
+    FadeInDown, 
+    FadeInRight,
+} from 'react-native-reanimated';
+import { 
+    Home, 
+    Briefcase, 
+    Bicycle, 
+    CheckCircle2, 
+    ChevronLeft,
+    User,
+    Mail,
+    ArrowRight
+} from 'lucide-react-native';
 
 import { Colors, Spacing, FontSize, BorderRadius } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import type { UserRole } from '../../types/auth';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - Spacing.xl * 2 - 12) / 2;
+
+// ─── Constants ───
+const DARK_SLATE = '#0F172A';
+const ELECTRIC_ORANGE = '#FF6B00';
+const GLASS_WHITE = 'rgba(255, 255, 255, 0.08)';
+const GLASS_BORDER = 'rgba(255, 255, 255, 0.12)';
 
 interface RoleOption {
     id: UserRole;
     title: string;
     description: string;
-    icon: keyof typeof Ionicons.glyphMap;
+    icon: any;
     color: string;
-    gradient: [string, string];
 }
 
 const ROLES: RoleOption[] = [
@@ -39,25 +57,22 @@ const ROLES: RoleOption[] = [
         id: 'CUSTOMER',
         title: 'Customer',
         description: 'I want to book services for my home',
-        icon: 'home',
-        color: Colors.primary,
-        gradient: [Colors.primary, Colors.primary + 'CC'],
+        icon: Home,
+        color: '#38BDF8', // Sky Blue
     },
     {
         id: 'MERCHANT',
         title: 'Partner',
         description: 'I am a service provider/company',
-        icon: 'briefcase',
-        color: '#3B82F6',
-        gradient: ['#3B82F6', '#2563EB'],
+        icon: Briefcase,
+        color: ELECTRIC_ORANGE,
     },
     {
         id: 'AGENT',
         title: 'Agent',
-        description: 'I want to work as a delivery agent',
-        icon: 'bicycle',
-        color: '#10B981',
-        gradient: ['#10B981', '#059669'],
+        description: 'I want to work as a service agent',
+        icon: Bicycle,
+        color: '#10B981', // Emerald
     },
 ];
 
@@ -73,50 +88,43 @@ export default function RoleSelectScreen() {
         if (!selectedRole) return;
 
         if (!name.trim()) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             Alert.alert('Name Required', 'Please enter your full name.');
             return;
         }
 
         if (!email.trim() || !email.includes('@')) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             Alert.alert('Email Required', 'Please enter a valid email address.');
             return;
         }
 
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        const params = { role: selectedRole, email: email.trim(), name: name.trim() };
+
         if (selectedRole === 'CUSTOMER') {
-            router.push({
-                pathname: '/(onboarding)/location',
-                params: { role: selectedRole, email: email.trim(), name: name.trim() }
-            });
-            return;
+            router.push({ pathname: '/(onboarding)/location', params });
+        } else if (selectedRole === 'MERCHANT') {
+            router.push({ pathname: '/(onboarding)/business-details', params });
+        } else {
+            router.push({ pathname: '/(onboarding)/role-details', params });
         }
+    };
 
-        if (selectedRole === 'MERCHANT') {
-            router.push({
-                pathname: '/(onboarding)/business-details',
-                params: { role: selectedRole, email: email.trim(), name: name.trim() }
-            });
-            return;
-        }
-
-        router.push({
-            pathname: '/(onboarding)/role-details',
-            params: { role: selectedRole, email: email.trim(), name: name.trim() }
-        });
+    const handleSelectRole = (roleId: UserRole) => {
+        Haptics.selectionAsync();
+        setSelectedRole(roleId);
     };
 
     return (
         <View style={styles.container}>
-            <StatusBar style="dark" />
-
-            {/* Background Decorations */}
-            <View style={styles.bgContainer}>
-                <LinearGradient
-                    colors={['#FFFFFF', '#F8FAFC']}
-                    style={StyleSheet.absoluteFill}
-                />
-                <View style={styles.decorationCircle1} />
-                <View style={styles.decorationCircle2} />
-            </View>
+            <StatusBar style="light" />
+            
+            <LinearGradient
+                colors={[DARK_SLATE, '#1E293B']}
+                style={StyleSheet.absoluteFill}
+            />
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -125,96 +133,144 @@ export default function RoleSelectScreen() {
                 <ScrollView
                     contentContainerStyle={[
                         styles.scrollContent,
-                        { paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + 100 }
+                        { paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + 120 }
                     ]}
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
-                    <Pressable
-                        onPress={() => router.back()}
-                        style={styles.backButton}
-                        hitSlop={12}
-                    >
-                        <Ionicons name="chevron-back" size={24} color="#0F172A" />
-                    </Pressable>
+                    <Animated.View entering={FadeInDown.delay(100)}>
+                        <Pressable
+                            onPress={() => router.back()}
+                            style={styles.backButton}
+                            hitSlop={12}
+                        >
+                            <ChevronLeft size={24} color="#FFF" />
+                        </Pressable>
+                    </Animated.View>
 
                     <View style={styles.header}>
-                        <Text style={styles.title}>Hello, {user?.name?.split(' ')[0] || 'Partner'}!</Text>
-                        <Text style={styles.subtitle}>Choose your journey to get started with ServeIQ.</Text>
+                        <Animated.Text 
+                            entering={FadeInDown.delay(200)} 
+                            style={styles.title}
+                        >
+                            Hello, {user?.name?.split(' ')[0] || 'Partner'}!
+                        </Animated.Text>
+                        <Animated.Text 
+                            entering={FadeInDown.delay(300)} 
+                            style={styles.subtitle}
+                        >
+                            Choose your journey to get started.
+                        </Animated.Text>
                     </View>
 
-                    <View style={styles.section}>
+                    <Animated.View entering={FadeInUp.delay(400)} style={styles.section}>
                         <Text style={styles.sectionLabel}>Personal Details</Text>
-                        <View style={styles.inputCard}>
-                            <Input
-                                value={name}
-                                onChangeText={setName}
-                                placeholder="Full Name"
-                                autoCapitalize="words"
-                                containerStyle={styles.nameInput}
-                            />
-                            <View style={styles.inputDivider} />
-                            <Input
-                                value={email}
-                                onChangeText={setEmail}
-                                placeholder="Email Address"
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                                containerStyle={styles.emailInput}
-                            />
-                            <Text style={styles.inputHint}>Used for account updates and profile.</Text>
+                        <View style={styles.glassCard}>
+                            <View style={styles.inputRow}>
+                                <User size={20} color="#64748B" style={styles.inputIcon} />
+                                <Input
+                                    value={name}
+                                    onChangeText={setName}
+                                    placeholder="Full Name"
+                                    placeholderTextColor="rgba(255,255,255,0.3)"
+                                    autoCapitalize="words"
+                                    style={styles.input}
+                                    containerStyle={styles.inputContainer}
+                                />
+                            </View>
+                            <View style={styles.divider} />
+                            <View style={styles.inputRow}>
+                                <Mail size={20} color="#64748B" style={styles.inputIcon} />
+                                <Input
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    placeholder="Email Address"
+                                    placeholderTextColor="rgba(255,255,255,0.3)"
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    style={styles.input}
+                                    containerStyle={styles.inputContainer}
+                                />
+                            </View>
                         </View>
-                    </View>
+                    </Animated.View>
 
                     <View style={styles.section}>
-                        <Text style={styles.sectionLabel}>Choose your Role</Text>
+                        <Animated.Text entering={FadeInUp.delay(500)} style={styles.sectionLabel}>
+                            Choose your Role
+                        </Animated.Text>
                         <View style={styles.gridContainer}>
-                            {ROLES.map((role) => (
-                                <Pressable
-                                    key={role.id}
-                                    style={[
-                                        styles.roleCard,
-                                        selectedRole === role.id && styles.roleCardActive
-                                    ]}
-                                    onPress={() => setSelectedRole(role.id)}
-                                >
-                                    <LinearGradient
-                                        colors={selectedRole === role.id ? role.gradient : ['#F1F5F9', '#F1F5F9']}
-                                        style={styles.iconContainer}
+                            {ROLES.map((role, index) => {
+                                const isSelected = selectedRole === role.id;
+                                return (
+                                    <View 
+                                        key={role.id}
+                                        style={styles.roleWrapper}
                                     >
-                                        <Ionicons
-                                            name={role.icon}
-                                            size={32}
-                                            color={selectedRole === role.id ? '#FFFFFF' : '#94A3B8'}
-                                        />
-                                    </LinearGradient>
-                                    <Text style={[
-                                        styles.roleTitle,
-                                        selectedRole === role.id && styles.roleTitleActive
-                                    ]}>{role.title}</Text>
-                                    <Text style={styles.roleDescription}>{role.description}</Text>
+                                        <Pressable
+                                            style={[
+                                                styles.roleCard,
+                                                isSelected && { borderColor: role.color, backgroundColor: 'rgba(255,255,255,0.05)' }
+                                            ]}
+                                            onPress={() => handleSelectRole(role.id)}
+                                        >
+                                            <View style={[styles.iconBox, { backgroundColor: isSelected ? role.color : 'rgba(255,255,255,0.03)' }]}>
+                                                <role.icon 
+                                                    size={28} 
+                                                    color={isSelected ? '#FFF' : '#64748B'} 
+                                                    strokeWidth={2.5} 
+                                                />
+                                            </View>
+                                            <Text style={[
+                                                styles.roleTitle,
+                                                isSelected && { color: '#FFF' }
+                                            ]}>{role.title}</Text>
+                                            <Text style={styles.roleDesc}>{role.description}</Text>
 
-                                    {selectedRole === role.id && (
-                                        <View style={styles.checkBadge}>
-                                            <Ionicons name="checkmark-circle" size={24} color={role.color} />
-                                        </View>
-                                    )}
-                                </Pressable>
-                            ))}
+                                            {isSelected && (
+                                                <View style={styles.checkBadge}>
+                                                    <CheckCircle2 size={20} color={role.color} fill="#FFF" />
+                                                </View>
+                                            )}
+                                        </Pressable>
+                                    </View>
+                                );
+                            })}
                         </View>
                     </View>
                 </ScrollView>
-
             </KeyboardAvoidingView>
-            <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
-                <Button
-                    title="Continue"
-                    onPress={handleContinue}
-                    disabled={!selectedRole || isLoading}
-                    loading={isLoading}
-                    variant="primary"
-                    style={styles.actionBtn}
+
+            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.lg) }]}>
+                <LinearGradient
+                    colors={['rgba(15, 23, 42, 0)', DARK_SLATE]}
+                    style={styles.footerGradient}
+                    pointerEvents="none"
                 />
+                
+                <Animated.View entering={FadeInUp.delay(800)} style={styles.actionContainer}>
+                    <Pressable
+                        onPress={handleContinue}
+                        disabled={!selectedRole || isLoading}
+                        style={({ pressed }) => [
+                            styles.primaryBtn,
+                            pressed && { transform: [{ scale: 0.98 }] },
+                            (!selectedRole || isLoading) && styles.btnDisabled
+                        ]}
+                    >
+                        <LinearGradient
+                            colors={[ELECTRIC_ORANGE, '#E66100']}
+                            style={styles.btnGradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                        >
+                            <Text style={styles.btnText}>Continue</Text>
+                            <View style={styles.btnIcon}>
+                                <ArrowRight size={20} color="#FFF" strokeWidth={3} />
+                            </View>
+                        </LinearGradient>
+                    </Pressable>
+                </Animated.View>
             </View>
         </View>
     );
@@ -223,156 +279,124 @@ export default function RoleSelectScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
-    },
-    bgContainer: {
-        ...StyleSheet.absoluteFillObject,
-        overflow: 'hidden',
-    },
-    decorationCircle1: {
-        position: 'absolute',
-        top: -100,
-        right: -120,
-        width: 320,
-        height: 320,
-        borderRadius: 160,
-        backgroundColor: Colors.primary + '03',
-    },
-    decorationCircle2: {
-        position: 'absolute',
-        bottom: 80,
-        left: -80,
-        width: 240,
-        height: 240,
-        borderRadius: 120,
-        backgroundColor: Colors.primary + '05',
+        backgroundColor: DARK_SLATE,
     },
     flex: { flex: 1 },
     scrollContent: {
         paddingHorizontal: Spacing.xl,
     },
-    header: {
-        marginBottom: 32,
-    },
     backButton: {
         width: 44,
         height: 44,
-        borderRadius: 12,
-        backgroundColor: 'rgba(15, 23, 42, 0.03)',
+        borderRadius: 14,
+        backgroundColor: GLASS_WHITE,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 24,
+        borderWidth: 1,
+        borderColor: GLASS_BORDER,
+    },
+    header: {
+        marginBottom: 32,
     },
     title: {
         fontSize: 34,
         fontWeight: '900',
-        color: '#0F172A',
+        color: '#FFFFFF',
         letterSpacing: -1,
     },
     subtitle: {
         fontSize: 16,
-        color: '#64748B',
+        color: '#94A3B8',
         marginTop: 8,
-        lineHeight: 24,
+        fontWeight: '500',
     },
     section: {
         marginBottom: 32,
     },
     sectionLabel: {
-        fontSize: 13,
-        fontWeight: '800',
-        color: '#0F172A',
+        fontSize: 12,
+        fontWeight: '900',
+        color: '#64748B',
         textTransform: 'uppercase',
-        letterSpacing: 1,
+        letterSpacing: 2,
         marginBottom: 16,
         marginLeft: 4,
     },
-    inputCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 20,
-        padding: 16,
+    glassCard: {
+        backgroundColor: GLASS_WHITE,
+        borderRadius: 24,
         borderWidth: 1,
-        borderColor: '#F1F5F9',
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.02,
-        shadowRadius: 10,
-        elevation: 1,
+        borderColor: GLASS_BORDER,
+        overflow: 'hidden',
     },
-    nameInput: {
-        marginBottom: 0,
+    inputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
     },
-    inputDivider: {
+    inputIcon: {
+        marginRight: 4,
+    },
+    inputContainer: {
+        flex: 1,
+        backgroundColor: 'transparent',
+        borderWidth: 0,
+    },
+    input: {
+        color: '#FFF',
+        fontSize: 16,
+        fontWeight: '600',
+        height: 56,
+    },
+    divider: {
         height: 1,
-        backgroundColor: '#F1F5F9',
-        marginVertical: 12,
-        marginHorizontal: -4,
-    },
-    emailInput: {
-        marginBottom: 0,
-    },
-    inputHint: {
-        fontSize: 12,
-        color: '#94A3B8',
-        marginTop: 8,
-        marginLeft: 4,
+        backgroundColor: GLASS_BORDER,
+        marginHorizontal: 16,
     },
     gridContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: 12,
     },
+    roleWrapper: {
+        width: (width - Spacing.xl * 2 - 12) / 2,
+    },
     roleCard: {
-        width: CARD_WIDTH,
-        backgroundColor: '#FFFFFF',
+        aspectRatio: 0.9,
+        backgroundColor: GLASS_WHITE,
         borderRadius: 24,
-        padding: 20,
+        padding: 16,
         borderWidth: 1.5,
-        borderColor: '#F1F5F9',
+        borderColor: GLASS_BORDER,
+        justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.02,
-        shadowRadius: 15,
-        elevation: 2,
     },
-    roleCardActive: {
-        borderColor: Colors.primary,
-        backgroundColor: '#FFFFFF',
-        // Glow effect
-        shadowColor: Colors.primary,
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
-        elevation: 6,
-    },
-    iconContainer: {
-        width: 64,
-        height: 64,
+    iconBox: {
+        width: 60,
+        height: 60,
         borderRadius: 20,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: 12,
     },
     roleTitle: {
-        fontSize: 16,
+        fontSize: 17,
         fontWeight: '800',
+        color: '#94A3B8',
+        marginBottom: 4,
+    },
+    roleDesc: {
+        fontSize: 11,
         color: '#64748B',
         textAlign: 'center',
-    },
-    roleTitleActive: {
-        color: '#0F172A',
-    },
-    roleDescription: {
-        fontSize: 12,
-        color: '#94A3B8',
-        textAlign: 'center',
-        marginTop: 6,
-        lineHeight: 16,
+        fontWeight: '600',
+        lineHeight: 14,
     },
     checkBadge: {
         position: 'absolute',
-        top: 12,
-        right: 12,
+        top: 10,
+        right: 10,
     },
     footer: {
         position: 'absolute',
@@ -380,18 +404,50 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         paddingHorizontal: Spacing.xl,
-        paddingTop: 16,
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-        borderTopWidth: 1,
-        borderTopColor: '#F1F5F9',
     },
-    actionBtn: {
-        height: 10,
-        borderRadius: 16,
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-        elevation: 2,
+    footerGradient: {
+        position: 'absolute',
+        top: -60,
+        left: 0,
+        right: 0,
+        height: 120,
+    },
+    actionContainer: {
+        marginBottom: 10,
+    },
+    primaryBtn: {
+        borderRadius: 22,
+        overflow: 'hidden',
+        height: 64,
+        shadowColor: ELECTRIC_ORANGE,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 15,
+        elevation: 8,
+    },
+    btnGradient: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 24,
+    },
+    btnText: {
+        color: '#FFF',
+        fontSize: 18,
+        fontWeight: '900',
+        letterSpacing: 0.2,
+    },
+    btnIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        marginLeft: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    btnDisabled: {
+        opacity: 0.5,
     },
 });

@@ -5,9 +5,10 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Layers, Plus, Tag, Loader2, Check, X, Edit2, Trash2, Power } from 'lucide-react';
+import { Layers, Plus, Tag, Loader2, Check, X, Edit2, Trash2, Power, Zap, Box, Database, Filter, ChevronRight, Hash } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Category {
   id: string;
@@ -40,12 +41,10 @@ export default function CatalogPage() {
   const [loadingCat, setLoadingCat] = useState(true);
   const [loadingSvc, setLoadingSvc] = useState(false);
 
-  // Add category form
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [addingCat, setAddingCat] = useState(false);
 
-  // Add service form
   const [showAddService, setShowAddService] = useState(false);
   const [newSvcName, setNewSvcName] = useState('');
   const [newSvcPrice, setNewSvcPrice] = useState('');
@@ -62,7 +61,6 @@ export default function CatalogPage() {
     try {
       const res = await api.get('/admin/categories');
       setCategories(res.data);
-      // Auto-select first category
       if (res.data.length > 0 && !selectedCategoryId) {
         setSelectedCategoryId(res.data[0].id);
       }
@@ -71,7 +69,7 @@ export default function CatalogPage() {
     } finally {
       setLoadingCat(false);
     }
-  }, []);
+  }, [selectedCategoryId]);
 
   const fetchServices = useCallback(async (categoryId: string) => {
     setLoadingSvc(true);
@@ -106,7 +104,6 @@ export default function CatalogPage() {
       await fetchCategories();
     } catch (err: any) {
       console.error('Failed to add category:', err);
-      alert(err.response?.data?.message || 'Failed to add category');
     } finally {
       setAddingCat(false);
     }
@@ -127,10 +124,9 @@ export default function CatalogPage() {
       setNewSvcPrice('');
       setShowAddService(false);
       await fetchServices(selectedCategoryId);
-      await fetchCategories(); // refresh counts
+      await fetchCategories();
     } catch (err: any) {
       console.error('Failed to add service:', err);
-      alert(err.response?.data?.message || 'Failed to add service');
     } finally {
       setAddingSvc(false);
     }
@@ -143,7 +139,7 @@ export default function CatalogPage() {
       setEditingCatId(null);
       await fetchCategories();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Update failed');
+      console.error('Update failed:', err);
     }
   };
 
@@ -154,7 +150,7 @@ export default function CatalogPage() {
       if (selectedCategoryId === id) setSelectedCategoryId(null);
       await fetchCategories();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Delete failed');
+      console.error('Delete failed:', err);
     }
   };
 
@@ -163,7 +159,7 @@ export default function CatalogPage() {
       await api.put(`/admin/categories/${id}`, { isActive: !current });
       await fetchCategories();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Update failed');
+      console.error('Toggle failed:', err);
     }
   };
 
@@ -178,7 +174,7 @@ export default function CatalogPage() {
       setEditingSvcId(null);
       fetchServices(selectedCategoryId!);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Update failed');
+      console.error('Update failed:', err);
     }
   };
 
@@ -189,7 +185,7 @@ export default function CatalogPage() {
       fetchServices(selectedCategoryId!);
       fetchCategories();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Delete failed');
+      console.error('Delete failed:', err);
     }
   };
 
@@ -198,320 +194,339 @@ export default function CatalogPage() {
       await api.put(`/admin/services/${id}`, { isActive: !current });
       fetchServices(selectedCategoryId!);
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Update failed');
+      console.error('Toggle failed:', err);
     }
   };
 
-  const selectedCategoryName = categories.find(c => c.id === selectedCategoryId)?.name || 'Select a category';
+  const selectedCategoryName = categories.find(c => c.id === selectedCategoryId)?.name || 'Select a section';
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-black tracking-tight text-[#1a1a1a]">Global Service Catalog</h1>
-          <p className="text-sm font-semibold text-slate-400 uppercase tracking-[0.2em]">Platform Core Definitions</p>
+    <div className="space-y-8">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="flex flex-col">
+          <div className="flex items-center space-x-2 mb-2">
+            <Database size={14} className="text-primary fill-primary" />
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Core Definitions</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tighter text-white uppercase italic text-glow">Global Catalog Map</h1>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" size="sm" onClick={() => setShowAddCategory(true)} className="rounded-xl font-black uppercase tracking-widest text-[10px] h-10 px-5">
-            <Plus size={14} className="mr-2" /> Add Category
-          </Button>
-          <Button variant="primary" size="sm" onClick={() => setShowAddService(true)} disabled={!selectedCategoryId} className="rounded-xl font-black uppercase tracking-widest text-[10px] h-10 px-5">
-            <Plus size={14} className="mr-2" /> Add Service
-          </Button>
+
+        <div className="flex items-center gap-3">
+           <Button variant="outline" className="h-12 px-6 border-slate-800 hover:border-primary group" onClick={() => setShowAddCategory(true)}>
+              <Layers size={16} className="mr-3 text-slate-500 group-hover:text-primary transition-colors" />
+              New Category
+           </Button>
+           <Button className="h-12 px-6" onClick={() => setShowAddService(true)} disabled={!selectedCategoryId}>
+              <Plus size={18} className="mr-2" />
+              Define Service
+           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Categories Column */}
-        <div className="lg:col-span-1 space-y-4">
-          <h3 className="font-semibold text-[#0f172a]">Categories</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Categories Sidebar */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="flex items-center justify-between px-2">
+             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Sections [{categories.length}]</h3>
+             <Filter size={12} className="text-slate-700" />
+          </div>
 
           {loadingCat ? (
-            <div className="flex h-20 items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-[#64748b]" />
+            <div className="flex h-40 items-center justify-center bg-slate-900/50 rounded-3xl border border-slate-800">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {categories.map(c => (
-                <div
+                <motion.div
+                  layout
                   key={c.id}
                   onClick={() => setSelectedCategoryId(c.id)}
                   className={cn(
-                    "cursor-pointer p-4 rounded-2xl border-2 transition-all duration-200 flex justify-between items-center group relative overflow-hidden",
+                    "cursor-pointer p-5 rounded-[1.5rem] border-2 transition-all duration-300 flex justify-between items-center group relative overflow-hidden",
                     selectedCategoryId === c.id
-                      ? "border-[#FF6B00] bg-[#FF6B00] text-white shadow-xl shadow-orange-100/50"
-                      : "border-slate-100 bg-white hover:border-[#FF6B00]/30 hover:shadow-md"
+                      ? "border-primary bg-primary text-white shadow-electric"
+                      : "border-slate-900 bg-slate-950 hover:border-primary/30"
                   )}
                 >
-                  <div className="flex items-center flex-1 min-w-0">
-                    <Layers size={18} className={cn(
-                      "flex-shrink-0 mr-3 transition-transform duration-200 group-hover:scale-110",
-                      selectedCategoryId === c.id ? "text-white" : "text-slate-400 group-hover:text-[#FF6B00]"
-                    )} />
+                  <div className="flex items-center flex-1 min-w-0 z-10">
+                    <div className={cn(
+                       "h-8 w-8 rounded-xl flex items-center justify-center mr-4 transition-colors",
+                       selectedCategoryId === c.id ? "bg-white/20" : "bg-slate-900 group-hover:bg-primary/10"
+                    )}>
+                       <Layers size={16} className={cn(
+                        "transition-transform duration-300 group-hover:scale-110",
+                        selectedCategoryId === c.id ? "text-white" : "text-slate-400 group-hover:text-primary"
+                      )} />
+                    </div>
+                    
                     <div className="flex-1 min-w-0">
                       {editingCatId === c.id ? (
-                        <div className="flex items-center gap-1 -ml-1 pr-2" onClick={e => e.stopPropagation()}>
-                          <Input
-                            size={10}
-                            className="h-8 py-0 px-2 text-xs text-slate-900"
+                        <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                          <input
+                            className="bg-white/10 border-none h-8 w-full rounded-lg text-xs font-black uppercase text-white placeholder:text-white/50 px-3 transition-all focus:ring-0"
                             value={editCatName}
                             autoFocus
                             onChange={e => setEditCatName(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleUpdateCategory(c.id)}
                           />
-                          <Button size="sm" className="h-7 w-7 p-0 rounded-lg min-h-0" onClick={() => handleUpdateCategory(c.id)}>
-                            <Check size={12} />
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-lg min-h-0" onClick={() => setEditingCatId(null)}>
-                            <X size={12} />
-                          </Button>
+                          <button onClick={() => handleUpdateCategory(c.id)} className="h-8 w-8 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center"><Check size={14}/></button>
                         </div>
                       ) : (
                         <div className="flex flex-col">
-                          <span className="font-bold text-sm tracking-tight truncate">{c.name}</span>
-                          {!c.isActive && <span className="text-[9px] font-black uppercase tracking-widest opacity-60">Inactive</span>}
+                          <span className="font-black text-xs uppercase tracking-tight truncate italic">{c.name}</span>
+                          {!c.isActive && <span className="text-[8px] font-black uppercase tracking-widest opacity-50 mt-1">Status: Disabled</span>}
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 ml-2" onClick={e => e.stopPropagation()}>
-                    {selectedCategoryId === c.id && !editingCatId && (
-                      <div className="flex items-center gap-1 absolute right-16 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => { setEditingCatId(c.id); setEditCatName(c.name); }}
-                          className="p-1.5 rounded-lg bg-black/10 hover:bg-black/20 text-white transition-colors"
-                        >
-                          <Edit2 size={12} />
-                        </button>
-                        <button
-                          onClick={() => handleToggleCategory(c.id, c.isActive)}
-                          className={cn(
-                            "p-1.5 rounded-lg transition-colors",
-                            c.isActive ? "bg-black/10 hover:bg-black/20 text-white" : "bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30"
-                          )}
-                        >
-                          <Power size={12} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCategory(c.id)}
-                          className="p-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/40 text-rose-100 transition-colors"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
+                  <div className="flex items-center gap-2 z-10" onClick={e => e.stopPropagation()}>
+                    {selectedCategoryId === c.id && !editingCatId ? (
+                       <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
+                          <button onClick={() => { setEditingCatId(c.id); setEditCatName(c.name); }} className="p-2 bg-white/10 hover:bg-white/20 rounded-lg"><Edit2 size={12}/></button>
+                          <button onClick={() => handleToggleCategory(c.id, c.isActive)} className="p-2 bg-white/10 hover:bg-white/20 rounded-lg"><Power size={12}/></button>
+                          <button onClick={() => handleDeleteCategory(c.id)} className="p-2 bg-rose-500/20 hover:bg-rose-500/40 rounded-lg"><Trash2 size={12}/></button>
+                       </div>
+                    ) : (
+                      <span className={cn(
+                        "text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg border flex-shrink-0 transition-opacity",
+                        selectedCategoryId === c.id ? "bg-white/10 border-white/20 text-white group-hover:opacity-0" : "bg-slate-900 border-slate-800 text-slate-500"
+                      )}>
+                        {c._count.services} units
+                      </span>
                     )}
-                    <span className={cn(
-                      "text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border flex-shrink-0 transition-all",
-                      selectedCategoryId === c.id ? "bg-white/10 border-white/20 text-white group-hover:opacity-0" : "bg-slate-50 border-slate-100 text-slate-500"
-                    )}>
-                      {c._count.services}
-                    </span>
                   </div>
-                </div>
+                  
+                  {selectedCategoryId === c.id && (
+                    <motion.div 
+                      layoutId="active-nav"
+                      className="absolute inset-x-0 bottom-0 h-1 bg-white opacity-40" 
+                    />
+                  )}
+                </motion.div>
               ))}
-              {categories.length === 0 && (
-                <p className="text-sm text-[#94a3b8] text-center py-4">No categories yet</p>
+              
+              {showAddCategory && (
+                <motion.div 
+                   initial={{ opacity: 0, scale: 0.95 }}
+                   animate={{ opacity: 1, scale: 1 }}
+                   className="p-4 bg-slate-900 border-2 border-primary border-dashed rounded-[1.5rem] space-y-4"
+                >
+                   <Input
+                      placeholder="Section Identifier..."
+                      value={newCatName}
+                      onChange={(e) => setNewCatName(e.target.value)}
+                      className="h-10 bg-slate-950 border-slate-800 text-xs font-black uppercase tracking-widest"
+                   />
+                   <div className="flex gap-2">
+                       <Button size="sm" className="flex-1 h-10" onClick={handleAddCategory} disabled={addingCat || !newCatName.trim()}>
+                          {addingCat ? <Loader2 size={14} className="animate-spin" /> : 'Confirm Section'}
+                       </Button>
+                       <Button variant="outline" className="h-10 px-3 border-slate-800" onClick={() => setShowAddCategory(false)}>
+                          <X size={14} />
+                       </Button>
+                   </div>
+                </motion.div>
               )}
-            </div>
-          )}
-
-          {/* Add Category Form */}
-          {showAddCategory && (
-            <div className="p-3 border border-[#e2e8f0] rounded-md bg-white space-y-2">
-              <Input
-                placeholder="Category name..."
-                value={newCatName}
-                onChange={(e) => setNewCatName(e.target.value)}
-                className="h-9"
-              />
-              <div className="flex gap-2">
-                <Button size="sm" onClick={handleAddCategory} disabled={addingCat || !newCatName.trim()}>
-                  {addingCat ? <Loader2 size={14} className="animate-spin mr-1" /> : <Check size={14} className="mr-1" />}
-                  Save
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => { setShowAddCategory(false); setNewCatName(''); }}>
-                  <X size={14} />
-                </Button>
-              </div>
             </div>
           )}
         </div>
 
-        {/* Services Column */}
-        <div className="lg:col-span-2">
-          <Card className="border-[#e2e8f0]">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Services in: {selectedCategoryName}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loadingSvc ? (
-                <div className="flex h-20 items-center justify-center">
-                  <Loader2 className="h-5 w-5 animate-spin text-[#64748b]" />
+        {/* Services Main Workspace */}
+        <div className="lg:col-span-3 space-y-6">
+          <div className="flex items-center justify-between px-2">
+             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Payload Matrix: <span className="text-white italic">{selectedCategoryName}</span></h3>
+             <div className="flex items-center gap-2">
+                <Box size={12} className="text-primary" />
+                <span className="text-[10px] font-black text-primary uppercase tracking-widest">{services.length} ACTIVE UNITS</span>
+             </div>
+          </div>
+
+          <Card className="border-slate-900 bg-slate-950 overflow-hidden min-h-[500px]">
+             {loadingSvc ? (
+                <div className="h-[500px] flex flex-col items-center justify-center space-y-4">
+                   <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                   <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-600">Syncing definitions...</p>
                 </div>
-              ) : (
-                <>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Service Name</TableHead>
-                        <TableHead>Base Price</TableHead>
-                        <TableHead>Duration</TableHead>
-                        <TableHead>Merchants</TableHead>
-                        <TableHead>Active</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {services.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center h-20 text-[#94a3b8]">
-                            No services in this category
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      {services.map((svc) => (
-                        <TableRow key={svc.id} className="group">
-                          <TableCell className="font-medium">
-                            {editingSvcId === svc.id ? (
-                              <div className="space-y-2">
-                                <Input
-                                  className="h-8 text-xs font-semibold"
-                                  value={editSvcData.name}
-                                  onChange={e => setEditSvcData({ ...editSvcData, name: e.target.value })}
-                                />
-                                <Input
-                                  className="h-8 text-xs"
-                                  placeholder="Description..."
-                                  value={editSvcData.description}
-                                  onChange={e => setEditSvcData({ ...editSvcData, description: e.target.value })}
-                                />
-                              </div>
-                            ) : (
-                              <div className="flex items-center">
-                                <div className="bg-[#f1f5f9] p-1.5 rounded mr-3">
-                                  <Tag size={14} className="text-[#64748b]" />
-                                </div>
-                                <div>
-                                  <p className="text-[#1a1a1a] font-bold">{svc.name}</p>
-                                  {svc.description && (
-                                    <p className="text-[11px] font-medium text-[#666666] truncate max-w-[200px]">{svc.description}</p>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-[#1a1a1a] font-black">
-                            {editingSvcId === svc.id ? (
-                              <Input
-                                className="h-8 w-24 text-xs font-bold"
-                                type="number"
-                                value={editSvcData.basePrice}
-                                onChange={e => setEditSvcData({ ...editSvcData, basePrice: e.target.value })}
-                              />
-                            ) : (
-                              `₹${svc.basePrice.toLocaleString()}`
-                            )}
-                          </TableCell>
-                          <TableCell className="text-[#666666] font-semibold">
-                            {editingSvcId === svc.id ? (
-                              <Input
-                                className="h-8 w-20 text-xs"
-                                type="number"
-                                value={editSvcData.duration}
-                                onChange={e => setEditSvcData({ ...editSvcData, duration: e.target.value })}
-                              />
-                            ) : (
-                              `${svc.duration} min`
-                            )}
-                          </TableCell>
-                          <TableCell className="text-[#666666] font-bold">{svc._count.merchantServices}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <span
-                                onClick={() => handleToggleService(svc.id, svc.isActive)}
-                                className={cn(
-                                  "cursor-pointer inline-flex px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all hover:scale-105 active:scale-95",
-                                  svc.isActive ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-slate-50 text-slate-400 border-slate-100"
-                                )}
-                              >
-                                {svc.isActive ? 'Active' : 'Inactive'}
-                              </span>
+             ) : (
+                <div className="flex flex-col h-full">
+                   <Table>
+                      <TableHeader>
+                         <TableRow>
+                            <TableHead className="w-[300px]">Service Unit Blueprint</TableHead>
+                            <TableHead>Evaluation Price</TableHead>
+                            <TableHead>Op Duration</TableHead>
+                            <TableHead>Merchant Nodes</TableHead>
+                            <TableHead className="text-right">Lifecycle Status</TableHead>
+                         </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                         {services.length === 0 ? (
+                            <TableRow>
+                               <TableCell colSpan={5} className="h-64 text-center">
+                                  <div className="flex flex-col items-center justify-center space-y-4 opacity-30">
+                                     <Layers size={48} className="text-slate-700" />
+                                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Workspace Empty: No services defined in this section</p>
+                                  </div>
+                               </TableCell>
+                            </TableRow>
+                         ) : (
+                            services.map((svc) => (
+                               <TableRow key={svc.id} className="group transition-colors hover:bg-slate-900/30">
+                                  <TableCell>
+                                     <div className="flex items-center space-x-4">
+                                        <div className="h-12 w-12 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center group-hover:border-primary/50 transition-all font-black text-primary">
+                                           <Tag size={18} />
+                                        </div>
+                                        <div>
+                                           {editingSvcId === svc.id ? (
+                                              <div className="space-y-2">
+                                                 <input 
+                                                   className="bg-slate-900 border border-slate-800 rounded-lg h-8 px-3 text-xs font-black uppercase tracking-tight text-white w-full focus:ring-primary focus:border-primary"
+                                                   value={editSvcData.name}
+                                                   onChange={e => setEditSvcData({ ...editSvcData, name: e.target.value })}
+                                                 />
+                                                 <input 
+                                                   className="bg-slate-900 border border-slate-800 rounded-lg h-7 px-3 text-[10px] font-bold text-slate-500 w-full focus:ring-primary focus:border-primary"
+                                                   placeholder="Op Description..."
+                                                   value={editSvcData.description}
+                                                   onChange={e => setEditSvcData({ ...editSvcData, description: e.target.value })}
+                                                 />
+                                              </div>
+                                           ) : (
+                                              <>
+                                                 <p className="text-sm font-black text-white italic uppercase tracking-tight">{svc.name}</p>
+                                                 {svc.description && <p className="text-[10px] font-bold text-slate-600 group-hover:text-slate-400 mt-1 line-clamp-1">{svc.description}</p>}
+                                              </>
+                                           )}
+                                        </div>
+                                     </div>
+                                  </TableCell>
+                                  <TableCell>
+                                     {editingSvcId === svc.id ? (
+                                        <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg px-2 h-10 w-32 focus-within:border-primary">
+                                           <span className="text-primary font-black text-xs mr-2">₹</span>
+                                           <input 
+                                             type="number" 
+                                             className="bg-transparent border-none p-0 text-sm font-black text-white w-full focus:ring-0"
+                                             value={editSvcData.basePrice}
+                                             onChange={e => setEditSvcData({ ...editSvcData, basePrice: e.target.value })}
+                                           />
+                                        </div>
+                                     ) : (
+                                        <div className="flex items-center gap-2">
+                                           <span className="text-base font-black text-white italic tracking-tighter uppercase">₹{svc.basePrice.toLocaleString()}</span>
+                                           <Zap size={10} className="text-primary fill-primary opacity-30" />
+                                        </div>
+                                     )}
+                                  </TableCell>
+                                  <TableCell>
+                                     {editingSvcId === svc.id ? (
+                                        <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg px-2 h-10 w-24 focus-within:border-primary">
+                                           <input 
+                                             type="number" 
+                                             className="bg-transparent border-none p-0 text-sm font-black text-white w-full focus:ring-0"
+                                             value={editSvcData.duration}
+                                             onChange={e => setEditSvcData({ ...editSvcData, duration: e.target.value })}
+                                           />
+                                           <span className="text-slate-500 font-bold text-[9px] uppercase ml-1">MIN</span>
+                                        </div>
+                                     ) : (
+                                        <div className="flex items-center gap-2">
+                                           <span className="text-xs font-black text-slate-400 uppercase tracking-widest">{svc.duration}</span>
+                                           <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">MINS</span>
+                                        </div>
+                                     )}
+                                  </TableCell>
+                                  <TableCell>
+                                     <div className="flex items-center gap-2 text-white font-black text-xs">
+                                        <Hash size={12} className="text-primary" />
+                                        {svc._count.merchantServices}
+                                     </div>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                     <div className="flex items-center justify-end space-x-4">
+                                        <div 
+                                          onClick={() => handleToggleService(svc.id, svc.isActive)}
+                                          className={cn(
+                                          "cursor-pointer px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] border transition-all hover:scale-105 active:scale-95 shadow-lg",
+                                          svc.isActive ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-slate-900 text-slate-700 border-slate-800"
+                                        )}>
+                                          {svc.isActive ? 'ACTIVE' : 'OFFLINE'}
+                                        </div>
 
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                {editingSvcId === svc.id ? (
-                                  <>
-                                    <button onClick={() => handleUpdateService(svc.id)} className="p-1.5 rounded-lg bg-orange-100 text-[#FF6B00] hover:bg-orange-200 shadow-sm border border-orange-200/50">
-                                      <Check size={14} />
-                                    </button>
-                                    <button onClick={() => setEditingSvcId(null)} className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200">
-                                      <X size={14} />
-                                    </button>
-                                  </>
-                                ) : (
-                                  <>
-                                    <button
-                                      onClick={() => {
-                                        setEditingSvcId(svc.id);
-                                        setEditSvcData({
-                                          name: svc.name,
-                                          basePrice: svc.basePrice.toString(),
-                                          duration: svc.duration.toString(),
-                                          description: svc.description || '',
-                                        });
-                                      }}
-                                      className="p-1.5 rounded-lg bg-slate-50 text-slate-400 hover:text-[#FF6B00] hover:bg-orange-50 transition-colors"
-                                    >
-                                      <Edit2 size={14} />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteService(svc.id)}
-                                      className="p-1.5 rounded-lg bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                                    >
-                                      <Trash2 size={14} />
-                                    </button>
-                                  </>
-                                )}
-                              </div>
+                                        <div className="flex items-center space-x-1">
+                                           {editingSvcId === svc.id ? (
+                                              <>
+                                                 <button onClick={() => handleUpdateService(svc.id)} className="h-10 w-10 bg-primary/20 text-primary border border-primary/30 rounded-xl flex items-center justify-center hover:bg-primary hover:text-white transition-all"><Check size={18}/></button>
+                                                 <button onClick={() => setEditingSvcId(null)} className="h-10 w-10 bg-slate-900 text-slate-500 border border-slate-800 rounded-xl flex items-center justify-center hover:text-white transition-all"><X size={18}/></button>
+                                              </>
+                                           ) : (
+                                              <>
+                                                 <button onClick={() => {
+                                                    setEditingSvcId(svc.id);
+                                                    setEditSvcData({
+                                                      name: svc.name,
+                                                      basePrice: svc.basePrice.toString(),
+                                                      duration: svc.duration.toString(),
+                                                      description: svc.description || '',
+                                                    });
+                                                 }} className="h-10 w-10 bg-slate-950 border border-slate-900 rounded-xl flex items-center justify-center text-slate-600 hover:text-primary hover:border-primary/50 transition-all opacity-0 group-hover:opacity-100"><Edit2 size={14}/></button>
+                                                 <button onClick={() => handleDeleteService(svc.id)} className="h-10 w-10 bg-slate-950 border border-slate-900 rounded-xl flex items-center justify-center text-slate-600 hover:text-rose-500 hover:border-rose-500/50 transition-all opacity-0 group-hover:opacity-100"><Trash2 size={14}/></button>
+                                              </>
+                                           )}
+                                        </div>
+                                     </div>
+                                  </TableCell>
+                               </TableRow>
+                            ))
+                         )}
+                      </TableBody>
+                   </Table>
+
+                   {showAddService && (
+                      <div className="mt-auto px-10 py-8 bg-slate-900/30 border-t border-slate-900">
+                         <div className="flex items-center gap-3 mb-6">
+                            <Plus size={16} className="text-primary" />
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Appending Service Blueprint to <span className="text-white italic">"{selectedCategoryName}"</span></p>
+                         </div>
+                         <div className="flex gap-4">
+                            <div className="flex-1 space-y-2">
+                               <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Service Identifier</p>
+                               <Input 
+                                  placeholder="E.G. DEEP CLEANING MATRIX" 
+                                  className="h-12 bg-slate-950 border-slate-800 text-xs font-black uppercase tracking-widest placeholder:text-slate-800"
+                                  value={newSvcName}
+                                  onChange={(e) => setNewSvcName(e.target.value)}
+                               />
                             </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-
-                  {/* Add Service Form */}
-                  {showAddService && selectedCategoryId && (
-                    <div className="mt-4 p-4 border border-[#e2e8f0] rounded-md bg-[#fafafa] space-y-3">
-                      <p className="font-medium text-sm text-[#0f172a]">Add Service to "{selectedCategoryName}"</p>
-                      <div className="flex gap-3">
-                        <Input
-                          placeholder="Service name..."
-                          value={newSvcName}
-                          onChange={(e) => setNewSvcName(e.target.value)}
-                          className="h-9 flex-1"
-                        />
-                        <Input
-                          placeholder="Base price (₹)"
-                          type="number"
-                          value={newSvcPrice}
-                          onChange={(e) => setNewSvcPrice(e.target.value)}
-                          className="h-9 w-32"
-                        />
+                            <div className="w-48 space-y-2">
+                               <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Payload Valuation (₹)</p>
+                               <Input 
+                                  placeholder="0.00" 
+                                  type="number"
+                                  className="h-12 bg-slate-950 border-slate-800 text-xs font-black uppercase tracking-widest placeholder:text-slate-800"
+                                  value={newSvcPrice}
+                                  onChange={(e) => setNewSvcPrice(e.target.value)}
+                               />
+                            </div>
+                            <div className="flex flex-col justify-end gap-2 pb-0.5">
+                               <div className="flex gap-2">
+                                  <Button className="h-12 px-8" onClick={handleAddService} disabled={addingSvc || !newSvcName.trim() || !newSvcPrice}>
+                                     {addingSvc ? <Loader2 size={16} className="animate-spin" /> : 'Confirm Blueprint'}
+                                  </Button>
+                                  <Button variant="outline" className="h-12 px-4 border-slate-800" onClick={() => setShowAddService(false)}>
+                                     <X size={18} />
+                                  </Button>
+                               </div>
+                            </div>
+                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={handleAddService} disabled={addingSvc || !newSvcName.trim() || !newSvcPrice}>
-                          {addingSvc ? <Loader2 size={14} className="animate-spin mr-1" /> : <Check size={14} className="mr-1" />}
-                          Add Service
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => { setShowAddService(false); setNewSvcName(''); setNewSvcPrice(''); }}>
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </CardContent>
+                   )}
+                </div>
+             )}
           </Card>
         </div>
       </div>

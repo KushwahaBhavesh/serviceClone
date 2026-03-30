@@ -16,87 +16,56 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // 1. Try Admin table first
+        // Look up admin by email
         const admin = await prisma.admin.findUnique({ where: { email } });
 
-        if (admin) {
-            const isValid = await bcrypt.compare(password, admin.passwordHash);
-            if (!isValid) {
-                return NextResponse.json(
-                    { success: false, message: 'Invalid credentials' },
-                    { status: 401 }
-                );
-            }
-
-            // Update last login
-            await prisma.admin.update({
-                where: { id: admin.id },
-                data: { lastLoginAt: new Date() },
-            });
-
-            // Generate Token
-            const token = jwt.sign(
-                { userId: admin.id, email: admin.email, role: 'ADMIN' },
-                JWT_SECRET,
-                { expiresIn: '7d' }
+        if (!admin) {
+            return NextResponse.json(
+                { success: false, message: 'Invalid credentials' },
+                { status: 401 }
             );
-
-            return NextResponse.json({
-                success: true,
-                user: {
-                    id: admin.id,
-                    email: admin.email,
-                    name: admin.name,
-                    role: 'ADMIN',
-                },
-                token
-            });
         }
 
-        // 2. Fallback to User table for potential admins there (optional, but keep for compatibility during migration)
-        const user = await prisma.user.findFirst({
-            where: { email, role: 'ADMIN' }
+        // Verify password
+        const isValid = await bcrypt.compare(password, admin.passwordHash);
+        if (!isValid) {
+            return NextResponse.json(
+                { success: false, message: 'Invalid credentials' },
+                { status: 401 }
+            );
+        }
+
+        // Check account status
+        if (admin.status === 'DEACTIVATED' || admin.status === 'SUSPENDED') {
+            return NextResponse.json(
+                { success: false, message: `Account is ${admin.status.toLowerCase()}` },
+                { status: 403 }
+            );
+        }
+
+        // Update last login
+        await prisma.admin.update({
+            where: { id: admin.id },
+            data: { lastLoginAt: new Date() },
         });
 
-        if (user) {
-            if (!user.passwordHash) {
-                return NextResponse.json(
-                    { success: false, message: 'Account has no password. Contact support.' },
-                    { status: 401 }
-                );
-            }
-
-            const isValid = await bcrypt.compare(password, user.passwordHash);
-            if (!isValid) {
-                return NextResponse.json(
-                    { success: false, message: 'Invalid credentials' },
-                    { status: 401 }
-                );
-            }
-
-            const token = jwt.sign(
-                { userId: user.id, email: user.email, role: 'ADMIN' },
-                JWT_SECRET,
-                { expiresIn: '7d' }
-            );
-
-            return NextResponse.json({
-                success: true,
-                user: {
-                    id: user.id,
-                    email: user.email,
-                    name: user.name,
-                    role: 'ADMIN',
-                },
-                token
-            });
-        }
-
-        return NextResponse.json(
-            { success: false, message: 'Invalid credentials or not an admin' },
-            { status: 401 }
+        // Generate JWT
+        const token = jwt.sign(
+            { userId: admin.id, email: admin.email, role: 'ADMIN' },
+            JWT_SECRET,
+            { expiresIn: '7d' }
         );
 
+        return NextResponse.json({
+            success: true,
+            user: {
+                id: admin.id,
+                email: admin.email,
+                name: admin.name,
+                role: 'ADMIN',
+            },
+            token,
+        });
     } catch (error: any) {
         console.error('Admin Login Error:', error);
         return NextResponse.json(

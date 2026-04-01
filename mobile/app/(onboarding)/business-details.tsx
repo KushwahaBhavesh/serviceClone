@@ -19,23 +19,15 @@ import Animated, {
     FadeInUp, 
     FadeInDown, 
 } from 'react-native-reanimated';
-import { 
-    ChevronLeft,
-    Briefcase,
-    Tag,
-    ArrowRight
-} from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { Spacing } from '../../constants/theme';
+import { Colors, Spacing } from '../../constants/theme';
 import { Input } from '../../components/ui/Input';
 
 const { width } = Dimensions.get('window');
 
-// ─── Constants ───
-const DARK_SLATE = '#0F172A';
-const ELECTRIC_ORANGE = '#FF6B00';
-const GLASS_WHITE = 'rgba(255, 255, 255, 0.08)';
-const GLASS_BORDER = 'rgba(255, 255, 255, 0.12)';
+const GLASS_WHITE = 'rgba(0, 0, 0, 0.02)';
+const GLASS_BORDER = 'rgba(0, 0, 0, 0.05)';
 
 export default function BusinessDetailsScreen() {
     const router = useRouter();
@@ -68,12 +60,12 @@ export default function BusinessDetailsScreen() {
 
     return (
         <View style={styles.container}>
-            <StatusBar style="light" />
+            <StatusBar style="dark" />
             
-            <LinearGradient
-                colors={[DARK_SLATE, '#1E293B']}
-                style={StyleSheet.absoluteFill}
-            />
+            <View style={styles.bgContainer}>
+                <View style={[styles.decoration, styles.decor1]} />
+                <View style={[styles.decoration, styles.decor2]} />
+            </View>
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -93,7 +85,7 @@ export default function BusinessDetailsScreen() {
                             style={styles.backButton}
                             hitSlop={12}
                         >
-                            <ChevronLeft size={24} color="#FFF" />
+                            <Ionicons name="chevron-back" size={24} color={Colors.textDark} />
                         </Pressable>
                     </Animated.View>
 
@@ -102,7 +94,7 @@ export default function BusinessDetailsScreen() {
                             entering={FadeInDown.delay(200)} 
                             style={styles.title}
                         >
-                            Business Profile
+                            Business <Text style={styles.titleHighlight}>Profile</Text>
                         </Animated.Text>
                         <Animated.Text 
                             entering={FadeInDown.delay(300)} 
@@ -116,25 +108,25 @@ export default function BusinessDetailsScreen() {
                         <Text style={styles.sectionLabel}>Core Information</Text>
                         <View style={styles.glassCard}>
                             <View style={styles.inputRow}>
-                                <Briefcase size={20} color="#64748B" style={styles.inputIcon} />
+                                <Ionicons name="briefcase-outline" size={20} color={Colors.primary} style={styles.inputIcon} />
                                 <Input
                                     value={businessName}
                                     onChangeText={setBusinessName}
                                     placeholder="Business Name"
-                                    placeholderTextColor="rgba(255,255,255,0.3)"
-                                    style={styles.input}
+                                    placeholderTextColor="rgba(0,0,0,0.3)"
+                                    style={[styles.input, { color: Colors.textDark }]}
                                     containerStyle={styles.inputContainer}
                                 />
                             </View>
                             <View style={styles.divider} />
                             <View style={styles.inputRow}>
-                                <Tag size={20} color="#64748B" style={styles.inputIcon} />
+                                <Ionicons name="pricetag-outline" size={20} color={Colors.primary} style={styles.inputIcon} />
                                 <Input
                                     value={businessCategory}
                                     onChangeText={setBusinessCategory}
                                     placeholder="Service Category (e.g. Plumbing)"
-                                    placeholderTextColor="rgba(255,255,255,0.3)"
-                                    style={styles.input}
+                                    placeholderTextColor="rgba(0,0,0,0.3)"
+                                    style={[styles.input, { color: Colors.textDark }]}
                                     containerStyle={styles.inputContainer}
                                 />
                             </View>
@@ -148,7 +140,7 @@ export default function BusinessDetailsScreen() {
 
             <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.lg) }]}>
                 <LinearGradient
-                    colors={['rgba(15, 23, 42, 0)', DARK_SLATE]}
+                    colors={['rgba(255, 255, 255, 0)', '#FFFFFF']}
                     style={styles.footerGradient}
                     pointerEvents="none"
                 />
@@ -164,14 +156,14 @@ export default function BusinessDetailsScreen() {
                         ]}
                     >
                         <LinearGradient
-                            colors={[ELECTRIC_ORANGE, '#E66100']}
+                            colors={[Colors.primary, Colors.primaryLight]}
                             style={styles.btnGradient}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
                         >
                             <Text style={styles.btnText}>Continue</Text>
                             <View style={styles.btnIcon}>
-                                <ArrowRight size={20} color="#FFF" strokeWidth={3} />
+                                <Ionicons name="arrow-forward" size={20} color="#FFF" />
                             </View>
                         </LinearGradient>
                     </Pressable>
@@ -184,7 +176,28 @@ export default function BusinessDetailsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: DARK_SLATE,
+        backgroundColor: Colors.background,
+    },
+    bgContainer: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    decoration: {
+        position: 'absolute',
+        borderRadius: 100,
+    },
+    decor1: {
+        width: 250,
+        height: 250,
+        backgroundColor: Colors.primary + '08',
+        top: -80,
+        right: -80,
+    },
+    decor2: {
+        width: 150,
+        height: 150,
+        backgroundColor: Colors.secondary + '08',
+        bottom: '10%',
+        left: -50,
     },
     flex: { flex: 1 },
     scrollContent: {
@@ -194,12 +207,17 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 14,
-        backgroundColor: GLASS_WHITE,
+        backgroundColor: '#FFFFFF',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 24,
-        borderWidth: 1,
-        borderColor: GLASS_BORDER,
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        elevation: 2,
     },
     header: {
         marginBottom: 32,
@@ -207,12 +225,15 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 34,
         fontWeight: '900',
-        color: '#FFFFFF',
+        color: Colors.textDark,
         letterSpacing: -1,
+    },
+    titleHighlight: {
+        color: Colors.primary,
     },
     subtitle: {
         fontSize: 16,
-        color: '#94A3B8',
+        color: Colors.textSecondary,
         marginTop: 8,
         fontWeight: '500',
     },
@@ -229,11 +250,16 @@ const styles = StyleSheet.create({
         marginLeft: 4,
     },
     glassCard: {
-        backgroundColor: GLASS_WHITE,
+        backgroundColor: '#FFFFFF',
         borderRadius: 24,
-        borderWidth: 1,
-        borderColor: GLASS_BORDER,
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
         overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.05,
+        shadowRadius: 20,
+        elevation: 5,
     },
     inputRow: {
         flexDirection: 'row',
@@ -249,14 +275,14 @@ const styles = StyleSheet.create({
         borderWidth: 0,
     },
     input: {
-        color: '#FFF',
+        color: Colors.textDark,
         fontSize: 16,
         fontWeight: '600',
         height: 64,
     },
     divider: {
         height: 1,
-        backgroundColor: GLASS_BORDER,
+        backgroundColor: '#E2E8F0',
         marginHorizontal: 16,
     },
     hintText: {
@@ -287,7 +313,7 @@ const styles = StyleSheet.create({
         borderRadius: 22,
         overflow: 'hidden',
         height: 64,
-        shadowColor: ELECTRIC_ORANGE,
+        shadowColor: Colors.primary,
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.3,
         shadowRadius: 15,

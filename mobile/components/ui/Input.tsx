@@ -33,7 +33,7 @@ export const Input = ({
 
     return (
         <View style={[styles.container, containerStyle]}>
-            {label && <Text style={[styles.label, dark && styles.labelDark]}>{label}</Text>}
+            {!!label && <Text style={[styles.label, dark && styles.labelDark]}>{label}</Text>}
 
             <View style={[
                 styles.inputWrapper,
@@ -56,7 +56,7 @@ export const Input = ({
                 {rightIcon && <View style={styles.iconRight}>{rightIcon}</View>}
             </View>
 
-            {error && <Text style={styles.errorText}>{error}</Text>}
+            {!!error && <Text style={styles.errorText}>{error}</Text>}
         </View>
     );
 };
@@ -80,9 +80,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        borderWidth: 1.5,
-        borderColor: '#E2E8F0',
+
         minHeight: 58,
         paddingHorizontal: Spacing.md,
         // shadowColor: '#000',

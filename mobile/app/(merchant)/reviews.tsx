@@ -53,8 +53,8 @@ export default function ReviewsScreen() {
     const renderStars = (rating: number) => (
         <View style={styles.stars}>
             {[1,2,3,4,5].map((s) => (
-                <Star key={s} size={13} color={s <= rating ? '#F59E0B' : '#E2E8F0'}
-                    fill={s <= rating ? '#F59E0B' : 'transparent'} strokeWidth={2} />
+                <Star key={s} size={13} color={s <= rating ? Colors.primary : '#E2E8F0'}
+                    fill={s <= rating ? Colors.primary : 'transparent'} strokeWidth={2} />
             ))}
         </View>
     );
@@ -74,13 +74,13 @@ export default function ReviewsScreen() {
                         </Text>
                     </View>
                     <View style={styles.ratingPill}>
-                        <Star size={11} color="#F59E0B" fill="#F59E0B" />
+                        <Star size={11} color={Colors.primary} fill={Colors.primary} />
                         <Text style={styles.ratingPillText}>{item.rating.toFixed(1)}</Text>
                     </View>
                 </View>
 
                 {renderStars(item.rating)}
-                {item.comment && <Text style={styles.comment}>{item.comment}</Text>}
+                {!!item.comment && <Text style={styles.comment}>{item.comment}</Text>}
 
                 <View style={styles.bookingTag}>
                     <Hash size={10} color="#94A3B8" strokeWidth={2.5} />
@@ -148,7 +148,7 @@ export default function ReviewsScreen() {
                     onPress={() => router.back()}
                     style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
                 >
-                    <ChevronLeft size={22} color="#1E293B" />
+                    <ChevronLeft size={22} color={Colors.textDark} />
                 </Pressable>
                 <Text style={styles.headerTitle}>Reviews</Text>
                 <View style={{ width: 44 }} />
@@ -158,7 +158,7 @@ export default function ReviewsScreen() {
             {avgRating > 0 && (
                 <View style={styles.overallRow}>
                     <View style={styles.overallBadge}>
-                        <Star size={16} color="#F59E0B" fill="#F59E0B" />
+                        <Star size={16} color={Colors.primary} fill={Colors.primary} />
                         <Text style={styles.overallText}>{avgRating.toFixed(1)}</Text>
                         <Text style={styles.overallSub}>avg · {reviews.length} reviews</Text>
                     </View>
@@ -212,11 +212,11 @@ const styles = StyleSheet.create({
     overallRow: { paddingHorizontal: Spacing.lg, paddingBottom: Spacing.sm },
     overallBadge: {
         flexDirection: 'row', alignItems: 'center', gap: 6,
-        backgroundColor: '#FEF3C7', paddingHorizontal: 14, paddingVertical: 8,
+        backgroundColor: Colors.primary + '14', paddingHorizontal: 14, paddingVertical: 8,
         borderRadius: 14, alignSelf: 'flex-start',
     },
-    overallText: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
-    overallSub: { fontSize: 12, color: '#64748B', fontWeight: '600' },
+    overallText: { fontSize: 18, fontWeight: '800', color: Colors.textDark },
+    overallSub: { fontSize: 12, color: Colors.textSecondary, fontWeight: '600' },
 
     list: { padding: Spacing.lg, gap: 12, paddingBottom: 40 },
 
@@ -236,9 +236,9 @@ const styles = StyleSheet.create({
     reviewDate: { fontSize: 11, color: '#94A3B8', fontWeight: '500', marginTop: 1 },
     ratingPill: {
         flexDirection: 'row', alignItems: 'center', gap: 3,
-        backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
+        backgroundColor: Colors.primary + '14', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8,
     },
-    ratingPillText: { fontSize: 12, fontWeight: '800', color: '#D97706' },
+    ratingPillText: { fontSize: 12, fontWeight: '800', color: Colors.primary },
     stars: { flexDirection: 'row', gap: 2 },
     comment: { fontSize: 14, color: '#334155', lineHeight: 20, fontWeight: '500' },
     bookingTag: {

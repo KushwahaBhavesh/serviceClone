@@ -140,7 +140,7 @@ function DashboardHero({ user, insets, dashboard }: any) {
     return (
         <View style={[styles.heroSection, { paddingTop: insets.top + Spacing.md }]}>
             <LinearGradient
-                colors={['#0F172A', '#1E293B']}
+                colors={['#FFFFFF', '#F8FAFC']}
                 style={styles.heroBackground}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -246,24 +246,24 @@ function StatsBentoGrid({ dashboard }: any) {
                 delay={500}
             />
             <BentoItem
-                icon={<Clock size={18} color="#F59E0B" />}
+                icon={<Clock size={18} color={Colors.primary} />}
                 label="Waiting"
                 value={dashboard?.pendingOrders ?? 0}
-                color="#F59E0B"
+                color={Colors.primary}
                 delay={550}
             />
             <BentoItem
-                icon={<Users size={18} color="#6366F1" />}
+                icon={<Users size={18} color={Colors.primary} />}
                 label="Active Staff"
                 value={dashboard?.agentCount ?? 0}
-                color="#6366F1"
+                color={Colors.primary}
                 delay={600}
             />
             <BentoItem
-                icon={<Activity size={18} color="#0EA5E9" />}
+                icon={<Activity size={18} color={Colors.primary} />}
                 label="Success Rate"
                 value="98%"
-                color="#0EA5E9"
+                color={Colors.primary}
                 delay={650}
             />
         </View>
@@ -276,13 +276,13 @@ function QuickActions() {
             <Text style={styles.sectionHeaderTitle}>Manage Business</Text>
             <View style={styles.actionsPillGrid}>
                 <ActionItem icon={<BookOpen size={18} color={Colors.primary} />} label="Services" onPress={() => router.push('/(merchant)/(tabs)/catalog')} delay={700} />
-                <ActionItem icon={<Users size={18} color="#6366F1" />} label="Agents" onPress={() => router.push('/(merchant)/agents')} delay={730} />
-                <ActionItem icon={<Map size={18} color="#0EA5E9" />} label="Map View" onPress={() => router.push('/(merchant)/agents/map')} delay={760} />
-                <ActionItem icon={<CalendarDays size={18} color="#14B8A6" />} label="Schedule" onPress={() => router.push('/(merchant)/schedule')} delay={790} />
-                <ActionItem icon={<Wallet size={18} color={Colors.success} />} label="Payouts" onPress={() => router.push('/(merchant)/earnings')} delay={820} />
-                <ActionItem icon={<Tag size={18} color="#EC4899" />} label="Coupons" onPress={() => router.push('/(merchant)/promotions')} delay={850} />
-                <ActionItem icon={<BarChart3 size={18} color="#8B5CF6" />} label="Growth" onPress={() => router.push('/(merchant)/analytics')} delay={880} />
-                <ActionItem icon={<Star size={18} color="#F59E0B" />} label="Reviews" onPress={() => router.push('/(merchant)/reviews')} delay={910} />
+                <ActionItem icon={<Users size={18} color={Colors.primary} />} label="Agents" onPress={() => router.push('/(merchant)/agents')} delay={730} />
+                <ActionItem icon={<Map size={18} color={Colors.primary} />} label="Map View" onPress={() => router.push('/(merchant)/agents/map')} delay={760} />
+                <ActionItem icon={<CalendarDays size={18} color={Colors.primary} />} label="Schedule" onPress={() => router.push('/(merchant)/schedule')} delay={790} />
+                <ActionItem icon={<Wallet size={18} color={Colors.primary} />} label="Payouts" onPress={() => router.push('/(merchant)/earnings')} delay={820} />
+                <ActionItem icon={<Tag size={18} color={Colors.primary} />} label="Coupons" onPress={() => router.push('/(merchant)/promotions')} delay={850} />
+                <ActionItem icon={<BarChart3 size={18} color={Colors.primary} />} label="Growth" onPress={() => router.push('/(merchant)/analytics')} delay={880} />
+                <ActionItem icon={<Star size={18} color={Colors.primary} />} label="Reviews" onPress={() => router.push('/(merchant)/reviews')} delay={910} />
             </View>
         </View>
     );
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
     heroSection: {
         paddingHorizontal: Spacing.xl,
         paddingBottom: 40,
-        backgroundColor: '#0F172A',
+        backgroundColor: Colors.background,
         borderBottomLeftRadius: 36,
         borderBottomRightRadius: 36,
         overflow: 'hidden',
@@ -392,17 +392,17 @@ const styles = StyleSheet.create({
     heroBackground: { ...StyleSheet.absoluteFillObject },
     heroCircle1: {
         position: 'absolute', top: -50, right: -50, width: 200, height: 200,
-        borderRadius: 100, backgroundColor: 'rgba(255,107,0,0.1)',
+        borderRadius: 100, backgroundColor: 'rgba(255,107,0,0.03)',
     },
     heroCircle2: {
         position: 'absolute', bottom: -100, left: -50, width: 250, height: 250,
-        borderRadius: 125, backgroundColor: 'rgba(51,65,85,0.4)',
+        borderRadius: 125, backgroundColor: 'rgba(255,107,0,0.02)',
     },
     heroMain: { position: 'relative', zIndex: 1 },
     heroRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
     
     ratingBadge: {
-        backgroundColor: 'rgba(255,255,255,0.12)',
+        backgroundColor: 'rgba(0,0,0,0.04)',
         paddingHorizontal: 12,
         paddingVertical: 16,
         borderRadius: 20,
@@ -410,34 +410,35 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         gap: 6,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
+        borderColor: 'rgba(0,0,0,0.05)',
     },
-    ratingNumber: { fontSize: 22, fontWeight: '900', color: '#FFF' },
+    ratingNumber: { fontSize: 22, fontWeight: '900', color: Colors.textDark },
     businessInfo: { flex: 1 },
-    greetLabel: { fontSize: 14, color: '#94A3B8', fontWeight: '500' },
-    businessName: { fontSize: 24, fontWeight: '800', color: '#FFF', marginTop: 2 },
+    greetLabel: { fontSize: 14, color: Colors.textSecondary, fontWeight: '500' },
+    businessName: { fontSize: 24, fontWeight: '800', color: Colors.textDark, marginTop: 2 },
     
     statusIconBadge: {
         width: 44, height: 44, borderRadius: 22,
         justifyContent: 'center', alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.1)',
+        backgroundColor: 'rgba(0,0,0,0.04)',
         borderWidth: 1,
     },
-    statusVerified: { borderColor: 'rgba(16,185,129,0.3)' },
-    statusPending: { borderColor: 'rgba(245,158,11,0.3)' },
-
+    statusVerified: { borderColor: 'rgba(16,185,129,0.1)' },
+    statusPending: { borderColor: 'rgba(245,158,11,0.1)' },
+ 
     heroStatsRow: {
         flexDirection: 'row',
         alignItems: 'center',
         marginTop: 24,
         paddingTop: 20,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(255,255,255,0.1)',
+        borderTopColor: 'rgba(0,0,0,0.05)',
     },
     heroStatItem: { flex: 1, alignItems: 'center' },
-    heroStatLabel: { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
-    heroStatValue: { fontSize: 16, fontWeight: '800', color: '#FFF', marginTop: 2 },
-    heroStatDivider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.1)' },
+    heroStatLabel: { fontSize: 12, color: Colors.textSecondary, fontWeight: '600' },
+    heroStatValue: { fontSize: 16, fontWeight: '800', color: Colors.textDark, marginTop: 2 },
+    heroStatDivider: { width: 1, height: 30, backgroundColor: 'rgba(0,0,0,0.05)' },
+
 
     // ─── Revenue Card ───
     mainRevenueCard: {

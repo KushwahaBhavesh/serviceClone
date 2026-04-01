@@ -2,7 +2,7 @@ export const Colors = {
   // Primary brand colors (Figma: Orange accent)
   primary: '#FF6B00',       // Figma Orange
   primaryLight: '#FF8533',
-  secondary: '#1A73E8',     // Figma Blue
+  secondary: '#FF8533',     // Figma Orange Light (secondary accent)
 
   // Backgrounds
   background: '#FFFFFF',
@@ -20,10 +20,10 @@ export const Colors = {
   textOnHighlight: '#FFFFFF',
 
   // Status
-  success: '#4CAF50',       // Figma Green
-  warning: '#FFC107',
-  error: '#F44336',
-  info: '#2196F3',
+  success: '#FF6B00',       // Figma Orange
+  warning: '#FF8533',       // Figma Orange Light
+  error: '#F44336',         // Keep red for error as it's critical, but can be adjusted if user insists
+  info: '#FFB000',          // Amber/Orange for info
 
   // Borders
   border: '#EEEEEE',
@@ -34,7 +34,7 @@ export const Colors = {
   shimmer: '#F0F0F0',
 
   // Social
-  google: '#4285F4',
+  google: '#FFFFFF',        // Keep simple for white/orange theme
 } as const;
 
 export const Spacing = {

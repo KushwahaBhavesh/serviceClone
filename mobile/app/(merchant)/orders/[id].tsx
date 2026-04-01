@@ -267,7 +267,7 @@ export default function OrderDetailScreen() {
                                     <Text style={styles.tlMeta}>
                                         {event.actor?.name ?? 'System'} · {new Date(event.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                                     </Text>
-                                    {event.note && <Text style={styles.tlNote}>{event.note}</Text>}
+                                    {!!event.note && <Text style={styles.tlNote}>{event.note}</Text>}
                                 </View>
                             </View>
                         ))}

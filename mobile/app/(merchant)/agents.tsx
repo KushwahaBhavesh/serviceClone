@@ -19,8 +19,8 @@ import { merchantApi } from '../../lib/merchant';
 import type { Agent } from '../../lib/merchant';
 
 const STATUS_COLOR: Record<string, string> = {
-    AVAILABLE: Colors.success,
-    BUSY: '#F59E0B',
+    AVAILABLE: Colors.primary,
+    BUSY: Colors.secondary,
     OFFLINE: '#94A3B8',
 };
 
@@ -105,7 +105,7 @@ export default function AgentManagementScreen() {
                                 onPress={() => handleToggle(item)}
                                 style={[styles.toggleBtn, { backgroundColor: item.isActive ? Colors.success + '14' : '#F1F5F9' }]}
                             >
-                                <Text style={[styles.toggleText, { color: item.isActive ? Colors.success : '#94A3B8' }]}>
+                                <Text style={[styles.toggleText, { color: item.isActive ? Colors.primary : '#94A3B8' }]}>
                                     {item.isActive ? 'Active' : 'Inactive'}
                                 </Text>
                             </Pressable>

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Slot, useRouter, useSegments } from 'expo-router';
+import { Slot, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -12,9 +12,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isInitialized, user, hasVisitedOnboarding } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
+  const navigationState = useRootNavigationState();
 
   useEffect(() => {
     if (!isInitialized) return;
+    if (!navigationState?.key) return; // Wait until the navigator has mounted
 
     const rootSegment = segments[0];
     const inAuthGroup = rootSegment === '(auth)';
@@ -54,7 +56,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         }
       }
     }
-  }, [isAuthenticated, isInitialized, user, segments, hasVisitedOnboarding]);
+  }, [isAuthenticated, isInitialized, user, segments, hasVisitedOnboarding, navigationState?.key]);
 
   if (!isInitialized) {
     return <SplashScreen />;

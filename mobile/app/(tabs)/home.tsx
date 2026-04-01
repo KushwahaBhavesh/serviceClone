@@ -86,15 +86,39 @@ export default function HomeScreen() {
 
     const fetchData = useCallback(async () => {
         try {
-            const [catRes, serRes, bookRes, notifRes] = await Promise.all([
+            const [catRes, serRes, bookRes, notifRes] = await Promise.allSettled([
                 catalogApi.listCategories(),
                 catalogApi.listServices({ limit: 5 }),
                 bookingApi.listBookings({ status: 'ACCEPTED,IN_PROGRESS' }),
                 customerApi.listNotifications(),
             ]);
 
-            setCategories(catRes.data.categories.slice(0, 8));
-            setFeaturedServices(serRes.data.services);
+            if (catRes.status === 'fulfilled') {
+                setCategories(catRes.value.data.categories.slice(0, 8));
+            } else {
+                console.warn('Failed to load categories:', catRes.reason?.message);
+            }
+
+            if (serRes.status === 'fulfilled') {
+                setFeaturedServices(serRes.value.data.services);
+            } else {
+                console.warn('Failed to load services:', serRes.reason?.message);
+            }
+
+            if (bookRes.status === 'fulfilled') {
+                const active = bookRes.value.data.bookings.find((b: Booking) =>
+                    ['ACCEPTED', 'IN_PROGRESS', 'AGENT_ASSIGNED', 'EN_ROUTE', 'ARRIVED'].includes(b.status)
+                );
+                setActiveBooking(active || null);
+            } else {
+                console.warn('Failed to load bookings:', bookRes.reason?.message);
+            }
+
+            if (notifRes.status === 'fulfilled') {
+                setUnreadCount(notifRes.value.data.unreadCount || 0);
+            } else {
+                console.warn('Failed to load notifications:', notifRes.reason?.message);
+            }
 
             // Fetch Nearby Merchants
             try {
@@ -111,7 +135,7 @@ export default function HomeScreen() {
                 }
 
                 if (lat && lng) {
-                    const [nearbyRes, promoRes] = await Promise.all([
+                    const [nearbyRes, promoRes] = await Promise.allSettled([
                         catalogApi.listNearbyMerchants({
                             latitude: lat,
                             longitude: lng,
@@ -124,10 +148,12 @@ export default function HomeScreen() {
                         })
                     ]);
 
-                    setNearbyMerchants(nearbyRes.data.merchants);
+                    if (nearbyRes.status === 'fulfilled') {
+                        setNearbyMerchants(nearbyRes.value.data.merchants);
+                    }
 
-                    if (promoRes.data.promotions.length > 0) {
-                        const dynamicBanners = promoRes.data.promotions.map((p: Promotion) => ({
+                    if (promoRes.status === 'fulfilled' && promoRes.value.data.promotions.length > 0) {
+                        const dynamicBanners = promoRes.value.data.promotions.map((p: Promotion) => ({
                             id: p.id,
                             title: p.merchant.businessName,
                             discount: p.type === 'PERCENTAGE' ? `${p.value}% OFF` : `₹${p.value} OFF`,
@@ -141,12 +167,6 @@ export default function HomeScreen() {
             } catch (e) {
                 console.log('Error fetching nearby merchants/promos', e);
             }
-
-            const active = bookRes.data.bookings.find((b: Booking) =>
-                ['ACCEPTED', 'IN_PROGRESS', 'AGENT_ASSIGNED', 'EN_ROUTE', 'ARRIVED'].includes(b.status)
-            );
-            setActiveBooking(active || null);
-            setUnreadCount(notifRes.data.unreadCount || 0);
         } catch (err) {
             console.error('Home fetchData failed:', err);
         } finally {
@@ -257,7 +277,7 @@ export default function HomeScreen() {
                         onPress={() => router.push(`/(booking)/tracking/${activeBooking.id}` as any)}
                     >
                         <LinearGradient
-                            colors={['#1e293b', '#0f172a']}
+                            colors={[Colors.primary, Colors.primaryLight]}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
                             style={styles.pulseGradient}

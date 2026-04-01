@@ -13,7 +13,6 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import Animated, {
     FadeInRight,
     FadeOutLeft,
@@ -23,7 +22,7 @@ import Animated, {
     interpolateColor
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Briefcase, Award, FileText, ChevronRight, ChevronLeft, Plus, X } from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, Spacing, FontSize, BorderRadius } from '../../constants/theme';
 import { Button } from '../../components/ui/Button';
@@ -153,7 +152,7 @@ export default function RoleDetailsScreen() {
                     description: description.trim(),
                     panNumber: panNumber.toUpperCase(),
                     gstNumber: gstNumber.toUpperCase(),
-                    skills: skillTags.join(','),
+                    skills: JSON.stringify(skillTags),
                 }
             });
         }
@@ -175,7 +174,7 @@ export default function RoleDetailsScreen() {
                     return (
                         <Animated.View exiting={FadeOutLeft} entering={FadeInRight} style={styles.stepContainer}>
                             <View style={styles.sectionHeader}>
-                                <Briefcase size={24} color={Colors.primary} strokeWidth={2.5} />
+                                <Ionicons name="briefcase" size={24} color={Colors.primary} />
                                 <Text style={styles.sectionTitle}>Business Identification</Text>
                             </View>
 
@@ -236,7 +235,7 @@ export default function RoleDetailsScreen() {
                     return (
                         <Animated.View exiting={FadeOutLeft} entering={FadeInRight} style={styles.stepContainer}>
                             <View style={styles.sectionHeader}>
-                                <FileText size={24} color={Colors.primary} strokeWidth={2.5} />
+                                <Ionicons name="document-text" size={24} color={Colors.primary} />
                                 <Text style={styles.sectionTitle}>Legal Information</Text>
                             </View>
 
@@ -304,7 +303,7 @@ export default function RoleDetailsScreen() {
             return (
                 <Animated.View exiting={FadeOutLeft} entering={FadeInRight} style={styles.stepContainer}>
                     <View style={styles.sectionHeader}>
-                        <Award size={24} color={Colors.primary} strokeWidth={2.5} />
+                        <Ionicons name="ribbon" size={24} color={Colors.primary} />
                         <Text style={styles.sectionTitle}>Expertise & Skills</Text>
                     </View>
 
@@ -326,24 +325,25 @@ export default function RoleDetailsScreen() {
                                     pressed && { opacity: 0.8 }
                                 ]}
                             >
-                                <Plus size={20} color="#FFF" strokeWidth={3} />
+                                <Ionicons name="add" size={24} color="#FFF" />
                             </Pressable>
                         </View>
                     </View>
 
                     <View style={styles.tagCloud}>
                         {skillTags.map((tag) => (
-                            <Animated.View
-                                key={tag}
-                                layout={Layout.springify()}
-                                entering={FadeInRight}
-                                style={styles.skillTag}
-                            >
-                                <Text style={styles.skillTagText}>{tag}</Text>
-                                <Pressable onPress={() => removeSkill(tag)} hitSlop={8}>
-                                    <X size={14} color={Colors.primary} strokeWidth={3} />
-                                </Pressable>
-                            </Animated.View>
+                            <View key={tag}>
+                                <Animated.View
+                                    layout={Layout.springify()}
+                                    entering={FadeInRight}
+                                    style={styles.skillTag}
+                                >
+                                    <Text style={styles.skillTagText}>{tag}</Text>
+                                    <Pressable onPress={() => removeSkill(tag)} hitSlop={8}>
+                                        <Ionicons name="close" size={16} color={Colors.primary} />
+                                    </Pressable>
+                                </Animated.View>
+                            </View>
                         ))}
                     </View>
                 </Animated.View>
@@ -371,18 +371,16 @@ export default function RoleDetailsScreen() {
 
                 {/* Background Pattern */}
                 <View style={styles.backgroundLayer}>
-                    <LinearGradient
-                        colors={['#FFFFFF', '#F8FAFC', '#F1F5F9']}
-                        style={StyleSheet.absoluteFill}
-                    />
-                    <View style={styles.blurCircle1} />
-                    <View style={styles.blurCircle2} />
+                    <View style={styles.bgContainer}>
+                        <View style={[styles.decoration, styles.decor1]} />
+                        <View style={[styles.decoration, styles.decor2]} />
+                    </View>
                 </View>
 
                 {/* Progress Header */}
                 <View style={[styles.navbar, { paddingTop: insets.top + Spacing.sm }]}>
                     <Pressable onPress={handleBack} style={styles.navBtn}>
-                        <ChevronLeft size={24} color="#1E293B" />
+                        <Ionicons name="chevron-back" size={24} color="#1E293B" />
                     </Pressable>
                     <View style={styles.progressOverview}>
                         <Text style={styles.stepText}>Step {currentStep} of {totalSteps}</Text>
@@ -431,7 +429,7 @@ export default function RoleDetailsScreen() {
                             <Text style={styles.btnText}>
                                 {currentStep === totalSteps ? 'Complete Profile' : 'Save & Continue'}
                             </Text>
-                            <ChevronRight size={20} color="#FFF" strokeWidth={3} />
+                            <Ionicons name="chevron-forward" size={20} color="#FFF" />
                         </LinearGradient>
                     </Pressable>
                 </View>
@@ -449,23 +447,26 @@ const styles = StyleSheet.create({
         ...StyleSheet.absoluteFillObject,
         zIndex: -1,
     },
-    blurCircle1: {
+    bgContainer: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    decoration: {
         position: 'absolute',
-        top: -50,
-        right: -50,
+        borderRadius: 100,
+    },
+    decor1: {
         width: 250,
         height: 250,
-        borderRadius: 125,
-        backgroundColor: Colors.primary + '10',
+        backgroundColor: Colors.primary + '08',
+        top: -80,
+        right: -80,
     },
-    blurCircle2: {
-        position: 'absolute',
-        bottom: 200,
-        left: -100,
-        width: 300,
-        height: 300,
-        borderRadius: 150,
-        backgroundColor: Colors.secondary + '05',
+    decor2: {
+        width: 150,
+        height: 150,
+        backgroundColor: Colors.secondary + '08',
+        bottom: '10%',
+        left: -50,
     },
     navbar: {
         flexDirection: 'row',

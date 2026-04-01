@@ -93,7 +93,7 @@ export default function RegisterScreen() {
                             <View style={styles.spacer} />
                             <Input label="Phone Number" value={phone} onChangeText={setPhone} placeholder="Enter your phone number" keyboardType="number-pad" maxLength={10} leftIcon={<Ionicons name="call-outline" size={20} color={Colors.primary} />} prefix={<CountrySelector onSelect={setCountry} selectedCountry={country} />} error={fieldErrors.phone} />
                             <View style={styles.spacer} />
-                            {error && <Text style={styles.errorText}>{error}</Text>}
+                            {!!error && <Text style={styles.errorText}>{error}</Text>}
                             <Button title="Create Account" onPress={handleRegister} loading={isLoading} style={styles.registerBtn} />
                         </View>
 
@@ -101,13 +101,6 @@ export default function RegisterScreen() {
                             <View style={styles.line} />
                             <Text style={styles.dividerText}>or join with</Text>
                             <View style={styles.line} />
-                        </View>
-
-                        <View style={styles.socialGrid}>
-                            <Pressable style={styles.socialBtn}>
-                                <Ionicons name="logo-google" size={24} color="#EA4335" />
-                                <Text style={styles.socialBtnText}>Google</Text>
-                            </Pressable>
                         </View>
                     </View>
 
@@ -218,7 +211,7 @@ const styles = StyleSheet.create({
         height: 20,
     },
     registerBtn: {
-        marginTop: 10
+        marginTop: 10,
         // shadowColor: Colors.primary,
         // shadowOffset: { width: 0, height: 10 },
         // shadowOpacity: 0.3,

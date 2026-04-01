@@ -16,25 +16,15 @@ import MapView, { Marker, Circle, Region, MapPressEvent, MarkerDragStartEndEvent
 import * as Location from 'expo-location';
 import Animated, { FadeInUp, FadeIn, FadeOut } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import {
-    MapPin,
-    ChevronLeft,
-    ChevronRight,
-    CheckCircle,
-    LocateFixed,
-    Shield,
-    Crosshair,
-} from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, Spacing } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import type { UserRole } from '../../types/auth';
 
 // ─── Constants ───
-const DARK_SLATE = '#0F172A';
-const ELECTRIC_ORANGE = '#FF6B00';
-const GLASS_WHITE = 'rgba(255, 255, 255, 0.08)';
-const GLASS_BORDER = 'rgba(255, 255, 255, 0.12)';
+const GLASS_WHITE = 'rgba(0, 0, 0, 0.02)';
+const GLASS_BORDER = 'rgba(0, 0, 0, 0.05)';
 
 const INITIAL_REGION: Region = {
     latitude: 28.6273928,
@@ -246,6 +236,7 @@ export default function LocationScreen() {
                         locationName: locationName.trim(),
                         latitude: markerCoord.latitude,
                         longitude: markerCoord.longitude,
+                        skills: typeof skills === 'string' ? skills : JSON.stringify(skills),
                     }
                 });
                 return;
@@ -297,13 +288,15 @@ export default function LocationScreen() {
     // ─── RENDER ───
     return (
         <View style={styles.container}>
-            <StatusBar style="light" />
+            <StatusBar style="dark" />
+            
+            <View style={styles.bgContainer}>
+                <View style={[styles.decoration, styles.decor1]} />
+                <View style={[styles.decoration, styles.decor2]} />
+            </View>
 
             {/* ═══ Header ═══ */}
-            <LinearGradient
-                colors={[DARK_SLATE, '#1E293B']}
-                style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}
-            >
+            <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
                 <View style={styles.navbar}>
                     <Pressable
                         onPress={() => router.back()}
@@ -312,7 +305,7 @@ export default function LocationScreen() {
                             pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
                         ]}
                     >
-                        <ChevronLeft size={24} color="#FFF" />
+                        <Ionicons name="chevron-back" size={24} color={Colors.textDark} />
                     </Pressable>
 
                     <View style={styles.headerInfo}>
@@ -326,7 +319,7 @@ export default function LocationScreen() {
                         <Text style={styles.stepBadgeText}>Final</Text>
                     </Animated.View>
                 </View>
-            </LinearGradient>
+            </View>
 
             {/* ═══ Map ═══ */}
             <View style={styles.mapWrapper}>
@@ -351,10 +344,10 @@ export default function LocationScreen() {
                     >
                         <View style={styles.customMarker}>
                             <LinearGradient
-                                colors={[ELECTRIC_ORANGE, '#E66100']}
+                                colors={[Colors.primary, Colors.primaryLight]}
                                 style={styles.markerCircle}
                             >
-                                <MapPin size={22} color="#FFF" fill="#FFF" />
+                                <Ionicons name="location" size={24} color="#FFF" />
                             </LinearGradient>
                             <View style={styles.markerPointer} />
                             <View style={styles.markerShadow} />
@@ -366,8 +359,8 @@ export default function LocationScreen() {
                         <Circle
                             center={markerCoord}
                             radius={500}
-                            fillColor={ELECTRIC_ORANGE + '20'}
-                            strokeColor={ELECTRIC_ORANGE + '80'}
+                            fillColor={Colors.primary + '20'}
+                            strokeColor={Colors.primary + '80'}
                             strokeWidth={2}
                         />
                     )}
@@ -384,11 +377,11 @@ export default function LocationScreen() {
                             isLocationSet && { backgroundColor: 'rgba(34, 197, 94, 0.15)' },
                         ]}>
                             {isReverseGeocoding ? (
-                                <ActivityIndicator size="small" color={ELECTRIC_ORANGE} />
+                                <ActivityIndicator size="small" color={Colors.primary} />
                             ) : isLocationSet ? (
-                                <CheckCircle size={18} color="#22C55E" strokeWidth={2.5} />
+                                <Ionicons name="checkmark-circle" size={18} color="#22C55E" />
                             ) : (
-                                <Crosshair size={18} color={ELECTRIC_ORANGE} strokeWidth={2.5} />
+                                <Ionicons name="scan-outline" size={18} color={Colors.primary} />
                             )}
                         </View>
                         <View style={styles.addressTextBox}>
@@ -419,9 +412,9 @@ export default function LocationScreen() {
                         ]}
                     >
                         {isFetchingLocation ? (
-                            <ActivityIndicator color={ELECTRIC_ORANGE} size="small" />
+                            <ActivityIndicator color={Colors.primary} size="small" />
                         ) : (
-                            <LocateFixed size={22} color={ELECTRIC_ORANGE} strokeWidth={2.5} />
+                            <Ionicons name="locate" size={24} color={Colors.primary} />
                         )}
                     </Pressable>
                     {!isLocationSet && !isFetchingLocation && (
@@ -446,7 +439,7 @@ export default function LocationScreen() {
             {/* ═══ Footer ═══ */}
             <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.lg) }]}>
                 <LinearGradient
-                    colors={['rgba(15, 23, 42, 0)', DARK_SLATE]}
+                    colors={['rgba(255, 255, 255, 0)', '#FFFFFF']}
                     style={styles.footerGradient}
                     pointerEvents="none"
                 />
@@ -461,9 +454,9 @@ export default function LocationScreen() {
                         isReady && { backgroundColor: 'rgba(34, 197, 94, 0.15)' },
                     ]}>
                         {isReady ? (
-                            <CheckCircle size={18} color="#22C55E" strokeWidth={2.5} />
+                            <Ionicons name="checkmark-circle" size={18} color="#22C55E" />
                         ) : (
-                            <MapPin size={18} color={ELECTRIC_ORANGE} strokeWidth={2.5} />
+                            <Ionicons name="location" size={18} color={Colors.primary} />
                         )}
                     </View>
                     <View style={styles.infoTextBox}>
@@ -478,7 +471,7 @@ export default function LocationScreen() {
 
                 {/* Privacy note */}
                 <Animated.View entering={FadeInUp.delay(800)} style={styles.privacyNote}>
-                    <Shield size={12} color="#94A3B8" strokeWidth={2.5} />
+                    <Ionicons name="shield-checkmark" size={14} color="#94A3B8" />
                     <Text style={styles.privacyText}>
                         Your location is private and only used to match nearby services
                     </Text>
@@ -499,7 +492,7 @@ export default function LocationScreen() {
                             colors={
                                 !isReady || isLoading
                                     ? ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']
-                                    : [ELECTRIC_ORANGE, '#E66100']
+                                    : [Colors.primary, Colors.primaryLight]
                             }
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 0 }}
@@ -510,7 +503,7 @@ export default function LocationScreen() {
                             ) : (
                                 <>
                                     <Text style={[styles.ctaText, !isReady && { color: '#94A3B8' }]}>Finish Registration</Text>
-                                    <ChevronRight size={20} color={!isReady ? "#94A3B8" : "#FFF"} strokeWidth={3} />
+                                    <Ionicons name="chevron-forward" size={20} color={!isReady ? "#94A3B8" : "#FFF"} />
                                 </>
                             )}
                         </LinearGradient>
@@ -521,72 +514,94 @@ export default function LocationScreen() {
     );
 }
 
-// ═══════════════════════════════════════
-// STYLES
-// ═══════════════════════════════════════
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: DARK_SLATE,
+        backgroundColor: Colors.background,
     },
-
-    // ─── Header ───
+    bgContainer: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    decoration: {
+        position: 'absolute',
+        borderRadius: 100,
+    },
+    decor1: {
+        width: 250,
+        height: 250,
+        backgroundColor: Colors.primary + '08',
+        top: -80,
+        right: -80,
+    },
+    decor2: {
+        width: 150,
+        height: 150,
+        backgroundColor: Colors.secondary + '08',
+        bottom: '10%',
+        left: -50,
+    },
     header: {
-        zIndex: 10,
-        paddingBottom: 14,
+        paddingHorizontal: Spacing.xl,
+        paddingBottom: 20,
     },
     navbar: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: Spacing.xl,
         gap: 14,
     },
     navBtn: {
         width: 44,
         height: 44,
         borderRadius: 14,
-        backgroundColor: GLASS_WHITE,
-        borderWidth: 1,
-        borderColor: GLASS_BORDER,
+        backgroundColor: '#FFFFFF',
         justifyContent: 'center',
         alignItems: 'center',
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        elevation: 2,
     },
     headerInfo: {
         flex: 1,
     },
     headerTitle: {
-        fontSize: 22,
-        fontWeight: '800',
-        color: '#FFFFFF',
+        fontSize: 24,
+        fontWeight: '900',
+        color: Colors.textDark,
         letterSpacing: -0.5,
     },
     headerSubtitle: {
-        fontSize: 13,
-        color: '#94A3B8',
+        fontSize: 14,
+        color: Colors.textSecondary,
         fontWeight: '600',
         marginTop: 2,
     },
     stepBadge: {
-        backgroundColor: 'rgba(255, 107, 0, 0.15)',
+        backgroundColor: Colors.primary + '15',
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: 'rgba(255, 107, 0, 0.3)',
+        borderColor: Colors.primary + '30',
     },
     stepBadgeText: {
         fontSize: 11,
         fontWeight: '900',
-        color: ELECTRIC_ORANGE,
+        color: Colors.primary,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
-
-    // ─── Map ───
     mapWrapper: {
         flex: 1,
-        backgroundColor: '#1E293B',
+        backgroundColor: '#F1F5F9',
         overflow: 'hidden',
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
     },
     map: {
         ...StyleSheet.absoluteFillObject,
@@ -595,50 +610,48 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     markerCircle: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
+        width: 54,
+        height: 54,
+        borderRadius: 27,
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 3.5,
-        borderColor: '#1E293B',
+        borderWidth: 4,
+        borderColor: '#FFFFFF',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.5,
-        shadowRadius: 10,
-        elevation: 12,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+        elevation: 10,
     },
     markerPointer: {
-        width: 12,
-        height: 12,
-        backgroundColor: ELECTRIC_ORANGE,
+        width: 14,
+        height: 14,
+        backgroundColor: Colors.primary,
         transform: [{ rotate: '45deg' }],
-        marginTop: -7,
+        marginTop: -8,
         borderBottomRightRadius: 2,
     },
     markerShadow: {
-        width: 20,
+        width: 24,
         height: 6,
         borderRadius: 3,
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        marginTop: 2,
+        backgroundColor: 'rgba(0,0,0,0.1)',
+        marginTop: 4,
     },
-
-    // ─── Address Card ───
     addressCard: {
         position: 'absolute',
         top: 16,
         left: 16,
         right: 16,
-        backgroundColor: 'rgba(30, 41, 59, 0.95)',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
         borderRadius: 20,
         paddingHorizontal: 14,
         paddingVertical: 14,
-        borderWidth: 1,
-        borderColor: GLASS_BORDER,
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
+        shadowOpacity: 0.1,
         shadowRadius: 20,
         elevation: 12,
     },
@@ -651,11 +664,11 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 12,
-        backgroundColor: 'rgba(255, 107, 0, 0.1)',
+        backgroundColor: '#F8FAFC',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255, 107, 0, 0.2)',
+        borderColor: '#E2E8F0',
     },
     addressTextBox: {
         flex: 1,
@@ -665,17 +678,15 @@ const styles = StyleSheet.create({
     addressText: {
         fontSize: 15,
         fontWeight: '700',
-        color: '#FFFFFF',
+        color: Colors.textDark,
         lineHeight: 20,
     },
     addressPlaceholderText: {
         fontSize: 14,
         fontWeight: '500',
-        color: '#94A3B8',
+        color: Colors.textSecondary,
         lineHeight: 20,
     },
-
-    // ─── FAB ───
     fabContainer: {
         position: 'absolute',
         bottom: 28,
@@ -686,70 +697,60 @@ const styles = StyleSheet.create({
         width: 56,
         height: 56,
         borderRadius: 18,
-        backgroundColor: 'rgba(30, 41, 59, 0.95)',
+        backgroundColor: '#FFFFFF',
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
+        shadowOpacity: 0.15,
         shadowRadius: 16,
         elevation: 8,
-        borderWidth: 1,
-        borderColor: GLASS_BORDER,
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
     },
     fabLoading: {
         opacity: 0.7,
     },
     fabLabel: {
         marginTop: 6,
-        backgroundColor: 'rgba(15, 23, 42, 0.85)',
+        backgroundColor: '#FFFFFF',
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 8,
         borderWidth: 1,
-        borderColor: GLASS_BORDER,
+        borderColor: '#E2E8F0',
     },
     fabLabelText: {
-        color: '#FFF',
+        color: Colors.textDark,
         fontSize: 11,
         fontWeight: '800',
     },
-
-    // ─── Tap Hint ───
     tapHint: {
         position: 'absolute',
         bottom: 40,
         alignSelf: 'center',
-        backgroundColor: 'rgba(15, 23, 42, 0.85)',
+        backgroundColor: 'rgba(15, 23, 42, 0.8)',
         paddingHorizontal: 20,
         paddingVertical: 10,
         borderRadius: 20,
-        borderWidth: 1,
-        borderColor: GLASS_BORDER,
     },
     tapHintText: {
         color: '#FFF',
         fontSize: 13,
         fontWeight: '700',
     },
-
-    // ─── Footer ───
     footer: {
         paddingHorizontal: Spacing.xl,
         paddingTop: 24,
-        backgroundColor: DARK_SLATE,
+        backgroundColor: '#FFFFFF',
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
         marginTop: -32,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -10 },
-        shadowOpacity: 0.4,
+        shadowOpacity: 0.05,
         shadowRadius: 20,
         elevation: 16,
-        borderTopWidth: 1,
-        borderLeftWidth: 1,
-        borderRightWidth: 1,
-        borderColor: GLASS_BORDER,
     },
     footerGradient: {
         position: 'absolute',
@@ -763,25 +764,25 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 14,
         marginBottom: 16,
-        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundColor: '#F8FAFC',
         padding: 16,
         borderRadius: 20,
-        borderWidth: 1,
-        borderColor: GLASS_BORDER,
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
     },
     infoRowSuccess: {
-        backgroundColor: 'rgba(34, 197, 94, 0.08)',
-        borderColor: 'rgba(34, 197, 94, 0.2)',
+        backgroundColor: 'rgba(34, 197, 94, 0.05)',
+        borderColor: 'rgba(34, 197, 94, 0.1)',
     },
     infoIconBox: {
         width: 44,
         height: 44,
         borderRadius: 14,
-        backgroundColor: 'rgba(255, 107, 0, 0.1)',
+        backgroundColor: Colors.primary + '10',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255, 107, 0, 0.2)',
+        borderColor: Colors.primary + '20',
     },
     infoTextBox: {
         flex: 1,
@@ -789,49 +790,49 @@ const styles = StyleSheet.create({
     infoLabel: {
         fontSize: 12,
         fontWeight: '900',
-        color: '#94A3B8',
+        color: Colors.textSecondary,
         textTransform: 'uppercase',
         letterSpacing: 1,
         marginBottom: 2,
     },
     infoValue: {
         fontSize: 14,
-        color: '#FFFFFF',
+        color: Colors.textDark,
         fontWeight: '600',
-        lineHeight: 20,
     },
     privacyNote: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
+        gap: 6,
         marginBottom: 20,
     },
     privacyText: {
-        fontSize: 12,
+        fontSize: 11,
         color: '#64748B',
-        fontWeight: '500',
+        fontWeight: '600',
     },
-
-    // ─── CTA ───
     ctaBtn: {
-        borderRadius: 22,
+        borderRadius: 20,
         overflow: 'hidden',
-        shadowColor: ELECTRIC_ORANGE,
-        shadowOffset: { width: 0, height: 10 },
+        height: 64,
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.3,
         shadowRadius: 15,
         elevation: 8,
     },
     ctaBtnDisabled: {
+        opacity: 0.5,
         shadowOpacity: 0,
         elevation: 0,
     },
     ctaBtnPressed: {
         transform: [{ scale: 0.98 }],
+        opacity: 0.9,
     },
     ctaGradient: {
-        height: 64,
+        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -840,7 +841,6 @@ const styles = StyleSheet.create({
     ctaText: {
         fontSize: 18,
         fontWeight: '900',
-        color: '#FFF',
-        letterSpacing: 0.2,
+        color: '#FFFFFF',
     },
 });

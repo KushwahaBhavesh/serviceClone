@@ -146,7 +146,7 @@ export default function OtpScreen() {
                                 </View>
                             </View>
 
-                            {error && <Text style={styles.errorText}>{error}</Text>}
+                            {!!error && <Text style={styles.errorText}>{error}</Text>}
 
                             <View style={styles.resendSection}>
                                 {resendTimer > 0 ? (

@@ -7,7 +7,6 @@ import {
     ScrollView,
     Alert,
     Dimensions,
-    Platform,
     ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -18,35 +17,16 @@ import * as Haptics from 'expo-haptics';
 import Animated, { 
     FadeInUp, 
     FadeInDown, 
-    useAnimatedStyle, 
-    withSpring, 
-    withTiming,
-    useSharedValue,
-    interpolateColor
 } from 'react-native-reanimated';
-import { 
-    Check, 
-    Zap, 
-    Shield, 
-    Star, 
-    ChevronRight, 
-    X,
-    LayoutDashboard,
-    Users,
-    HardHat
-} from 'lucide-react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { Colors, Spacing, FontSize, BorderRadius } from '../../constants/theme';
+import { Colors, Spacing } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
+import type { UserRole } from '../../types/auth';
 
 const { width } = Dimensions.get('window');
 
 // ─── Constants ───
-const DARK_SLATE = '#0F172A';
-const ELECTRIC_ORANGE = '#FF6B00';
-const GLASS_WHITE = 'rgba(255, 255, 255, 0.08)';
-const GLASS_BORDER = 'rgba(255, 255, 255, 0.12)';
-
 const PLANS = [
     {
         id: 'STARTER',
@@ -55,7 +35,7 @@ const PLANS = [
         period: '/ forever',
         description: 'Perfect for independent professionals getting started.',
         features: ['1 Business Profile', 'Manage 2 Agents', 'Basic Analytics', 'Standard Support'],
-        icon: HardHat,
+        icon: 'hammer-outline' as const,
         color: '#94A3B8',
         isPopular: false,
     },
@@ -66,8 +46,8 @@ const PLANS = [
         period: '/ month',
         description: 'Everything you need to grow your service empire.',
         features: ['Premium Profile', 'Manage 10 Agents', 'Advanced Revenue Insights', 'Priority Chat Support', 'Service Radius Boost'],
-        icon: Zap,
-        color: ELECTRIC_ORANGE,
+        icon: 'flash-outline' as const,
+        color: Colors.primary,
         isPopular: true,
     },
     {
@@ -77,7 +57,7 @@ const PLANS = [
         period: '/ month',
         description: 'Advanced tools for large multi-city companies.',
         features: ['Unlimited Agents', 'Multi-location Management', 'White-labeled Reports', 'Dedicated Account Manager', 'Custom API Access'],
-        icon: Star,
+        icon: 'star-outline' as const,
         color: '#A855F7',
         isPopular: false,
     },
@@ -86,66 +66,80 @@ const PLANS = [
 export default function PricingScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const params = useLocalSearchParams();
-    const { completeOnboarding, isLoading } = useAuthStore();
+    const { 
+        role, email, name, businessName, businessCategory, 
+        description, locationName, latitude, longitude, skills 
+    } = useLocalSearchParams<{
+        role: UserRole;
+        email: string;
+        name?: string;
+        businessName?: string;
+        businessCategory?: string;
+        description?: string;
+        locationName?: string;
+        latitude?: string;
+        longitude?: string;
+        skills?: string;
+    }>();
+
+    const { completeOnboarding, isLoading, user } = useAuthStore();
     const [selectedPlan, setSelectedPlan] = useState<'STARTER' | 'PRO' | 'ELITE'>('PRO');
 
     // ─── Logic ───
     const handleComplete = async () => {
         try {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-            // 1. Data Sanitization (Fixing the Onboarding Failed issue)
-            const cleanStr = (val: string | string[] | undefined) => {
+            const cleanStr = (val: any) => {
                 if (!val || val === 'null' || val === 'undefined') return undefined;
-                return Array.isArray(val) ? val[0] : val;
+                return String(val);
             };
 
-            const latStr = cleanStr(params.latitude);
-            const lngStr = cleanStr(params.longitude);
-            
-            const latitude = latStr ? parseFloat(latStr) : undefined;
-            const longitude = lngStr ? parseFloat(lngStr) : undefined;
+            const parsedLat = latitude ? parseFloat(latitude) : undefined;
+            const parsedLng = longitude ? parseFloat(longitude) : undefined;
 
-            // Strict validation before sending to backend
-            if (latStr && isNaN(latitude!)) throw new Error("Invalid latitude format");
-            if (lngStr && isNaN(longitude!)) throw new Error("Invalid longitude format");
+            if (latitude && isNaN(parsedLat!)) throw new Error("Invalid latitude format");
+            if (longitude && isNaN(parsedLng!)) throw new Error("Invalid longitude format");
 
             await completeOnboarding({
-                role: (cleanStr(params.role) as any) || 'MERCHANT',
-                email: cleanStr(params.email),
-                businessName: cleanStr(params.businessName),
-                businessCategory: cleanStr(params.businessCategory),
-                locationName: cleanStr(params.locationName),
-                latitude,
-                longitude,
-                selectedPlan
+                role: (cleanStr(role) as any) || 'MERCHANT',
+                email: cleanStr(email),
+                name: cleanStr(name) || user?.name || undefined,
+                businessName: cleanStr(businessName),
+                businessCategory: cleanStr(businessCategory),
+                description: cleanStr(description),
+                locationName: cleanStr(locationName),
+                latitude: parsedLat,
+                longitude: parsedLng,
+                selectedPlan,
+                skills: skills && skills !== 'undefined' ? JSON.parse(skills) : undefined,
             });
             
-            // Note: Navigation is handled by AuthGate in _layout.tsx
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            router.replace('/(tabs)/home');
         } catch (error: any) {
             console.error('Onboarding Error:', error);
             Alert.alert(
-                'Onboarding Failed', 
-                error.message || 'We could not complete your registration. Please check your connection and try again.'
+                'Registration Failed', 
+                error.message || 'We could not complete your registration. Please try again.'
             );
         }
     };
 
     const handleSelectPlan = (id: 'STARTER' | 'PRO' | 'ELITE') => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setSelectedPlan(id);
     };
 
     // ─── Render ───
     return (
         <View style={styles.container}>
-            <StatusBar style="light" />
+            <StatusBar style="dark" />
             
-            <LinearGradient
-                colors={[DARK_SLATE, '#1E293B']}
-                style={StyleSheet.absoluteFill}
-            />
+            <View style={styles.bgContainer}>
+                <View style={[styles.decoration, styles.decor1]} />
+                <View style={[styles.decoration, styles.decor2]} />
+            </View>
 
             <ScrollView 
                 contentContainerStyle={[
@@ -155,16 +149,27 @@ export default function PricingScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 {/* Header Section */}
-                <Animated.View entering={FadeInDown.delay(200).duration(800)}>
+                <Animated.View entering={FadeInDown.delay(100).duration(800)}>
                     <View style={styles.header}>
-                        <View style={styles.badge}>
-                            <Zap size={12} color={ELECTRIC_ORANGE} fill={ELECTRIC_ORANGE} />
-                            <Text style={styles.badgeText}>PARTNER PROGRAM</Text>
+                        <View style={styles.navbar}>
+                            <Pressable
+                                onPress={() => router.back()}
+                                style={({ pressed }) => [
+                                    styles.navBtn,
+                                    pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
+                                ]}
+                            >
+                                <Ionicons name="chevron-back" size={24} color={Colors.textDark} />
+                            </Pressable>
+                            <View style={styles.badge}>
+                                <Ionicons name="flash" size={12} color={Colors.primary} />
+                                <Text style={styles.badgeText}>PARTNER PROGRAM</Text>
+                            </View>
                         </View>
                         <Text style={styles.title}>Power up your business</Text>
                         <Text style={styles.subtitle}>
-                            Select a plan that fits your current needs. {'\n'}
-                            You can always change this later.
+                            Select a plan that fits your growth goals. {'\n'}
+                            Flexible plans for every stage.
                         </Text>
                     </View>
                 </Animated.View>
@@ -176,13 +181,13 @@ export default function PricingScreen() {
                         return (
                             <Animated.View 
                                 key={plan.id}
-                                entering={FadeInUp.delay(400 + index * 100).duration(600)}
+                                entering={FadeInUp.delay(200 + index * 100).duration(600)}
                             >
                                 <Pressable
                                     onPress={() => handleSelectPlan(plan.id as any)}
                                     style={[
                                         styles.planCard,
-                                        isSelected && { borderColor: plan.color, backgroundColor: 'rgba(255,255,255,0.05)' }
+                                        isSelected && { borderColor: plan.color, backgroundColor: '#FFFFFF', elevation: 4 }
                                     ]}
                                 >
                                     {plan.isPopular && (
@@ -192,8 +197,8 @@ export default function PricingScreen() {
                                     )}
 
                                     <View style={styles.planHeader}>
-                                        <View style={[styles.iconBox, { backgroundColor: plan.color + '20' }]}>
-                                            <plan.icon size={24} color={plan.color} strokeWidth={2.5} />
+                                        <View style={[styles.iconBox, { backgroundColor: plan.color + '15' }]}>
+                                            <Ionicons name={plan.icon} size={24} color={plan.color} />
                                         </View>
                                         <View style={styles.nameBox}>
                                             <Text style={styles.planName}>{plan.name}</Text>
@@ -206,7 +211,7 @@ export default function PricingScreen() {
                                             styles.radio,
                                             isSelected && { borderColor: plan.color, backgroundColor: plan.color }
                                         ]}>
-                                            {isSelected && <Check size={14} color="#FFF" strokeWidth={4} />}
+                                            {isSelected && <Ionicons name="checkmark" size={16} color="#FFF" />}
                                         </View>
                                     </View>
 
@@ -218,7 +223,7 @@ export default function PricingScreen() {
                                         {plan.features.map((feature, fIdx) => (
                                             <View key={fIdx} style={styles.featureItem}>
                                                 <View style={styles.checkIcon}>
-                                                    <Check size={14} color={plan.color} strokeWidth={3} />
+                                                    <Ionicons name="checkmark-circle" size={18} color={plan.color} />
                                                 </View>
                                                 <Text style={styles.featureText}>{feature}</Text>
                                             </View>
@@ -231,13 +236,13 @@ export default function PricingScreen() {
                 </View>
 
                 {/* Trust Indicators */}
-                <Animated.View entering={FadeInUp.delay(1000)} style={styles.trustSection}>
+                <Animated.View entering={FadeInUp.delay(600)} style={styles.trustSection}>
                     <View style={styles.trustItem}>
-                        <Shield size={20} color="#94A3B8" />
+                        <Ionicons name="shield-checkmark-outline" size={20} color="#64748B" />
                         <Text style={styles.trustText}>Secure payments by Razorpay</Text>
                     </View>
                     <View style={styles.trustItem}>
-                        <Star size={20} color="#94A3B8" />
+                        <Ionicons name="refresh-outline" size={20} color="#64748B" />
                         <Text style={styles.trustText}>Cancel or switch plans anytime</Text>
                     </View>
                 </Animated.View>
@@ -246,26 +251,26 @@ export default function PricingScreen() {
             {/* Bottom Action Bar */}
             <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.lg) }]}>
                 <LinearGradient
-                    colors={['rgba(15, 23, 42, 0)', DARK_SLATE]}
+                    colors={['rgba(255, 255, 255, 0)', '#FFFFFF']}
                     style={styles.footerGradient}
                     pointerEvents="none"
                 />
                 
-                <Animated.View entering={FadeInUp.delay(1200)} style={styles.actionContainer}>
+                <Animated.View entering={FadeInUp.delay(800)} style={styles.actionContainer}>
                     <Pressable
                         onPress={handleComplete}
                         disabled={isLoading}
                         style={({ pressed }) => [
                             styles.primaryBtn,
-                            pressed && { transform: [{ scale: 0.98 }] },
+                            pressed && !isLoading && { transform: [{ scale: 0.98 }] },
                             isLoading && styles.btnDisabled
                         ]}
                     >
                         <LinearGradient
-                            colors={[ELECTRIC_ORANGE, '#E66100']}
+                            colors={[Colors.primary, '#E66100']}
                             style={styles.btnGradient}
                             start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
+                            end={{ x: 1, y: 0 }}
                         >
                             {isLoading ? (
                                 <ActivityIndicator color="#FFF" />
@@ -273,7 +278,7 @@ export default function PricingScreen() {
                                 <>
                                     <Text style={styles.btnText}>Complete Onboarding</Text>
                                     <View style={styles.btnIcon}>
-                                        <ChevronRight size={20} color="#FFF" strokeWidth={3} />
+                                        <Ionicons name="chevron-forward" size={20} color="#FFF" />
                                     </View>
                                 </>
                             )}
@@ -288,7 +293,28 @@ export default function PricingScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: DARK_SLATE,
+        backgroundColor: Colors.background,
+    },
+    bgContainer: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    decoration: {
+        position: 'absolute',
+        borderRadius: 100,
+    },
+    decor1: {
+        width: 250,
+        height: 250,
+        backgroundColor: Colors.primary + '08',
+        top: -80,
+        right: -80,
+    },
+    decor2: {
+        width: 150,
+        height: 150,
+        backgroundColor: Colors.secondary + '08',
+        bottom: '10%',
+        left: -50,
     },
     scrollContent: {
         paddingHorizontal: Spacing.xl,
@@ -297,72 +323,93 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: Spacing.xxl,
     },
+    navbar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        width: '100%',
+        marginBottom: 20,
+    },
+    navBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        backgroundColor: '#FFFFFF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        elevation: 2,
+    },
     badge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 107, 0, 0.12)',
+        backgroundColor: Colors.primary + '15',
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 100,
         gap: 6,
-        marginBottom: 16,
+        marginLeft: 12,
     },
     badgeText: {
-        color: ELECTRIC_ORANGE,
-        fontSize: 11,
+        color: Colors.primary,
+        fontSize: 10,
         fontWeight: '900',
-        letterSpacing: 1.2,
+        letterSpacing: 0.5,
     },
     title: {
-        fontSize: 32,
+        fontSize: 28,
         fontWeight: '900',
-        color: '#FFFFFF',
+        color: Colors.textDark,
         textAlign: 'center',
-        letterSpacing: -1,
+        letterSpacing: -0.5,
     },
     subtitle: {
-        fontSize: 15,
-        color: '#94A3B8',
+        fontSize: 14,
+        color: Colors.textSecondary,
         textAlign: 'center',
-        marginTop: 12,
-        lineHeight: 22,
-        fontWeight: '500',
+        marginTop: 10,
+        lineHeight: 20,
+        fontWeight: '600',
     },
     planContainer: {
         gap: 16,
     },
     planCard: {
-        backgroundColor: GLASS_WHITE,
-        borderRadius: 28,
-        padding: 24,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        padding: 20,
         borderWidth: 1.5,
-        borderColor: GLASS_BORDER,
+        borderColor: '#E2E8F0',
         overflow: 'hidden',
     },
     popularBadge: {
         position: 'absolute',
         top: 0,
-        right: 24,
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderBottomLeftRadius: 12,
-        borderBottomRightRadius: 12,
+        right: 20,
+        paddingVertical: 4,
+        paddingHorizontal: 10,
+        borderBottomLeftRadius: 10,
+        borderBottomRightRadius: 10,
     },
     popularText: {
         color: '#FFF',
-        fontSize: 10,
+        fontSize: 9,
         fontWeight: '900',
         letterSpacing: 0.5,
     },
     planHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 16,
+        gap: 14,
     },
     iconBox: {
-        width: 52,
-        height: 52,
-        borderRadius: 18,
+        width: 48,
+        height: 48,
+        borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -370,9 +417,9 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     planName: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: '800',
-        color: '#FFFFFF',
+        color: Colors.textDark,
     },
     priceRow: {
         flexDirection: 'row',
@@ -380,63 +427,60 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     planPrice: {
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: '900',
-        color: '#FFFFFF',
+        color: Colors.textDark,
     },
     planPeriod: {
-        fontSize: 13,
-        color: '#64748B',
+        fontSize: 12,
+        color: Colors.textSecondary,
         marginLeft: 4,
-        fontWeight: '600',
+        fontWeight: '700',
     },
     radio: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
+        width: 26,
+        height: 26,
+        borderRadius: 13,
         borderWidth: 2,
-        borderColor: GLASS_BORDER,
+        borderColor: '#E2E8F0',
         justifyContent: 'center',
         alignItems: 'center',
     },
     divider: {
         height: 1,
-        backgroundColor: GLASS_BORDER,
-        marginVertical: 20,
+        backgroundColor: '#F1F5F9',
+        marginVertical: 16,
     },
     planDesc: {
-        fontSize: 14,
-        color: '#94A3B8',
-        lineHeight: 20,
-        fontWeight: '500',
-        marginBottom: 20,
+        fontSize: 13,
+        color: Colors.textSecondary,
+        lineHeight: 18,
+        fontWeight: '600',
+        marginBottom: 16,
     },
     featureList: {
-        gap: 12,
+        gap: 10,
     },
     featureItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
+        gap: 10,
     },
     checkIcon: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        backgroundColor: 'rgba(255,255,255,0.03)',
+        width: 18,
+        height: 18,
         justifyContent: 'center',
         alignItems: 'center',
     },
     featureText: {
-        fontSize: 14,
-        color: '#CBD5E1',
+        fontSize: 13,
+        color: Colors.textDark,
         fontWeight: '600',
     },
     trustSection: {
         marginTop: Spacing.xl,
-        gap: 12,
+        gap: 10,
         alignItems: 'center',
-        opacity: 0.8,
     },
     trustItem: {
         flexDirection: 'row',
@@ -444,9 +488,9 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     trustText: {
-        fontSize: 13,
-        color: '#94A3B8',
-        fontWeight: '600',
+        fontSize: 12,
+        color: Colors.textSecondary,
+        fontWeight: '700',
     },
     footer: {
         position: 'absolute',
@@ -454,46 +498,53 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         paddingHorizontal: Spacing.xl,
+        backgroundColor: '#FFFFFF',
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -10 },
+        shadowOpacity: 0.05,
+        shadowRadius: 20,
+        elevation: 16,
     },
     footerGradient: {
         position: 'absolute',
         top: -60,
         left: 0,
         right: 0,
-        height: 120,
+        height: 60,
     },
     actionContainer: {
-        marginBottom: 10,
+        marginVertical: 16,
     },
     primaryBtn: {
-        borderRadius: 22,
+        borderRadius: 20,
         overflow: 'hidden',
-        height: 68,
-        shadowColor: ELECTRIC_ORANGE,
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.35,
-        shadowRadius: 20,
-        elevation: 10,
+        height: 64,
+        shadowColor: Colors.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 15,
+        elevation: 8,
     },
     btnGradient: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 24,
+        paddingHorizontal: 20,
     },
     btnText: {
         color: '#FFF',
         fontSize: 18,
         fontWeight: '900',
-        letterSpacing: 0.2,
     },
     btnIcon: {
         width: 32,
         height: 32,
-        borderRadius: 12,
+        borderRadius: 10,
         backgroundColor: 'rgba(255,255,255,0.2)',
-        marginLeft: 16,
+        marginLeft: 12,
         justifyContent: 'center',
         alignItems: 'center',
     },

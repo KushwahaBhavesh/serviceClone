@@ -83,11 +83,9 @@ const styles = StyleSheet.create({
 
         minHeight: 58,
         paddingHorizontal: Spacing.md,
-        // shadowColor: '#000',
-        // shadowOffset: { width: 0, height: 2 },
-        // shadowOpacity: 0.05,
-        // shadowRadius: 5,
-        // elevation: 1,
+        borderWidth: 1.5,
+        borderColor: '#E2E8F0',
+        borderRadius: 16,
     },
     inputWrapperDark: {
         backgroundColor: '#FFFFFF08',

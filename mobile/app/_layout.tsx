@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useAppPersistence } from '../hooks/useAppPersistence';
 import { Colors } from '../constants/theme';
 import SplashScreen from '../components/SplashScreen';
+import { ToastProvider } from '../context/ToastContext';
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isInitialized, user, hasVisitedOnboarding } = useAuthStore();
@@ -90,10 +91,12 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" translucent />
-      <AuthGate>
-        <Slot />
-      </AuthGate>
+      <ToastProvider>
+        <StatusBar style="dark" translucent />
+        <AuthGate>
+          <Slot />
+        </AuthGate>
+      </ToastProvider>
     </SafeAreaProvider>
   );
 }

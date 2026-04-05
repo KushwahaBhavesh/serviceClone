@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -10,26 +10,47 @@ import {
     ActivityIndicator,
     RefreshControl,
     Modal,
+    ScrollView,
+    Platform,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import * as Haptics from 'expo-haptics';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
     interpolate,
     Extrapolate,
-    withSpring
+    FadeInDown,
 } from 'react-native-reanimated';
-import { Colors, Spacing, FontSize, BorderRadius } from '../../constants/theme';
+import {
+    Search,
+    MapPin,
+    Bell,
+    User,
+    Sparkles,
+    ChevronRight,
+    Map,
+    ShieldCheck,
+    Star,
+    ArrowRight,
+    Zap,
+    X,
+    LocateFixed,
+    Home,
+    Briefcase,
+    Navigation2
+} from 'lucide-react-native';
+
+import { Colors, Spacing } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
-import { Ionicons } from '@expo/vector-icons';
 import { catalogApi, bookingApi, customerApi, type Category, type Service, type Booking, type NearbyMerchant, type Promotion, type Address } from '../../lib/marketplace';
-import { HomeHeader } from '../../components/navigation/HomeHeader';
 import { PromotionBanner } from '../../components/ui/PromotionBanner';
-import { ImmersiveHero } from '../../components/ui/ImmersiveHero';
-import { BentoCategoryGrid } from '../../components/ui/BentoCategoryGrid';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useToast } from '../../context/ToastContext';
 
 const { width } = Dimensions.get('window');
 
@@ -37,6 +58,8 @@ export default function HomeScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const { user, updateLocation } = useAuthStore();
+    const { showInfo, showSuccess } = useToast();
+
     const [categories, setCategories] = useState<Category[]>([]);
     const [featuredServices, setFeaturedServices] = useState<Service[]>([]);
     const [nearbyMerchants, setNearbyMerchants] = useState<NearbyMerchant[]>([]);
@@ -50,21 +73,15 @@ export default function HomeScreen() {
     const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
     const [isAddressLoading, setIsAddressLoading] = useState(false);
 
-    // Animation state
     const scrollY = useSharedValue(0);
 
     const onScroll = (event: any) => {
         scrollY.value = event.nativeEvent.contentOffset.y;
     };
 
-    const headerAnimatedStyle = useAnimatedStyle(() => {
-        // Only show the minimalist sticky header after scrolling past the main hero content
-        const opacity = interpolate(scrollY.value, [100, 200], [0, 1], Extrapolate.CLAMP);
-        const translateY = interpolate(scrollY.value, [100, 200], [-20, 0], Extrapolate.CLAMP);
-        return {
-            opacity,
-            transform: [{ translateY }]
-        };
+    const headerStyle = useAnimatedStyle(() => {
+        const opacity = interpolate(scrollY.value, [20, 80], [0, 1], Extrapolate.CLAMP);
+        return { opacity };
     });
 
     const fetchAddresses = useCallback(async () => {
@@ -80,6 +97,7 @@ export default function HomeScreen() {
     }, []);
 
     const handleLocationPress = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setShowLocationModal(true);
         fetchAddresses();
     };
@@ -93,79 +111,38 @@ export default function HomeScreen() {
                 customerApi.listNotifications(),
             ]);
 
-            if (catRes.status === 'fulfilled') {
-                setCategories(catRes.value.data.categories.slice(0, 8));
-            } else {
-                console.warn('Failed to load categories:', catRes.reason?.message);
-            }
-
-            if (serRes.status === 'fulfilled') {
-                setFeaturedServices(serRes.value.data.services);
-            } else {
-                console.warn('Failed to load services:', serRes.reason?.message);
-            }
-
+            if (catRes.status === 'fulfilled') setCategories(catRes.value.data.categories.slice(0, 8));
+            if (serRes.status === 'fulfilled') setFeaturedServices(serRes.value.data.services);
             if (bookRes.status === 'fulfilled') {
                 const active = bookRes.value.data.bookings.find((b: Booking) =>
                     ['ACCEPTED', 'IN_PROGRESS', 'AGENT_ASSIGNED', 'EN_ROUTE', 'ARRIVED'].includes(b.status)
                 );
                 setActiveBooking(active || null);
-            } else {
-                console.warn('Failed to load bookings:', bookRes.reason?.message);
             }
+            if (notifRes.status === 'fulfilled') setUnreadCount(notifRes.value.data.unreadCount || 0);
 
-            if (notifRes.status === 'fulfilled') {
-                setUnreadCount(notifRes.value.data.unreadCount || 0);
-            } else {
-                console.warn('Failed to load notifications:', notifRes.reason?.message);
-            }
+            // Nearby Logic
+            let lat = user?.latitude;
+            let lng = user?.longitude;
 
-            // Fetch Nearby Merchants
-            try {
-                let lat = user?.latitude;
-                let lng = user?.longitude;
-
-                if (!lat || !lng) {
-                    const { status } = await Location.requestForegroundPermissionsAsync();
-                    if (status === 'granted') {
-                        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-                        lat = loc.coords.latitude;
-                        lng = loc.coords.longitude;
-                    }
+            if (lat && lng) {
+                const [nearbyRes, promoRes] = await Promise.allSettled([
+                    catalogApi.listNearbyMerchants({ latitude: lat, longitude: lng, limit: 5 }),
+                    catalogApi.listNearbyPromotions({ latitude: lat, longitude: lng, limit: 5 })
+                ]);
+                if (nearbyRes.status === 'fulfilled') setNearbyMerchants(nearbyRes.value.data.merchants);
+                if (promoRes.status === 'fulfilled' && promoRes.value.data.promotions.length > 0) {
+                    setBanners(promoRes.value.data.promotions.slice(0, 6).map((p: Promotion) => ({
+                        id: p.id,
+                        title: p.merchant.businessName,
+                        discount: p.type === 'PERCENTAGE' ? `${p.value}% OFF` : `₹${p.value} OFF`,
+                        subtitle: p.code,
+                        color: Colors.primary,
+                        merchantId: p.merchantId
+                    })));
+                } else {
+                    setBanners([]); // Clear if none
                 }
-
-                if (lat && lng) {
-                    const [nearbyRes, promoRes] = await Promise.allSettled([
-                        catalogApi.listNearbyMerchants({
-                            latitude: lat,
-                            longitude: lng,
-                            limit: 5,
-                        }),
-                        catalogApi.listNearbyPromotions({
-                            latitude: lat,
-                            longitude: lng,
-                            limit: 5,
-                        })
-                    ]);
-
-                    if (nearbyRes.status === 'fulfilled') {
-                        setNearbyMerchants(nearbyRes.value.data.merchants);
-                    }
-
-                    if (promoRes.status === 'fulfilled' && promoRes.value.data.promotions.length > 0) {
-                        const dynamicBanners = promoRes.value.data.promotions.map((p: Promotion) => ({
-                            id: p.id,
-                            title: p.merchant.businessName,
-                            discount: p.type === 'PERCENTAGE' ? `${p.value}% OFF` : `₹${p.value} OFF`,
-                            subtitle: p.code,
-                            color: Colors.primary,
-                            merchantId: p.merchantId
-                        }));
-                        setBanners(dynamicBanners);
-                    }
-                }
-            } catch (e) {
-                console.log('Error fetching nearby merchants/promos', e);
             }
         } catch (err) {
             console.error('Home fetchData failed:', err);
@@ -173,30 +150,39 @@ export default function HomeScreen() {
             setIsLoading(false);
             setRefreshing(false);
         }
-    }, [user?.latitude, user?.longitude, updateLocation]);
+    }, [user?.latitude, user?.longitude]);
+
+    const getCategoryIcon = (slug: string) => {
+        const iconSize = 22;
+        const iconColor = Colors.primary;
+        switch (slug) {
+            case 'cleaning': return <Sparkles size={iconSize} color={iconColor} />;
+            case 'plumbing': return <Zap size={iconSize} color={iconColor} />;
+            case 'electrician': return <Zap size={iconSize} color={iconColor} />;
+            case 'salon': return <Sparkles size={iconSize} color={iconColor} />;
+            case 'ac-repair': return <Zap size={iconSize} color={iconColor} />;
+            case 'painting': return <Sparkles size={iconSize} color={iconColor} />;
+            default: return <Sparkles size={iconSize} color={iconColor} />;
+        }
+    };
 
     const handleUpdateToCurrentLocation = useCallback(async () => {
         try {
             setShowLocationModal(false);
             setIsUpdatingLocation(true);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
+                showInfo('Location permission required.');
                 setIsUpdatingLocation(false);
                 return;
             }
-            const position = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced,
-            });
+            const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
             const { latitude, longitude } = position.coords;
-
             const [geo] = await Location.reverseGeocodeAsync({ latitude, longitude });
-            let locationName = 'Current Location';
-            if (geo) {
-                const parts = [geo.name, geo.district || geo.subregion, geo.city].filter(Boolean);
-                locationName = parts.join(', ') || geo.region || 'Current Location';
-            }
-
+            let locationName = geo ? [geo.district, geo.city].filter(Boolean).join(', ') : 'Current Location';
             await updateLocation(latitude, longitude, locationName);
+            showSuccess(`Location set to ${locationName}`);
             fetchData();
         } catch (err) {
             console.error('Location update failed:', err);
@@ -205,283 +191,306 @@ export default function HomeScreen() {
         }
     }, [updateLocation, fetchData]);
 
-    const handleAddressSelect = async (address: Address) => {
-        try {
-            setShowLocationModal(false);
-            if (address.latitude && address.longitude) {
-                await updateLocation(address.latitude, address.longitude, address.label || address.line1);
-                fetchData();
-            }
-        } catch (err) {
-            console.error('Failed to select address:', err);
-        }
-    };
-
-    useFocusEffect(
-        useCallback(() => {
-            fetchData();
-        }, [fetchData])
-    );
-
-    const onRefresh = () => {
-        setRefreshing(true);
-        fetchData();
-    };
-
-    const handlePromotionPress = (merchantId?: string) => {
-        if (merchantId) {
-            router.push({ pathname: '/(tabs)/explore', params: { merchantId } });
-        }
-    };
-
-    const handleCategoryPress = (cat: Category) => {
-        router.push({ pathname: '/(tabs)/explore', params: { categoryId: cat.id } });
-    };
+    useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
 
     return (
         <View style={styles.container}>
-            {/* Animated Sticky Header - Minimalist version when scrolled */}
-            <Animated.View style={[styles.stickyHeader, { paddingTop: insets.top }, headerAnimatedStyle]}>
-                <HomeHeader
-                    user={user}
-                    unreadCount={unreadCount}
-                    isUpdatingLocation={isUpdatingLocation}
-                    onLocationPress={handleLocationPress}
-                    onNotificationsPress={() => router.push('/(customer)/notifications' as any)}
-                    onProfilePress={() => router.push('/(tabs)/profile' as any)}
-                />
+            <StatusBar style="dark" translucent />
+
+            {/* Opaque Sticky Header - Only show on scroll */}
+            <Animated.View style={[styles.stickyHeader, { height: insets.top + 85, backgroundColor: '#FFF' }, headerStyle]}>
+                <View style={[styles.headerContent, { paddingTop: insets.top }]}>
+                    <View style={styles.headerWelcomeBox}>
+                        <Text style={styles.headerHiText}>HI, {user?.name?.split(' ')[0] || 'GUEST'}</Text>
+                        <Pressable onPress={handleLocationPress} style={styles.headerLocationBox}>
+                            <MapPin size={14} color={Colors.primary} strokeWidth={2.5} />
+                            <Text style={styles.headerLocationText} numberOfLines={1}>{user?.locationName || 'Set Location'}</Text>
+                        </Pressable>
+                    </View>
+                    <View style={styles.flex} />
+                    <View style={styles.headerActions}>
+                        <Pressable onPress={() => router.push('/(customer)/notifications' as any)} style={styles.actionBtnHeader}>
+                            <Bell size={20} color="#0F172A" strokeWidth={2} />
+                            {unreadCount > 0 && <View style={styles.notifIndicator} />}
+                        </Pressable>
+                    </View>
+                </View>
+                <View style={styles.headerBorder} />
             </Animated.View>
 
             <Animated.ScrollView
                 onScroll={onScroll}
                 scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={[styles.scrollContent]}
+                contentContainerStyle={{ paddingBottom: 140 }}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} progressViewOffset={insets.top + 20} />
+                    <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={Colors.primary} />
                 }
             >
-                {/* Premium Hero Section */}
-                <ImmersiveHero
-                    user={user}
-                    onProfilePress={() => router.push('/(tabs)/profile' as any)}
-                    onSearchPress={() => router.push('/(tabs)/explore')}
-                />
-
-                <View style={{ height: 40 }} /> {/* Spacer for floating search bar */}
-
-                {/* Active Booking Pulse Widget */}
-                {activeBooking && (
-                    <Pressable
-                        style={styles.pulseWidget}
-                        onPress={() => router.push(`/(booking)/tracking/${activeBooking.id}` as any)}
+                {/* Hero Section */}
+                <View style={styles.heroContainer}>
+                    <LinearGradient
+                        colors={['#F8FAFC', '#FFF']}
+                        style={[styles.heroBg, { paddingTop: insets.top + 30 }]}
                     >
-                        <LinearGradient
-                            colors={[Colors.primary, Colors.primaryLight]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.pulseGradient}
-                        >
-                            <View style={styles.pulseHeader}>
-                                <View style={styles.pulseIndicator}>
-                                    <View style={styles.pulseDot} />
-                                    <View style={styles.pulseRing} />
+                        <View style={styles.heroContent}>
+                            <View style={styles.greetingBox}>
+                                <Text style={styles.greetingTitle}>WELCOME BACK</Text>
+                                <View style={styles.greetingRow}>
+                                    <View>
+                                        <Text style={styles.userNameText}>{user?.name?.split(' ')[0] || 'GUEST'}</Text>
+                                        <Text style={styles.welcomeText}>Find the best services near you</Text>
+                                    </View>
                                 </View>
-                                <Text style={styles.pulseBadgeText}>LIVE TRACKING</Text>
                             </View>
-                            <View style={styles.pulseBody}>
-                                <View style={styles.pulseContent}>
-                                    <Text style={styles.pulseTitle}>{activeBooking.items[0]?.service?.name || 'Ongoing Service'}</Text>
-                                    <Text style={styles.pulseStatus}>{activeBooking.status.replace('_', ' ')}</Text>
-                                </View>
-                                <Ionicons name="chevron-forward-circle" size={32} color={Colors.primary} />
+
+                            <View style={styles.searchCardWrap}>
+                                <Pressable style={styles.searchCard} onPress={() => router.push('/(tabs)/explore')}>
+                                    <Search size={22} color="#94A3B8" strokeWidth={2.5} />
+                                    <Text style={styles.searchCardPlaceholder}>Search for services...</Text>
+                                </Pressable>
                             </View>
-                        </LinearGradient>
-                    </Pressable>
-                )}
-
-                {/* Banners - Horizontal Scroll */}
-                {banners.length > 0 && (
-                    <Animated.ScrollView
-                        horizontal
-                        pagingEnabled
-                        showsHorizontalScrollIndicator={false}
-                        snapToInterval={width - Spacing.lg * 2 + Spacing.md}
-                        decelerationRate="fast"
-                        contentContainerStyle={styles.bannerList}
-                    >
-                        {banners.map((banner) => (
-                            <PromotionBanner key={banner.id} banner={banner} onPress={handlePromotionPress} />
-                        ))}
-                    </Animated.ScrollView>
-                )}
-
-                {/* Categories Section */}
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Explore Categories</Text>
-                    <Pressable style={styles.seeAllBtn} onPress={() => router.push('/(tabs)/explore')}>
-                        <Text style={styles.seeAllText}>See All</Text>
-                        <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
-                    </Pressable>
+                        </View>
+                    </LinearGradient>
                 </View>
 
-                <BentoCategoryGrid
-                    categories={categories}
-                    onCategoryPress={handleCategoryPress}
-                />
+                {/* High Impact Promotional Section - Only show if active */}
+                {banners.length > 0 && (
+                    <View style={styles.featuredPromoSection}>
+                        <ScrollView 
+                            horizontal 
+                            showsHorizontalScrollIndicator={false} 
+                            contentContainerStyle={styles.promoList}
+                            snapToInterval={width - 50}
+                            decelerationRate="fast"
+                        >
+                            {banners.map((banner) => (
+                                <View key={banner.id} style={styles.promoWrap}>
+                                    <PromotionBanner banner={banner} onPress={(mid) => router.push({ pathname: '/(tabs)/explore', params: { merchantId: mid } })} />
+                                </View>
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
 
-                {/* Nearby Providers Section */}
-                {nearbyMerchants.length > 0 && (
-                    <View style={styles.nearbySection}>
-                        <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>Nearby Experts</Text>
-                            <Pressable style={styles.mapBtn} onPress={() => router.push('/(tabs)/explore')}>
-                                <Ionicons name="map-outline" size={16} color={Colors.primary} />
-                                <Text style={styles.mapBtnText}>Map View</Text>
-                            </Pressable>
+                {/* Tracking Pulse */}
+                {activeBooking && (
+                    <View style={styles.trackingPulseContainer}>
+                        <Pressable
+                            style={styles.trackingCard}
+                            onPress={() => router.push(`/(booking)/tracking/${activeBooking.id}` as any)}
+                        >
+                            <LinearGradient
+                                colors={[Colors.primary, '#FF7A00']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.trackingGradient}
+                            >
+                                <View style={styles.trackingInfo}>
+                                    <View style={styles.liveTag}>
+                                        <View style={styles.liveCircle} />
+                                        <Text style={styles.liveTagText}>LIVE TRACKING</Text>
+                                    </View>
+                                    <Text style={styles.trackingService}>{activeBooking.items[0]?.service?.name.toUpperCase()}</Text>
+                                    <Text style={styles.trackingStatusText}>{activeBooking.status.replace('_', ' ')}</Text>
+                                </View>
+                                <View style={styles.trackingIconBox}>
+                                    <Navigation2 size={24} color="#FFF" style={{ transform: [{ rotate: '45deg' }] }} />
+                                </View>
+                            </LinearGradient>
+                        </Pressable>
+                    </View>
+                )}
+
+
+                {/* Categories Matrix */}
+                <View style={styles.sectionContainer}>
+                    <View style={styles.sectionHeading}>
+                        <View style={styles.sectionTitleBlock}>
+                            <View style={styles.sectionTitleDot} />
+                            <Text style={styles.sectionTitleText}>ALL CATEGORIES</Text>
                         </View>
+                        <Pressable onPress={() => router.push('/(tabs)/explore')} style={styles.viewMoreBtn}>
+                            <Text style={styles.viewMoreText}>SEE ALL</Text>
+                            <ChevronRight size={12} color={Colors.primary} />
+                        </Pressable>
+                    </View>
 
-                        <View style={styles.nearbyList}>
-                            {nearbyMerchants.slice(0, 3).map((merchant) => (
+                    <View style={styles.bentoContainer}>
+                        <View style={styles.bentoRow}>
+                            {categories.slice(0, 2).map((cat, idx) => (
+                                <View key={cat.id} style={styles.bentoItemHalf}>
+                                    <Pressable style={styles.bentoCard} onPress={() => router.push(`/(customer)/category/${cat.id}` as any)}>
+                                        <LinearGradient colors={['#F8FAFC', '#FFF']} style={styles.bentoGradient}>
+                                            <View style={styles.bentoIconBox}>
+                                                {getCategoryIcon(cat.slug)}
+                                            </View>
+                                            <Text style={styles.bentoName}>{cat.name.toUpperCase()}</Text>
+                                        </LinearGradient>
+                                    </Pressable>
+                                </View>
+                            ))}
+                        </View>
+                        <View style={styles.bentoRow}>
+                            {categories.slice(2, 4).map((cat, idx) => (
+                                <View key={cat.id} style={styles.bentoItemHalf}>
+                                    <Pressable style={styles.bentoCard} onPress={() => router.push(`/(customer)/category/${cat.id}` as any)}>
+                                        <LinearGradient colors={['#F8FAFC', '#FFF']} style={styles.bentoGradient}>
+                                            <View style={styles.bentoIconBox}>
+                                                {getCategoryIcon(cat.slug)}
+                                            </View>
+                                            <Text style={styles.bentoName}>{cat.name.toUpperCase()}</Text>
+                                        </LinearGradient>
+                                    </Pressable>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                </View>
+
+                {/* Service Providers Nearby */}
+                <View style={styles.sectionContainer}>
+                    <View style={styles.sectionHeading}>
+                        <View style={styles.sectionTitleBlock}>
+                            <View style={styles.sectionTitleDot} />
+                            <Text style={styles.sectionTitleText}>PROVIDERS NEAR YOU</Text>
+                        </View>
+                        <Pressable style={styles.viewMoreBtn}>
+                            <Text style={styles.viewMoreText}>VIEW ON MAP</Text>
+                            <Navigation2 size={12} color={Colors.primary} />
+                        </Pressable>
+                    </View>
+
+                    <View style={styles.expertCollection}>
+                        {nearbyMerchants.map((merchant, index) => (
+                            <View key={merchant.id}>
                                 <Pressable
-                                    key={merchant.id}
-                                    style={styles.merchantCard}
-                                    onPress={() => router.push({ pathname: '/(booking)/merchant-profile', params: { id: merchant.id } })}
+                                    style={styles.proExpertCard}
+                                    onPress={() => router.push(`/(customer)/merchant/${merchant.id}` as any)}
                                 >
-                                    <View style={styles.merchantImageContainer}>
+                                    <View style={styles.expertImageBox}>
                                         {merchant.logoUrl ? (
-                                            <Image source={{ uri: merchant.logoUrl }} style={styles.merchantLogo} />
+                                            <Image source={{ uri: merchant.logoUrl }} style={styles.expertImg} />
                                         ) : (
-                                            <View style={styles.logoPlaceholder}>
-                                                <Ionicons name="business" size={32} color={Colors.primary} />
+                                            <View style={styles.expertImgPlaceholder}>
+                                                <User size={40} color={Colors.primary + '30'} />
                                             </View>
                                         )}
-                                        <View style={styles.distanceBadge}>
-                                            <Ionicons name="navigate" size={12} color="#fff" />
-                                            <Text style={styles.distanceText}>{merchant.distance.toFixed(1)} km</Text>
+                                        <View style={styles.distanceChip}>
+                                            <Text style={styles.distanceChipText}>{merchant.distance?.toFixed(1) || '0.0'} km</Text>
                                         </View>
                                     </View>
-                                    <View style={styles.merchantInfo}>
-                                        <View style={styles.merchantMainInfo}>
-                                            <Text style={styles.merchantName} numberOfLines={1}>{merchant.businessName}</Text>
-                                            <View style={styles.ratingRow}>
-                                                <Ionicons name="star" size={14} color="#FFB000" />
-                                                <Text style={styles.ratingValue}>{merchant.rating.toFixed(1)}</Text>
-                                            </View>
-                                        </View>
-                                        
-                                        <View style={styles.merchantFooter}>
-                                            {merchant.isVerified && (
-                                                <View style={styles.verifRow}>
-                                                    <Ionicons name="checkmark-circle" size={14} color={Colors.info} />
-                                                    <Text style={styles.verifText}>Verified Professional</Text>
-                                                </View>
-                                            )}
-                                            <View style={styles.viewProfileBtn}>
-                                                <Text style={styles.viewProfileText}>View Profile</Text>
-                                                <Ionicons name="arrow-forward" size={12} color={Colors.primary} />
-                                            </View>
-                                        </View>
-                                    </View>
-                                </Pressable>
-                            ))}
-                        </View>
-                    </View>
-                )}
 
-                {/* Recommended Section */}
-                {featuredServices.length > 0 && (
-                    <View style={styles.recommendedSection}>
-                        <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>Recommended Services</Text>
-                        </View>
-                        <View style={styles.recommendedList}>
-                            {featuredServices.map((service) => (
-                                <Pressable
-                                    key={service.id}
-                                    style={styles.serviceCard}
-                                    onPress={() => router.push(`/(booking)/${service.slug}` as any)}
-                                >
-                                    <View style={styles.serviceIconWrap}>
-                                        <Ionicons name="sparkles" size={24} color={Colors.primary} />
-                                    </View>
-                                    <View style={styles.serviceInfo}>
-                                        <Text style={styles.serviceName}>{service.name}</Text>
-                                        <Text style={styles.serviceMeta}>{service.duration} mins • Starting at ₹{service.basePrice}</Text>
-                                    </View>
-                                    <View style={styles.bookBtn}>
-                                        <Text style={styles.bookBtnText}>Book</Text>
+                                    <View style={styles.expertDetails}>
+                                        <View style={styles.expertMetaRow}>
+                                            <Text style={styles.expertBusinessName} numberOfLines={1}>
+                                                {merchant.businessName}
+                                            </Text>
+                                            <View style={styles.expertRatingBox}>
+                                                <Star size={12} color={Colors.primary} fill={Colors.primary} />
+                                                <Text style={styles.expertRatingText}>{merchant.rating?.toFixed(1) || '5.0'}</Text>
+                                            </View>
+                                        </View>
+
+                                        <View style={styles.expertFooterRow}>
+                                            <View style={styles.verifiedTag}>
+                                                <ShieldCheck size={12} color="#10B981" />
+                                                <Text style={styles.verifiedTagText}>VERIFIED</Text>
+                                            </View>
+                                            <View style={styles.viewIdentityBtn}>
+                                                <Text style={styles.viewIdentityText}>VIEW PROFILE</Text>
+                                                <ChevronRight size={14} color={Colors.primary} />
+                                            </View>
+                                        </View>
                                     </View>
                                 </Pressable>
-                            ))}
-                        </View>
+                            </View>
+                        ))}
                     </View>
-                )}
+                </View>
             </Animated.ScrollView>
 
-            {/* Location Selection Modal (Unchanged functionality, improved UI) */}
+            {/* AI Assistant FAB */}
+            <Animated.View 
+                entering={FadeInDown.delay(1000).springify()}
+                style={[styles.aiFabContainer, { bottom: insets.bottom + 90 }]}
+            >
+                <Pressable 
+                    style={styles.aiFab} 
+                    onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        router.push('/(customer)/ai-assistant' as any);
+                    }}
+                >
+                    <LinearGradient
+                        colors={[Colors.primary, '#FF7A00']}
+                        style={styles.aiFabGradient}
+                    >
+                        <Sparkles size={24} color="#FFF" strokeWidth={2.5} />
+                    </LinearGradient>
+                </Pressable>
+            </Animated.View>
+
+            {/* Premium Location Selector Modal */}
             <Modal
                 visible={showLocationModal}
                 animationType="slide"
                 transparent={true}
                 onRequestClose={() => setShowLocationModal(false)}
             >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Select Location</Text>
-                            <Pressable onPress={() => setShowLocationModal(false)} style={styles.closeBtn}>
-                                <Ionicons name="close" size={24} color={Colors.text} />
+                <View style={styles.modalBackdrop}>
+                    <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
+                    <View style={styles.premiumModal}>
+                        <View style={styles.modalDragHandle} />
+                        <View style={styles.modalHeaderBox}>
+                            <View>
+                                <Text style={styles.modalTitleText}>SELECT ADDRESS</Text>
+                                <Text style={styles.modalSubtitleText}>Where do you need the service?</Text>
+                            </View>
+                            <Pressable onPress={() => setShowLocationModal(false)} style={styles.closeBtnModal}>
+                                <X size={20} color="#64748B" strokeWidth={2.5} />
                             </Pressable>
                         </View>
 
-                        <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalScroll}>
-                            <Pressable style={styles.locationOption} onPress={handleUpdateToCurrentLocation}>
-                                <View style={[styles.optionIcon, { backgroundColor: Colors.primary + '15' }]}>
-                                    <Ionicons name="locate" size={20} color={Colors.primary} />
-                                </View>
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalList}>
+                            <Pressable style={styles.premiumOption} onPress={handleUpdateToCurrentLocation}>
+                                <LinearGradient colors={[Colors.primary + '20', 'transparent']} style={styles.optionCircle}>
+                                    <LocateFixed size={22} color={Colors.primary} strokeWidth={2.5} />
+                                </LinearGradient>
                                 <View style={styles.optionTextContainer}>
-                                    <Text style={styles.optionTitle}>Use Current Location</Text>
-                                    <Text style={styles.optionSub}>Based on your GPS</Text>
+                                    <Text style={styles.optionMainText}>USE CURRENT LOCATION</Text>
+                                    <Text style={styles.optionSubText}>Locate me using GPS</Text>
                                 </View>
+                                <ChevronRight size={18} color="#CBD5E1" />
                             </Pressable>
 
-                            <View style={styles.modalDivider} />
-                            <Text style={styles.modalSubheading}>Saved Addresses</Text>
+                            <View style={styles.modalSectionGap} />
+                            <Text style={styles.modalLabelText}>SAVED ADDRESSES</Text>
 
                             {isAddressLoading ? (
-                                <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 20 }} />
+                                <ActivityIndicator color={Colors.primary} style={{ margin: 40 }} />
                             ) : savedAddresses.length > 0 ? (
                                 savedAddresses.map((addr) => (
-                                    <Pressable
-                                        key={addr.id}
-                                        style={styles.locationOption}
-                                        onPress={() => handleAddressSelect(addr)}
-                                    >
-                                        <View style={[styles.optionIcon, { backgroundColor: Colors.backgroundAlt }]}>
-                                            <Ionicons
-                                                name={addr.label?.toLowerCase() === 'home' ? 'home' : addr.label?.toLowerCase() === 'work' ? 'briefcase' : 'location'}
-                                                size={20}
-                                                color={Colors.text}
-                                            />
+                                    <Pressable key={addr.id} style={styles.premiumOption} onPress={() => { updateLocation(addr.latitude!, addr.longitude!, addr.label!); setShowLocationModal(false); fetchData(); }}>
+                                        <View style={styles.optionCircle}>
+                                            {addr.label?.toLowerCase() === 'home' ? <Home size={22} color="#64748B" /> : addr.label?.toLowerCase() === 'work' ? <Briefcase size={22} color="#64748B" /> : <MapPin size={22} color="#64748B" />}
                                         </View>
                                         <View style={styles.optionTextContainer}>
-                                            <Text style={styles.optionTitle}>{addr.label || 'Address'}</Text>
-                                            <Text style={styles.optionSub} numberOfLines={1}>
-                                                {[addr.line1, addr.city].filter(Boolean).join(', ')}
-                                            </Text>
+                                            <Text style={styles.optionMainText}>{addr.label?.toUpperCase()}</Text>
+                                            <Text style={styles.optionSubText} numberOfLines={1}>{addr.line1}</Text>
                                         </View>
+                                        <ChevronRight size={18} color="#CBD5E1" />
                                     </Pressable>
                                 ))
                             ) : (
-                                <View style={styles.emptyState}>
-                                    <Text style={styles.emptyText}>No saved addresses found</Text>
-                                    <Pressable style={styles.addBtn} onPress={() => { setShowLocationModal(false); router.push('/(customer)/address/new' as any); }}>
-                                        <Text style={styles.addBtnText}>+ Add New Address</Text>
+                                <View style={styles.emptyStore}>
+                                    <Text style={styles.emptyStoreText}>No saved addresses found</Text>
+                                    <Pressable style={styles.addRegistryBtn} onPress={() => { setShowLocationModal(false); router.push('/(customer)/profile/addresses'); }}>
+                                        <Text style={styles.addRegistryText}>ADD NEW ADDRESS</Text>
                                     </Pressable>
                                 </View>
                             )}
-                        </Animated.ScrollView>
+                        </ScrollView>
                     </View>
                 </View>
             </Modal>
@@ -490,197 +499,132 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background },
-    stickyHeader: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 1000,
-    },
-    scrollContent: { paddingBottom: 120 },
-    pulseWidget: {
-        marginHorizontal: Spacing.lg,
-        marginBottom: Spacing.xl,
-        borderRadius: 24,
-        overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.2,
-        shadowRadius: 16,
-        elevation: 8,
-    },
-    pulseGradient: {
-        padding: Spacing.lg,
-    },
-    pulseHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-    pulseIndicator: { width: 24, height: 24, justifyContent: 'center', alignItems: 'center' },
-    pulseDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
-    pulseRing: { position: 'absolute', width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: Colors.primary, opacity: 0.5 },
-    pulseBadgeText: { color: Colors.primary, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-    pulseBody: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    pulseContent: { flex: 1 },
-    pulseTitle: { color: '#FFF', fontSize: 18, fontWeight: '800' },
-    pulseStatus: { color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 2, textTransform: 'capitalize' },
-    bannerList: { paddingLeft: Spacing.lg, paddingRight: Spacing.md, marginBottom: Spacing.xl },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: Spacing.lg,
-        marginBottom: Spacing.lg,
-    },
-    sectionTitle: { fontSize: 20, fontWeight: '900', color: Colors.text, letterSpacing: -0.5 },
-    seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    seeAllText: { color: Colors.primary, fontWeight: '700', fontSize: 14 },
-    nearbySection: { marginBottom: Spacing.xl },
-    mapBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        backgroundColor: Colors.primary + '12',
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 24,
-        borderWidth: 1,
-        borderColor: Colors.primary + '20',
-    },
-    mapBtnText: { color: Colors.primary, fontWeight: '800', fontSize: 12, letterSpacing: -0.2 },
-    nearbyList: { 
-        paddingHorizontal: Spacing.lg, 
-        gap: Spacing.lg,
-    },
-    merchantCard: {
-        width: '100%',
-        backgroundColor: '#fff',
-        borderRadius: 24,
-        padding: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.04,
-        shadowRadius: 18,
-        elevation: 4,
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.02)',
-    },
-    merchantImageContainer: {
-        width: '100%',
-        height: 160,
-        borderRadius: 20,
-        backgroundColor: Colors.backgroundAlt,
-        justifyContent: 'center',
-        alignItems: 'center',
-        overflow: 'hidden',
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.01)',
-    },
-    logoPlaceholder: {
-        width: '100%',
-        height: '100%',
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: Colors.primary + '05',
-    },
-    merchantLogo: { width: '100%', height: '100%' },
-    distanceBadge: {
-        position: 'absolute',
-        top: 12,
-        right: 12,
-        backgroundColor: 'rgba(255,107,0,0.95)',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 12,
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-    },
-    distanceText: { color: '#fff', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
-    merchantInfo: { gap: 8 },
-    merchantMainInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    merchantName: { fontSize: 18, fontWeight: '900', color: Colors.text, letterSpacing: -0.5 },
-    ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    ratingValue: { fontSize: 14, fontWeight: '800', color: Colors.textSecondary },
-    merchantFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    verifRow: { 
-        flexDirection: 'row', alignItems: 'center', gap: 4,
-        backgroundColor: Colors.info + '10', paddingHorizontal: 10, paddingVertical: 5,
-        borderRadius: 8,
-    },
-    verifText: { fontSize: 11, fontWeight: '800', color: Colors.info, transform: [{ translateY: -0.5 }] },
-    viewProfileBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    viewProfileText: { fontSize: 13, fontWeight: '800', color: Colors.primary },
-    recommendedSection: { paddingHorizontal: Spacing.lg },
-    recommendedList: { gap: Spacing.md },
-    serviceCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        borderRadius: 24,
-        padding: Spacing.md,
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.02)',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.03,
-        shadowRadius: 15,
-        elevation: 2,
-    },
-    serviceIconWrap: {
-        width: 52,
-        height: 52,
-        borderRadius: BorderRadius.lg,
-        backgroundColor: Colors.primary + '10',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    serviceInfo: { flex: 1, marginLeft: Spacing.md },
-    serviceName: { fontSize: 16, fontWeight: '800', color: Colors.text },
-    serviceMeta: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
-    bookBtn: {
-        backgroundColor: Colors.primary,
-        paddingHorizontal: 18,
-        paddingVertical: 10,
-        borderRadius: 24,
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-    },
-    bookBtnText: { color: '#fff', fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
+    container: { flex: 1, backgroundColor: '#FFF' },
+    flex: { flex: 1 },
 
-    // Modal Styles
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-    modalContent: {
-        backgroundColor: '#fff',
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        paddingTop: 24,
-        paddingBottom: 40,
-        maxHeight: '85%',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -20 },
-        shadowOpacity: 0.1,
-        shadowRadius: 30,
-        elevation: 25,
-    },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, marginBottom: 20 },
-    modalTitle: { fontSize: 24, fontWeight: '900', color: Colors.text },
-    closeBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.backgroundAlt, justifyContent: 'center', alignItems: 'center' },
-    modalScroll: { paddingHorizontal: 24 },
-    locationOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderRadius: 16 },
-    optionIcon: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-    optionTextContainer: { flex: 1 },
-    optionTitle: { fontSize: 16, fontWeight: '800', color: Colors.text },
-    optionSub: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
-    modalDivider: { height: 1, backgroundColor: Colors.border, marginVertical: 20 },
-    modalSubheading: { fontSize: 15, fontWeight: '800', color: Colors.textMuted, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
-    emptyState: { alignItems: 'center', paddingVertical: 32 },
-    emptyText: { color: Colors.textMuted, marginBottom: 16 },
-    addBtn: { backgroundColor: Colors.primary, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 },
-    addBtnText: { color: '#fff', fontWeight: '800' },
+    // Pro Max Sticky Header
+    stickyHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1000 },
+    headerContent: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 15, paddingHorizontal: 20 },
+    headerWelcomeBox: { justifyContent: 'center' },
+    headerHiText: { fontSize: 18, fontWeight: '900', color: '#1E293B', letterSpacing: -0.5 },
+    headerLocationBox: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+    headerLocationText: { fontSize: 13, fontWeight: '700', color: '#64748B', maxWidth: 180 },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    actionBtnHeader: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 2 },
+    notifIndicator: { position: 'absolute', top: 14, right: 14, width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary, borderWidth: 2, borderColor: '#FFF' },
+    headerBorder: { height: 1, backgroundColor: '#F1F5F9' },
+
+    // Immersive Hero Pro Max
+    heroContainer: { backgroundColor: '#FFF', overflow: 'hidden' },
+    heroBg: { paddingHorizontal: 25 },
+    heroContent: { paddingBottom: 20 },
+    greetingBox: { marginBottom: 30 },
+    greetingTitle: { fontSize: 11, fontWeight: '900', color: '#94A3B8', letterSpacing: 2.5 },
+    greetingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+    userNameText: { fontSize: 32, fontWeight: '900', color: '#0F172A', letterSpacing: -1.2 },
+    welcomeText: { fontSize: 14, fontWeight: '700', color: '#64748B', marginTop: 2 },
+    profileBox: { width: 62, height: 62, padding: 3, borderRadius: 24, backgroundColor: '#F1F5F9' },
+    profileGradient: { flex: 1, borderRadius: 21, justifyContent: 'center', alignItems: 'center' },
+
+    locationSelectorLarge: { marginBottom: 25 },
+    locationBoxLarge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', padding: 18, borderRadius: 28, borderWidth: 1.5, borderColor: '#F1F5F9' },
+    iconCircle: { width: 44, height: 44, borderRadius: 16, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 8 },
+    locationInfo: { flex: 1, marginLeft: 16 },
+    locationLabel: { fontSize: 9, fontWeight: '900', color: '#94A3B8', letterSpacing: 1.5 },
+    locationAddress: { fontSize: 16, fontWeight: '800', color: '#0F172A', marginTop: 3 },
+
+    searchCardWrap: { marginBottom: 20 },
+    searchCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', height: 72, borderRadius: 28, paddingHorizontal: 22, gap: 16 },
+    searchCardPlaceholder: { flex: 1, fontSize: 16, fontWeight: '600', color: '#94A3B8' },
+
+    // Tracking Pulse
+    trackingPulseContainer: { paddingHorizontal: 25, marginBottom: 35 },
+    trackingCard: { borderRadius: 36, overflow: 'hidden', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.3, shadowRadius: 25, elevation: 15 },
+    trackingGradient: { flexDirection: 'row', alignItems: 'center', padding: 28 },
+    trackingInfo: { flex: 1 },
+    liveTag: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+    liveCircle: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFF' },
+    liveTagText: { fontSize: 10, fontWeight: '900', color: '#FFF', letterSpacing: 2 },
+    trackingService: { fontSize: 22, fontWeight: '900', color: '#FFF', letterSpacing: -0.5 },
+    trackingStatusText: { fontSize: 13, fontWeight: '800', color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', marginTop: 4 },
+    trackingIconBox: { width: 56, height: 56, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
+
+    // Promo Section
+    featuredPromoSection: { marginTop: -10, marginBottom: 35 },
+    promoList: { paddingLeft: 25, paddingRight: 10 },
+    promoWrap: { width: width - 50, marginRight: 15 },
+    promoWrapStatic: { paddingHorizontal: 25 },
+    staticPromoCard: { height: 160, borderRadius: 36, overflow: 'hidden', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.25, shadowRadius: 20, elevation: 10 },
+    staticPromoGradient: { flex: 1, padding: 28 },
+    staticPromoContent: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+    staticPromoText: { flex: 1 },
+    staticPromoHeader: { fontSize: 11, fontWeight: '900', color: 'rgba(255,255,255,0.8)', letterSpacing: 2 },
+    staticPromoTitle: { fontSize: 42, fontWeight: '900', color: '#FFF', letterSpacing: -1, marginVertical: 2 },
+    staticPromoSub: { fontSize: 13, fontWeight: '700', color: '#FFF', marginBottom: 12 },
+    staticPromoBadge: { backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+    staticPromoBadgeText: { fontSize: 10, fontWeight: '900', color: '#FFF', letterSpacing: 1 },
+    staticPromoIconBox: { position: 'absolute', right: -10, top: -10 },
+
+    // Sections Framework
+    sectionContainer: { marginBottom: 45 },
+    sectionHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 30, marginBottom: 20 },
+    sectionTitleBlock: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    sectionTitleDot: { width: 4, height: 16, borderRadius: 2, backgroundColor: Colors.primary },
+    sectionTitleText: { fontSize: 13, fontWeight: '900', color: '#0F172A', letterSpacing: 1.5 },
+    viewMoreBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primary + '10', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 12 },
+    viewMoreText: { fontSize: 10, fontWeight: '900', color: Colors.primary, letterSpacing: 0.5 },
+
+    // Bento Matrix
+    bentoContainer: { paddingHorizontal: 25, gap: 12 },
+    bentoRow: { flexDirection: 'row', gap: 12 },
+    bentoItemHalf: { flex: 1 },
+    bentoCard: { height: 120, borderRadius: 32, overflow: 'hidden', borderWidth: 1.5, borderColor: '#F1F5F9' },
+    bentoGradient: { flex: 1, padding: 22, justifyContent: 'space-between' },
+    bentoIconBox: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.05, shadowRadius: 10 },
+    bentoName: { fontSize: 14, fontWeight: '900', color: '#0F172A', letterSpacing: 0.3 },
+
+    // Pro Experts
+    expertCollection: { paddingHorizontal: 25, gap: 18 },
+    proExpertCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 20, borderRadius: 36, borderWidth: 1.5, borderColor: '#F1F5F9', shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.05, shadowRadius: 20, elevation: 4 },
+    expertImageBox: { width: 110, height: 110, borderRadius: 26, backgroundColor: '#F8FAFC', overflow: 'hidden' },
+    expertImg: { width: '100%', height: '100%' },
+    expertImgPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.primary + '05' },
+    distanceChip: { position: 'absolute', bottom: 10, right: 10, backgroundColor: 'rgba(15,23,42,0.9)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+    distanceChipText: { fontSize: 10, fontWeight: '900', color: '#FFF' },
+    expertDetails: { flex: 1, marginLeft: 20 },
+    expertMetaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+    expertBusinessName: { fontSize: 16, fontWeight: '900', color: '#0F172A', flex: 1, letterSpacing: -0.3 },
+    expertRatingBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F8FAFC', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+    expertRatingText: { fontSize: 13, fontWeight: '900', color: '#0F172A' },
+    expertFooterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    verifiedTag: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#10B98115', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+    verifiedTagText: { fontSize: 10, fontWeight: '900', color: '#10B981', letterSpacing: 0.5 },
+    viewIdentityBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    viewIdentityText: { fontSize: 11, fontWeight: '900', color: Colors.primary, letterSpacing: 0.3 },
+
+    // Premium Modal
+    modalBackdrop: { flex: 1, justifyContent: 'flex-end' },
+    premiumModal: { backgroundColor: '#FFF', borderTopLeftRadius: 48, borderTopRightRadius: 48, paddingBottom: 50, paddingHorizontal: 30, maxHeight: '85%', shadowColor: '#000', shadowOffset: { width: 0, height: -20 }, shadowOpacity: 0.1, shadowRadius: 40 },
+    modalDragHandle: { width: 44, height: 6, backgroundColor: '#E2E8F0', borderRadius: 3, alignSelf: 'center', marginTop: 18, marginBottom: 12 },
+    modalHeaderBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 25 },
+    modalTitleText: { fontSize: 22, fontWeight: '900', color: '#0F172A', letterSpacing: 1 },
+    modalSubtitleText: { fontSize: 13, fontWeight: '800', color: '#94A3B8', letterSpacing: 0.5, marginTop: 2 },
+    closeBtnModal: { width: 50, height: 50, borderRadius: 18, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' },
+    modalList: { paddingBottom: 30 },
+    premiumOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 22, borderBottomWidth: 1.5, borderBottomColor: '#F8FAFC' },
+    optionCircle: { width: 56, height: 56, borderRadius: 20, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
+    optionTextContainer: { flex: 1, marginLeft: 20 },
+    optionMainText: { fontSize: 15, fontWeight: '900', color: '#0F172A', letterSpacing: 0.5 },
+    optionSubText: { fontSize: 13, color: '#94A3B8', fontWeight: '600', marginTop: 4 },
+    modalSectionGap: { height: 2, backgroundColor: '#F8FAFC', marginVertical: 25 },
+    modalLabelText: { fontSize: 11, fontWeight: '900', color: '#CBD5E1', letterSpacing: 2, marginBottom: 15, marginLeft: 5 },
+    emptyStore: { alignItems: 'center', paddingVertical: 40 },
+    emptyStoreText: { fontSize: 14, fontWeight: '800', color: '#94A3B8', marginBottom: 20 },
+    addRegistryBtn: { backgroundColor: Colors.primary, paddingHorizontal: 25, paddingVertical: 15, borderRadius: 20, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 15 },
+    addRegistryText: { color: '#FFF', fontSize: 12, fontWeight: '900', letterSpacing: 1 },
+
+    // AI FAB
+    aiFabContainer: { position: 'absolute', right: 25, zIndex: 100 },
+    aiFab: { width: 64, height: 64, borderRadius: 24, overflow: 'hidden', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 15 },
+    aiFabGradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });

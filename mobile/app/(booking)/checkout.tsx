@@ -5,62 +5,74 @@ import {
     StyleSheet,
     ScrollView,
     Pressable,
-    Alert,
     ActivityIndicator,
     TextInput,
     KeyboardAvoidingView,
     Platform,
+    Dimensions,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, FontSize, BorderRadius } from '../../constants/theme';
-import { Button } from '../../components/ui/Button';
-import { bookingApi, customerApi, catalogApi, paymentApi } from '../../lib/marketplace';
+import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { 
+    FadeInDown, 
+    FadeInUp, 
+    FadeInRight,
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+} from 'react-native-reanimated';
+import { 
+    ArrowLeft, 
+    MapPin, 
+    Calendar, 
+    Clock, 
+    ChevronRight, 
+    Plus, 
+    CheckCircle2, 
+    Tag, 
+    Wallet, 
+    CreditCard, 
+    Smartphone,
+    ShieldCheck,
+    X,
+    Check,
+    Info
+} from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 
-// ─── Types ───
+import { Colors, Spacing } from '../../constants/theme';
+import { bookingApi, catalogApi, paymentApi } from '../../lib/marketplace';
+import { useToast } from '../../context/ToastContext';
 
-interface StepProps {
-    activeStep: number;
-    totalSteps: number;
-    labels: string[];
-}
+const { width } = Dimensions.get('window');
 
-function StepIndicator({ activeStep, totalSteps, labels }: StepProps) {
+// ─── Step Indicator ───
+
+function StepIndicator({ activeStep, totalSteps, labels }: { activeStep: number; totalSteps: number; labels: string[] }) {
     return (
         <View style={stepStyles.container}>
             {labels.map((label, i) => (
-                <View key={i} style={stepStyles.step}>
-                    <View
-                        style={[
-                            stepStyles.dot,
-                            i < activeStep && stepStyles.dotDone,
-                            i === activeStep && stepStyles.dotActive,
-                        ]}
-                    >
-                        {i < activeStep ? (
-                            <Ionicons name="checkmark" size={14} color="white" />
-                        ) : (
-                            <Text
-                                style={[
-                                    stepStyles.dotText,
-                                    i === activeStep && stepStyles.dotTextActive,
-                                ]}
-                            >
-                                {i + 1}
-                            </Text>
-                        )}
+                <View key={i} style={stepStyles.stepWrap}>
+                    <View style={stepStyles.stepContent}>
+                        <View style={[
+                            stepStyles.orb,
+                            i < activeStep && stepStyles.orbDone,
+                            i === activeStep && stepStyles.orbActive
+                        ]}>
+                            {i < activeStep ? (
+                                <Check size={14} color="#FFF" strokeWidth={3} />
+                            ) : (
+                                <Text style={[stepStyles.orbText, i === activeStep && stepStyles.orbTextActive]}>{i + 1}</Text>
+                            )}
+                        </View>
+                        <Text style={[stepStyles.label, i <= activeStep && stepStyles.labelActive]}>{label.toUpperCase()}</Text>
                     </View>
-                    <Text
-                        style={[
-                            stepStyles.label,
-                            i <= activeStep && stepStyles.labelActive,
-                        ]}
-                    >
-                        {label}
-                    </Text>
                     {i < totalSteps - 1 && (
-                        <View style={[stepStyles.line, i < activeStep && stepStyles.lineDone]} />
+                        <View style={stepStyles.connector}>
+                            <View style={[stepStyles.connectorFill, i < activeStep && stepStyles.connectorFillDone]} />
+                        </View>
                     )}
                 </View>
             ))}
@@ -69,573 +81,392 @@ function StepIndicator({ activeStep, totalSteps, labels }: StepProps) {
 }
 
 const stepStyles = StyleSheet.create({
-    container: { flexDirection: 'row', justifyContent: 'center', paddingVertical: Spacing.md },
-    step: { alignItems: 'center', flex: 1 },
-    dot: {
-        width: 28, height: 28, borderRadius: 14,
-        backgroundColor: Colors.backgroundAlt, justifyContent: 'center', alignItems: 'center',
-        borderWidth: 2, borderColor: Colors.border,
-    },
-    dotDone: { backgroundColor: Colors.success, borderColor: Colors.success },
-    dotActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + '15' },
-    dotText: { fontSize: 12, fontWeight: '700', color: Colors.textMuted },
-    dotTextActive: { color: Colors.primary },
-    label: { fontSize: 10, fontWeight: '600', color: Colors.textMuted, marginTop: 4 },
-    labelActive: { color: Colors.text },
-    line: {
-        position: 'absolute', top: 14, left: '60%', right: '-40%', height: 2,
-        backgroundColor: Colors.border, zIndex: -1,
-    },
-    lineDone: { backgroundColor: Colors.success },
+    container: { flexDirection: 'row', paddingHorizontal: 25, paddingVertical: 20, justifyContent: 'space-between' },
+    stepWrap: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+    stepContent: { alignItems: 'center', gap: 8, zIndex: 2 },
+    orb: { width: 32, height: 32, borderRadius: 14, backgroundColor: '#FAFAFA', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#F0F0F0' },
+    orbActive: { backgroundColor: Colors.primary + '10', borderColor: Colors.primary },
+    orbDone: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+    orbText: { fontSize: 13, fontWeight: '800', color: '#AAA', letterSpacing: -0.5 },
+    orbTextActive: { color: Colors.primary },
+    label: { fontSize: 9, fontWeight: '800', color: '#AAA', letterSpacing: 1 },
+    labelActive: { color: '#111' },
+    connector: { flex: 1, height: 2, backgroundColor: '#F0F0F0', marginHorizontal: 12, marginTop: -20 },
+    connectorFill: { height: '100%', width: '0%', backgroundColor: Colors.primary },
+    connectorFillDone: { width: '100%' },
 });
 
 // ─── Main Screen ───
 
 export default function CheckoutScreen() {
     const router = useRouter();
-    const { serviceId, serviceName, price, qty } = useLocalSearchParams<{
-        serviceId: string; serviceName: string; price: string; qty: string;
-    }>();
+    const insets = useSafeAreaInsets();
+    const { showSuccess, showError } = useToast();
+    const { serviceId, serviceName, price, qty } = useLocalSearchParams<{ serviceId: string; serviceName: string; price: string; qty: string; }>();
 
     const quantity = Number(qty) || 1;
     const unitPrice = Number(price) || 0;
 
-    // State
     const [step, setStep] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [isFetchingAddresses, setIsFetchingAddresses] = useState(true);
     const [notes, setNotes] = useState('');
 
-    // Step 1: Address
     const [addresses, setAddresses] = useState<any[]>([]);
     const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
 
-    // Step 2: Schedule
     const [selectedDate, setSelectedDate] = useState<string>('');
     const [selectedTime, setSelectedTime] = useState<string>('');
 
-    // Step 3: Promo
     const [promoCode, setPromoCode] = useState('');
     const [promoDiscount, setPromoDiscount] = useState(0);
-    const [promoMessage, setPromoMessage] = useState('');
-    const [promoLoading, setPromoLoading] = useState(false);
     const [promoApplied, setPromoApplied] = useState(false);
+    const [promoLoading, setPromoLoading] = useState(false);
 
-    // Step 4: Payment
     const [paymentMethod, setPaymentMethod] = useState<'WALLET' | 'RAZORPAY' | 'UPI' | 'CARD'>('WALLET');
     const [walletBalance, setWalletBalance] = useState(0);
 
-    // Price calculations
     const subtotal = unitPrice * quantity;
     const tax = Math.round(subtotal * 0.18 * 100) / 100;
     const total = Math.round((subtotal + tax - promoDiscount) * 100) / 100;
 
-    const STEP_LABELS = ['Address', 'Schedule', 'Review & Pay'];
+    const STEP_LABELS = ['Address', 'Schedule', 'Payment'];
 
-    // Fetch addresses
     useEffect(() => {
-        const fetchAddresses = async () => {
+        (async () => {
             try {
                 const { data } = await bookingApi.listAddresses();
                 setAddresses(data.addresses);
                 const def = data.addresses.find((a: any) => a.isDefault) || data.addresses[0];
                 if (def) setSelectedAddressId(def.id);
-            } catch (err) {
-                console.error('Failed to fetch addresses:', err);
-            } finally {
-                setIsFetchingAddresses(false);
-            }
-        };
-
-        const fetchWallet = async () => {
-            try {
+                
                 const res = await paymentApi.listMethods();
                 setWalletBalance(res?.data?.wallet?.balance || 0);
-            } catch (err) {
-                console.error('Failed to fetch wallet info:', err);
-            }
-        };
-
-        fetchAddresses();
-        fetchWallet();
+            } catch { /* silent */ }
+            finally { setIsFetchingAddresses(false); }
+        })();
     }, []);
 
-    // Date generation
-    const dates = Array.from({ length: 7 }, (_, i) => {
+    const dates = useMemo(() => Array.from({ length: 14 }, (_, i) => {
         const d = new Date();
         d.setDate(d.getDate() + i + 1);
         return {
             key: d.toISOString().split('T')[0],
-            day: d.toLocaleDateString('en-IN', { weekday: 'short' }),
+            day: d.toLocaleDateString('en-IN', { weekday: 'short' }).toUpperCase(),
             date: d.getDate().toString(),
-            month: d.toLocaleDateString('en-IN', { month: 'short' }),
+            month: d.toLocaleDateString('en-IN', { month: 'short' }).toUpperCase(),
         };
-    });
+    }), []);
 
     const times = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
 
-    // Validate before advancing
-    const canAdvance = () => {
-        if (step === 0 && !selectedAddressId) {
-            Alert.alert('Select Address', 'Please select or add a service address.');
-            return false;
-        }
-        if (step === 1 && (!selectedDate || !selectedTime)) {
-            Alert.alert('Select Schedule', 'Pick a date and time for your booking.');
-            return false;
-        }
-        return true;
-    };
-
     const handleNext = () => {
-        if (!canAdvance()) return;
+        if (step === 0 && !selectedAddressId) { showError('Select valid address.'); return; }
+        if (step === 1 && (!selectedDate || !selectedTime)) { showError('Select date and time.'); return; }
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setStep(step + 1);
     };
 
-    const handleBack = () => {
-        if (step > 0) setStep(step - 1);
-        else router.back();
-    };
-
-    // Promo code
-    const handleApplyPromo = async () => {
-        if (!promoCode.trim()) return;
-        setPromoLoading(true);
-        try {
-            const { data } = await catalogApi.validatePromo(promoCode.trim(), subtotal);
-            setPromoDiscount(data.discount);
-            setPromoMessage(data.message);
-            setPromoApplied(true);
-        } catch (err: any) {
-            setPromoMessage(err?.response?.data?.message || 'Invalid promo code');
-            setPromoDiscount(0);
-            setPromoApplied(false);
-        } finally {
-            setPromoLoading(false);
-        }
-    };
-
-    const handleRemovePromo = () => {
-        setPromoCode('');
-        setPromoDiscount(0);
-        setPromoMessage('');
-        setPromoApplied(false);
-    };
-
-    // Place order
     const handleBooking = async () => {
-        if (!selectedAddressId || !selectedDate || !selectedTime) return;
+        if (!serviceId) { showError('Service identification failed.'); return; }
         setIsLoading(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         try {
             const scheduledAt = new Date(`${selectedDate}T${selectedTime}:00`).toISOString();
-
-            // 1. Create booking
-            const res = await bookingApi.createBooking({
-                addressId: selectedAddressId,
-                scheduledAt,
-                notes: notes || undefined,
-                items: [{ serviceId, quantity }],
-            });
-            const newBooking = res.data.booking;
-
-            // 2. Initiate Payment
-            await paymentApi.initiate({
-                bookingId: newBooking.id,
-                method: paymentMethod,
-            });
-
-            // If it's RAZORPAY, would open gateway here.
-            // For now, assume success and navigate to confirmation
+            const res = await bookingApi.createBooking({ addressId: selectedAddressId!, scheduledAt, notes, items: [{ serviceId, quantity }] });
+            await paymentApi.initiate({ bookingId: res.data.booking.id, method: paymentMethod });
             router.replace('/(booking)/confirmation');
-        } catch (err: any) {
-            Alert.alert('Checkout Failed', err.message || 'Something went wrong');
-        }
-        setIsLoading(false);
+        } catch (err: any) { showError(err.message || 'Booking failed.'); }
+        finally { setIsLoading(false); }
     };
 
-    // ─── Render Steps ───
-
     const renderAddressStep = () => (
-        <View>
+        <Animated.View entering={FadeInRight} style={styles.stepContainer}>
             <View style={styles.sectionHeader}>
-                <Text style={styles.stepTitle}>Where should we come?</Text>
-                <Pressable onPress={() => router.push('/(customer)/profile/addresses')}>
-                    <Text style={styles.addLink}>+ Add New</Text>
+                <Text style={styles.sectionTitle}>SELECT ADDRESS</Text>
+                <Pressable onPress={() => router.push('/(customer)/profile/addresses')} style={styles.addBtn}>
+                    <Plus size={16} color={Colors.primary} strokeWidth={3} />
+                    <Text style={styles.addBtnText}>ADD NEW</Text>
                 </Pressable>
             </View>
 
             {isFetchingAddresses ? (
-                <ActivityIndicator color={Colors.primary} style={{ marginTop: Spacing.xl }} />
-            ) : addresses.length === 0 ? (
-                <Pressable
-                    style={styles.emptyBox}
-                    onPress={() => router.push('/(customer)/profile/addresses')}
-                >
-                    <Ionicons name="add-circle-outline" size={32} color={Colors.textMuted} />
-                    <Text style={styles.emptyText}>No addresses saved. Tap to add one.</Text>
-                </Pressable>
+                <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
             ) : (
                 <View style={styles.addressList}>
                     {addresses.map((addr) => {
-                        const selected = selectedAddressId === addr.id;
+                        const isSelected = selectedAddressId === addr.id;
                         return (
-                            <Pressable
-                                key={addr.id}
-                                style={[styles.addressCard, selected && styles.addressCardActive]}
-                                onPress={() => setSelectedAddressId(addr.id)}
+                            <Pressable 
+                                key={addr.id} 
+                                style={[styles.addressCard, isSelected && styles.addressCardActive]}
+                                onPress={() => { setSelectedAddressId(addr.id); Haptics.selectionAsync(); }}
                             >
-                                <View style={styles.addrRow}>
-                                    <Ionicons
-                                        name={addr.label === 'Home' ? 'home' : addr.label === 'Work' ? 'briefcase' : 'location'}
-                                        size={20}
-                                        color={selected ? 'white' : Colors.primary}
-                                    />
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={[styles.addrLabel, selected && styles.addrTextW]}>{addr.label}</Text>
-                                        <Text style={[styles.addrLine, selected && styles.addrTextW]} numberOfLines={2}>
-                                            {addr.line1}, {addr.city}
-                                        </Text>
-                                    </View>
-                                    {selected && <Ionicons name="checkmark-circle" size={22} color="white" />}
+                                <View style={[styles.addrIconBox, isSelected && { backgroundColor: '#FFF' }]}>
+                                    <MapPin size={18} color={isSelected ? Colors.primary : "#AAA"} strokeWidth={2.5} />
                                 </View>
+                                <View style={styles.addrInfo}>
+                                    <View style={styles.addrHeaderRow}>
+                                        <Text style={[styles.addrLabel, isSelected && { color: '#FFF' }]}>{addr.label.toUpperCase()}</Text>
+                                        {addr.isDefault && <View style={[styles.defaultBadge, isSelected && { backgroundColor: 'rgba(255,255,255,0.2)' }]}><Text style={[styles.defaultText, isSelected && { color: '#FFF' }]}>DEFAULT</Text></View>}
+                                    </View>
+                                    <Text style={[styles.addrLine, isSelected && { color: 'rgba(255,255,255,0.8)' }]} numberOfLines={1}>{addr.line1}</Text>
+                                </View>
+                                {isSelected && <CheckCircle2 size={24} color="#FFF" strokeWidth={2.5} />}
                             </Pressable>
                         );
                     })}
                 </View>
             )}
-        </View>
+        </Animated.View>
     );
 
     const renderScheduleStep = () => (
-        <View>
-            <Text style={styles.stepTitle}>Pick a date</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: Spacing.md }}>
-                <View style={styles.dateRow}>
-                    {dates.map((d) => {
-                        const sel = selectedDate === d.key;
-                        return (
-                            <Pressable
-                                key={d.key}
-                                style={[styles.dateCard, sel && styles.dateCardActive]}
-                                onPress={() => setSelectedDate(d.key)}
-                            >
-                                <Text style={[styles.dateDay, sel && styles.dateTextW]}>{d.day}</Text>
-                                <Text style={[styles.dateNum, sel && styles.dateTextW]}>{d.date}</Text>
-                                <Text style={[styles.dateMonth, sel && styles.dateTextW]}>{d.month}</Text>
-                            </Pressable>
-                        );
-                    })}
-                </View>
+        <Animated.View entering={FadeInRight} style={styles.stepContainer}>
+            <Text style={styles.sectionTitle}>SELECT DATE</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroller}>
+                {dates.map((d) => {
+                    const isSelected = selectedDate === d.key;
+                    return (
+                        <Pressable 
+                            key={d.key} 
+                            style={[styles.dateCard, isSelected && styles.dateCardActive]}
+                            onPress={() => { setSelectedDate(d.key); Haptics.selectionAsync(); }}
+                        >
+                            <Text style={[styles.dateDay, isSelected && { color: 'rgba(255,255,255,0.7)' }]}>{d.day}</Text>
+                            <Text style={[styles.dateNum, isSelected && { color: '#FFF' }]}>{d.date}</Text>
+                            <Text style={[styles.dateMonth, isSelected && { color: 'rgba(255,255,255,0.7)' }]}>{d.month}</Text>
+                        </Pressable>
+                    );
+                })}
             </ScrollView>
 
-            <Text style={[styles.stepTitle, { marginTop: Spacing.xl }]}>Pick a time</Text>
+            <Text style={[styles.sectionTitle, { marginTop: 35 }]}>SELECT TIME</Text>
             <View style={styles.timeGrid}>
                 {times.map((t) => {
-                    const sel = selectedTime === t;
+                    const isSelected = selectedTime === t;
                     return (
-                        <Pressable
-                            key={t}
-                            style={[styles.timeChip, sel && styles.timeChipActive]}
-                            onPress={() => setSelectedTime(t)}
+                        <Pressable 
+                            key={t} 
+                            style={[styles.timeChip, isSelected && styles.timeChipActive]}
+                            onPress={() => { setSelectedTime(t); Haptics.selectionAsync(); }}
                         >
-                            <Text style={[styles.timeText, sel && styles.timeTextActive]}>{t}</Text>
+                            <Text style={[styles.timeText, isSelected && { color: '#FFF' }]}>{t}</Text>
                         </Pressable>
                     );
                 })}
             </View>
 
-            <View style={{ marginTop: Spacing.xl }}>
-                <Text style={styles.sectionLabel}>Special Instructions (optional)</Text>
+            <View style={styles.notesBox}>
+                <Text style={styles.notesLabel}>ADDITIONAL NOTES</Text>
                 <TextInput
                     style={styles.notesInput}
                     value={notes}
                     onChangeText={setNotes}
-                    placeholder="E.g. Ring the doorbell, pet in house..."
-                    placeholderTextColor={Colors.textMuted}
+                    placeholder="E.g. Call before arrival, Gate code, etc."
+                    placeholderTextColor="#AAA"
                     multiline
-                    numberOfLines={3}
                 />
             </View>
-        </View>
+        </Animated.View>
     );
 
-    const renderReviewStep = () => (
-        <View>
-            <Text style={styles.stepTitle}>Order Summary</Text>
-
-            {/* Service */}
-            <View style={styles.summaryCard}>
-                <Text style={styles.summaryLabel}>{serviceName}</Text>
-                <Text style={styles.summaryDetail}>Qty: {quantity} × ₹{unitPrice}</Text>
+    const renderPaymentStep = () => (
+        <Animated.View entering={FadeInRight} style={styles.stepContainer}>
+            <Text style={styles.sectionTitle}>PROMO CODE</Text>
+            <View style={styles.promoCard}>
+                <Tag size={18} color="#AAA" />
+                <TextInput
+                    style={styles.promoInput}
+                    placeholder="ENTER CODE"
+                    placeholderTextColor="#AAA"
+                    value={promoCode}
+                    onChangeText={setPromoCode}
+                    autoCapitalize="characters"
+                />
+                <Pressable style={styles.applyBtn}>
+                    <Text style={styles.applyBtnText}>APPLY</Text>
+                </Pressable>
             </View>
 
-            {/* Promo Code */}
-            <View style={styles.promoSection}>
-                <Text style={styles.sectionLabel}>Promo Code</Text>
-                {promoApplied ? (
-                    <View style={styles.promoApplied}>
-                        <View style={styles.promoAppliedLeft}>
-                            <Ionicons name="pricetag" size={18} color={Colors.success} />
-                            <Text style={styles.promoAppliedText}>{promoCode.toUpperCase()}</Text>
-                        </View>
-                        <Pressable onPress={handleRemovePromo}>
-                            <Ionicons name="close-circle" size={22} color={Colors.error} />
-                        </Pressable>
+            <Text style={[styles.sectionTitle, { marginTop: 35 }]}>PAYMENT METHOD</Text>
+            <View style={styles.paymentList}>
+                <Pressable 
+                    style={[styles.payCard, paymentMethod === 'WALLET' && styles.payCardActive]}
+                    onPress={() => { setPaymentMethod('WALLET'); Haptics.selectionAsync(); }}
+                >
+                    <View style={styles.payIcon}><Wallet size={20} color={paymentMethod === 'WALLET' ? Colors.primary : "#AAA"} /></View>
+                    <View style={styles.payInfo}>
+                        <Text style={[styles.payTitle, paymentMethod === 'WALLET' && { color: Colors.primary }]}>WALLET</Text>
+                        <Text style={styles.paySub}>BALANCE: ₹{walletBalance.toFixed(0)}</Text>
                     </View>
-                ) : (
-                    <View style={styles.promoInputRow}>
-                        <TextInput
-                            style={styles.promoInput}
-                            value={promoCode}
-                            onChangeText={setPromoCode}
-                            placeholder="Enter code"
-                            placeholderTextColor={Colors.textMuted}
-                            autoCapitalize="characters"
-                        />
-                        <Pressable
-                            style={styles.promoBtn}
-                            onPress={handleApplyPromo}
-                            disabled={promoLoading}
-                        >
-                            {promoLoading ? (
-                                <ActivityIndicator size="small" color="white" />
-                            ) : (
-                                <Text style={styles.promoBtnText}>Apply</Text>
-                            )}
-                        </Pressable>
+                    <View style={[styles.radio, paymentMethod === 'WALLET' && styles.radioActive]}>
+                        {paymentMethod === 'WALLET' && <View style={styles.radioInner} />}
                     </View>
-                )}
-                {promoMessage ? (
-                    <Text style={[styles.promoMsg, promoApplied ? styles.promoMsgSuccess : styles.promoMsgError]}>
-                        {promoMessage}
-                    </Text>
-                ) : null}
+                </Pressable>
+
+                <Pressable 
+                    style={[styles.payCard, paymentMethod === 'RAZORPAY' && styles.payCardActive]}
+                    onPress={() => { setPaymentMethod('RAZORPAY'); Haptics.selectionAsync(); }}
+                >
+                    <View style={styles.payIcon}><CreditCard size={20} color={paymentMethod === 'RAZORPAY' ? Colors.primary : "#AAA"} /></View>
+                    <View style={styles.payInfo}>
+                        <Text style={[styles.payTitle, paymentMethod === 'RAZORPAY' && { color: Colors.primary }]}>ONLINE SECURE</Text>
+                        <Text style={styles.paySub}>CARDS, UPI, NETBANKING</Text>
+                    </View>
+                    <View style={[styles.radio, paymentMethod === 'RAZORPAY' && styles.radioActive]}>
+                        {paymentMethod === 'RAZORPAY' && <View style={styles.radioInner} />}
+                    </View>
+                </Pressable>
             </View>
 
-            {/* Price Breakdown */}
-            <View style={styles.priceCard}>
-                <View style={styles.priceRow}>
-                    <Text style={styles.priceLabel}>Subtotal</Text>
-                    <Text style={styles.priceValue}>₹{subtotal.toFixed(0)}</Text>
-                </View>
-                <View style={styles.priceRow}>
-                    <Text style={styles.priceLabel}>GST (18%)</Text>
-                    <Text style={styles.priceValue}>₹{tax.toFixed(0)}</Text>
-                </View>
-                {promoDiscount > 0 && (
-                    <View style={styles.priceRow}>
-                        <Text style={[styles.priceLabel, { color: Colors.success }]}>Promo Discount</Text>
-                        <Text style={[styles.priceValue, { color: Colors.success }]}>-₹{promoDiscount.toFixed(0)}</Text>
-                    </View>
-                )}
+            <View style={styles.priceBento}>
+                <View style={styles.priceRow}><Text style={styles.priceLabel}>SUBTOTAL</Text><Text style={styles.priceVal}>₹{subtotal.toFixed(0)}</Text></View>
+                <View style={styles.priceRow}><Text style={styles.priceLabel}>TAXES (18%)</Text><Text style={styles.priceVal}>₹{tax.toFixed(0)}</Text></View>
                 <View style={styles.priceDivider} />
-                <View style={styles.priceRow}>
-                    <Text style={styles.totalLabel}>Total</Text>
-                    <Text style={styles.totalValue}>₹{total.toFixed(0)}</Text>
-                </View>
+                <View style={styles.priceRow}><Text style={styles.totalLabel}>TOTAL PAYABLE</Text><Text style={styles.totalVal}>₹{total.toFixed(0)}</Text></View>
             </View>
-
-            {/* Payment Method */}
-            <View style={styles.paymentSection}>
-                <Text style={styles.sectionLabel}>Payment Method</Text>
-
-                <Pressable
-                    style={[styles.paymentCard, paymentMethod === 'WALLET' && styles.paymentCardActive]}
-                    onPress={() => setPaymentMethod('WALLET')}
-                >
-                    <Ionicons name="wallet-outline" size={24} color={paymentMethod === 'WALLET' ? Colors.primary : Colors.textMuted} />
-                    <View style={styles.paymentInfo}>
-                        <Text style={[styles.paymentTitle, paymentMethod === 'WALLET' && styles.paymentTitleActive]}>Wallet</Text>
-                        <Text style={styles.paymentSubtitle}>Balance: ₹{walletBalance.toFixed(0)}</Text>
-                    </View>
-                    <Ionicons
-                        name={paymentMethod === 'WALLET' ? 'radio-button-on' : 'radio-button-off'}
-                        size={24}
-                        color={paymentMethod === 'WALLET' ? Colors.primary : Colors.border}
-                    />
-                </Pressable>
-
-                <Pressable
-                    style={[styles.paymentCard, paymentMethod === 'RAZORPAY' && styles.paymentCardActive]}
-                    onPress={() => setPaymentMethod('RAZORPAY')}
-                >
-                    <Ionicons name="card-outline" size={24} color={paymentMethod === 'RAZORPAY' ? Colors.primary : Colors.textMuted} />
-                    <View style={styles.paymentInfo}>
-                        <Text style={[styles.paymentTitle, paymentMethod === 'RAZORPAY' && styles.paymentTitleActive]}>Pay Online</Text>
-                        <Text style={styles.paymentSubtitle}>Credit/Debit Card, UPI, etc.</Text>
-                    </View>
-                    <Ionicons
-                        name={paymentMethod === 'RAZORPAY' ? 'radio-button-on' : 'radio-button-off'}
-                        size={24}
-                        color={paymentMethod === 'RAZORPAY' ? Colors.primary : Colors.border}
-                    />
-                </Pressable>
-            </View>
-        </View>
+        </Animated.View>
     );
 
     return (
-        <SafeAreaView style={styles.container}>
-            <KeyboardAvoidingView
-                style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        <View style={styles.container}>
+            <StatusBar style="dark" />
+            <Stack.Screen options={{ headerShown: false }} />
+
+            {/* Premium Header */}
+            <View style={[styles.header, { paddingTop: insets.top }]}>
+                <Pressable style={styles.backBtn} onPress={() => { if (step > 0) setStep(step - 1); else router.back(); }}>
+                    <ArrowLeft size={20} color="#111" strokeWidth={3} />
+                </Pressable>
+                <View style={styles.headerTitleWrap}>
+                    <Text style={styles.headerTitle}>SECURE CHECKOUT</Text>
+                    <Text style={styles.headerSubtitle} numberOfLines={1}>{(serviceName || 'SERVICE').toUpperCase()}</Text>
+                </View>
+                <View style={styles.shieldBadge}><ShieldCheck size={18} color={Colors.primary} strokeWidth={2.5} /></View>
+            </View>
+
+            <StepIndicator activeStep={step} totalSteps={3} labels={STEP_LABELS} />
+
+            <ScrollView 
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scroll}
             >
-                {/* Header */}
-                <View style={styles.header}>
-                    <Pressable onPress={handleBack} style={styles.backBtn} hitSlop={12}>
-                        <Ionicons name="arrow-back" size={24} color={Colors.text} />
+                {step === 0 && renderAddressStep()}
+                {step === 1 && renderScheduleStep()}
+                {step === 2 && renderPaymentStep()}
+            </ScrollView>
+
+            {/* Sticky Bottom Bar */}
+            <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 15 }]}>
+                <View style={styles.bottomContent}>
+                    <View style={styles.bottomPriceInfo}>
+                        <Text style={styles.bottomPriceLabel}>TOTAL ESTIMATE</Text>
+                        <Text style={styles.bottomPriceVal}>₹{total.toFixed(0)}</Text>
+                    </View>
+                    <Pressable 
+                        style={styles.mainCta} 
+                        onPress={step < 2 ? handleNext : handleBooking}
+                        disabled={isLoading}
+                    >
+                        <View style={styles.ctaInner}>
+                            {isLoading ? (
+                                <ActivityIndicator color="#FFF" />
+                            ) : (
+                                <>
+                                    <Text style={styles.ctaText}>{step < 2 ? 'CONTINUE' : 'CONFIRM BOOKING'}</Text>
+                                    <ChevronRight size={18} color="#FFF" strokeWidth={3.5} />
+                                </>
+                            )}
+                        </View>
                     </Pressable>
-                    <Text style={styles.title}>Checkout</Text>
-                    <View style={{ width: 44 }} />
                 </View>
-
-                {/* Step Indicator */}
-                <StepIndicator activeStep={step} totalSteps={3} labels={STEP_LABELS} />
-
-                <ScrollView
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.scroll}
-                    keyboardShouldPersistTaps="handled"
-                >
-                    {step === 0 && renderAddressStep()}
-                    {step === 1 && renderScheduleStep()}
-                    {step === 2 && renderReviewStep()}
-                </ScrollView>
-
-                {/* Bottom CTA */}
-                <View style={styles.bottomBar}>
-                    {step < 2 ? (
-                        <Button
-                            title="Continue"
-                            onPress={handleNext}
-                        />
-                    ) : (
-                        <Button
-                            title={`Confirm Booking · ₹${total.toFixed(0)}`}
-                            onPress={handleBooking}
-                            loading={isLoading}
-                            disabled={isLoading}
-                        />
-                    )}
-                </View>
-            </KeyboardAvoidingView>
-        </SafeAreaView>
+            </View>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background },
-    scroll: { padding: Spacing.lg, paddingBottom: 120 },
-    header: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm,
-    },
-    backBtn: {
-        width: 44, height: 44, borderRadius: BorderRadius.md,
-        backgroundColor: Colors.backgroundAlt, justifyContent: 'center', alignItems: 'center',
-    },
-    title: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
-    // ─── Steps ───
-    stepTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text },
-    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    addLink: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
-    sectionLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary, marginBottom: Spacing.sm },
-    // ─── Address ───
-    addressList: { gap: Spacing.sm, marginTop: Spacing.md },
-    addressCard: {
-        borderRadius: BorderRadius.lg, padding: Spacing.md,
-        backgroundColor: Colors.backgroundAlt, borderWidth: 2, borderColor: 'transparent',
-    },
+    container: { flex: 1, backgroundColor: '#FFF' },
+    
+    // Header
+    header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 25, height: 80, gap: 15 },
+    backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: '#FAFAFA', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#F0F0F0' },
+    headerTitleWrap: { flex: 1 },
+    headerTitle: { fontSize: 16, fontWeight: '800', color: '#111', letterSpacing: 0.5 },
+    headerSubtitle: { fontSize: 10, fontWeight: '800', color: '#AAA', marginTop: 2, letterSpacing: 0.2 },
+    shieldBadge: { width: 44, height: 44, borderRadius: 16, backgroundColor: Colors.primary + '10', justifyContent: 'center', alignItems: 'center' },
+
+    scroll: { flexGrow: 1, paddingBottom: 120 },
+    stepContainer: { paddingHorizontal: 25, paddingTop: 10 },
+
+    // Section Commons
+    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    sectionTitle: { fontSize: 11, fontWeight: '800', color: '#111', letterSpacing: 1.5 },
+    addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primary + '10', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
+    addBtnText: { fontSize: 10, fontWeight: '800', color: Colors.primary, letterSpacing: 0.5 },
+
+    // Address
+    addressList: { gap: 12 },
+    addressCard: { flexDirection: 'row', alignItems: 'center', gap: 18, padding: 20, borderRadius: 28, backgroundColor: '#FAFAFA', borderWidth: 1, borderColor: '#F0F0F0' },
     addressCardActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-    addrRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-    addrLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
-    addrLine: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
-    addrTextW: { color: 'white' },
-    emptyBox: {
-        padding: Spacing.xl, borderRadius: BorderRadius.lg, borderWidth: 1,
-        borderStyle: 'dashed', borderColor: Colors.border, alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.md,
-    },
-    emptyText: { fontSize: FontSize.sm, color: Colors.textMuted, fontWeight: '600' },
-    // ─── Schedule ───
-    dateRow: { flexDirection: 'row', gap: Spacing.sm },
-    dateCard: {
-        width: 68, alignItems: 'center', paddingVertical: Spacing.md,
-        borderRadius: BorderRadius.lg, backgroundColor: Colors.backgroundAlt, gap: 2,
-    },
-    dateCardActive: { backgroundColor: Colors.primary },
-    dateDay: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textMuted },
-    dateNum: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
-    dateMonth: { fontSize: FontSize.xs, color: Colors.textMuted },
-    dateTextW: { color: '#fff' },
-    timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.md },
-    timeChip: {
-        paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm + 2,
-        borderRadius: BorderRadius.full, backgroundColor: Colors.backgroundAlt,
-    },
-    timeChipActive: { backgroundColor: Colors.primary },
-    timeText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text },
-    timeTextActive: { color: '#fff' },
-    notesInput: {
-        backgroundColor: Colors.backgroundAlt, borderRadius: BorderRadius.lg,
-        padding: Spacing.md, fontSize: FontSize.md, color: Colors.text,
-        textAlignVertical: 'top', minHeight: 80,
-    },
-    // ─── Review / Price ───
-    summaryCard: {
-        backgroundColor: Colors.primary + '10', borderRadius: BorderRadius.lg,
-        padding: Spacing.lg, marginTop: Spacing.md, marginBottom: Spacing.lg,
-    },
-    summaryLabel: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text },
-    summaryDetail: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 4 },
-    // ─── Promo ───
-    promoSection: { marginBottom: Spacing.lg },
-    promoInputRow: { flexDirection: 'row', gap: Spacing.sm },
-    promoInput: {
-        flex: 1, backgroundColor: Colors.backgroundAlt, borderRadius: BorderRadius.lg,
-        paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
-        fontSize: FontSize.md, color: Colors.text,
-    },
-    promoBtn: {
-        backgroundColor: Colors.primary, borderRadius: BorderRadius.lg,
-        paddingHorizontal: Spacing.lg, justifyContent: 'center', alignItems: 'center',
-    },
-    promoBtnText: { color: 'white', fontWeight: '700', fontSize: FontSize.sm },
-    promoApplied: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        backgroundColor: Colors.success + '15', borderRadius: BorderRadius.lg, padding: Spacing.md,
-    },
-    promoAppliedLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-    promoAppliedText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.success },
-    promoMsg: { fontSize: FontSize.xs, marginTop: Spacing.xs },
-    promoMsgSuccess: { color: Colors.success },
-    promoMsgError: { color: Colors.error },
-    // ─── Price Card ───
-    priceCard: {
-        backgroundColor: Colors.backgroundAlt, borderRadius: BorderRadius.xl,
-        padding: Spacing.lg, gap: Spacing.sm,
-    },
-    priceRow: { flexDirection: 'row', justifyContent: 'space-between' },
-    priceLabel: { fontSize: FontSize.sm, color: Colors.textSecondary },
-    priceValue: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text },
-    priceDivider: { height: 1, backgroundColor: Colors.border, marginVertical: Spacing.xs },
-    totalLabel: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
-    totalValue: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.primary },
-    // ─── Payment Methods ───
-    paymentSection: { marginTop: Spacing.xl },
-    paymentCard: {
-        flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.backgroundAlt,
-        padding: Spacing.md, borderRadius: BorderRadius.lg, marginBottom: Spacing.sm,
-        borderWidth: 2, borderColor: 'transparent',
-    },
-    paymentCardActive: { borderColor: Colors.primary + '40', backgroundColor: Colors.primary + '05' },
-    paymentInfo: { flex: 1, marginLeft: Spacing.md },
-    paymentTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textDark },
-    paymentTitleActive: { color: Colors.primary },
-    paymentSubtitle: { fontSize: FontSize.sm, color: Colors.textMuted, marginTop: 2 },
-    // ─── Bottom ───
-    bottomBar: {
-        paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg,
-        paddingBottom: Spacing.xl + 10,
-        backgroundColor: Colors.background, borderTopWidth: 1, borderTopColor: Colors.border,
-    },
+    addrIconBox: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10 },
+    addrInfo: { flex: 1 },
+    addrHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    addrLabel: { fontSize: 14, fontWeight: '800', color: '#111', letterSpacing: 0.2 },
+    defaultBadge: { backgroundColor: '#F0F0F0', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+    defaultText: { fontSize: 7, fontWeight: '800', color: '#AAA', letterSpacing: 1 },
+    addrLine: { fontSize: 12, fontWeight: '600', color: '#AAA', marginTop: 4 },
+
+    // Schedule
+    dateScroller: { paddingRight: 25, marginTop: 15 },
+    dateCard: { width: 75, height: 95, borderRadius: 24, backgroundColor: '#FAFAFA', borderWidth: 1, borderColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center', marginRight: 12, gap: 5 },
+    dateCardActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+    dateDay: { fontSize: 10, fontWeight: '800', color: '#AAA', letterSpacing: 1 },
+    dateNum: { fontSize: 24, fontWeight: '800', color: '#111', letterSpacing: -1 },
+    dateMonth: { fontSize: 10, fontWeight: '800', color: '#AAA', letterSpacing: 1 },
+
+    timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 20 },
+    timeChip: { width: (width - 70) / 3, height: 48, borderRadius: 16, backgroundColor: '#FAFAFA', borderWidth: 1, borderColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' },
+    timeChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+    timeText: { fontSize: 13, fontWeight: '800', color: '#AAA' },
+
+    notesBox: { marginTop: 35 },
+    notesLabel: { fontSize: 10, fontWeight: '800', color: '#AAA', letterSpacing: 1.5, marginBottom: 15 },
+    notesInput: { backgroundColor: '#FAFAFA', borderRadius: 24, padding: 20, height: 110, textAlignVertical: 'top', fontSize: 14, fontWeight: '600', color: '#111', borderWidth: 1, borderColor: '#F0F0F0' },
+
+    // Payment
+    promoCard: { flexDirection: 'row', alignItems: 'center', gap: 15, backgroundColor: '#FAFAFA', borderRadius: 24, padding: 15, borderWidth: 1, borderColor: '#F0F0F0' },
+    promoInput: { flex: 1, fontSize: 14, fontWeight: '800', color: '#111', letterSpacing: 1 },
+    applyBtn: { backgroundColor: '#111', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 16 },
+    applyBtnText: { fontSize: 11, fontWeight: '800', color: '#FFF', letterSpacing: 1 },
+
+    paymentList: { gap: 12, marginTop: 20 },
+    payCard: { flexDirection: 'row', alignItems: 'center', gap: 18, padding: 20, borderRadius: 28, backgroundColor: '#FAFAFA', borderWidth: 1, borderColor: '#F0F0F0' },
+    payCardActive: { borderColor: Colors.primary + '30', backgroundColor: Colors.primary + '05' },
+    payIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.05, shadowRadius: 10 },
+    payInfo: { flex: 1 },
+    payTitle: { fontSize: 14, fontWeight: '800', color: '#111', letterSpacing: 0.5 },
+    paySub: { fontSize: 10, fontWeight: '800', color: '#AAA', marginTop: 4 },
+    radio: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#F0F0F0', justifyContent: 'center', alignItems: 'center' },
+    radioActive: { borderColor: Colors.primary },
+    radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary },
+
+    priceBento: { marginTop: 35, backgroundColor: '#FFF', borderRadius: 32, padding: 25, gap: 15, borderWidth: 1, borderColor: '#F0F0F0' },
+    priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    priceLabel: { fontSize: 11, fontWeight: '800', color: '#AAA', letterSpacing: 1 },
+    priceVal: { fontSize: 15, fontWeight: '800', color: '#111' },
+    priceDivider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 5 },
+    totalLabel: { fontSize: 13, fontWeight: '800', color: '#111', letterSpacing: 1 },
+    totalVal: { fontSize: 28, fontWeight: '800', color: Colors.primary, letterSpacing: -1.5 },
+
+    // Bottom Bar
+    bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 100, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#F0F0F0' },
+    bottomContent: { flexDirection: 'row', alignItems: 'center', padding: 20, gap: 20 },
+    bottomPriceInfo: { flex: 1 },
+    bottomPriceLabel: { fontSize: 9, fontWeight: '800', color: '#AAA', letterSpacing: 1 },
+    bottomPriceVal: { fontSize: 24, fontWeight: '800', color: '#111', letterSpacing: -0.5 },
+    mainCta: { flex: 2, height: 60, borderRadius: 20, backgroundColor: Colors.primary, overflow: 'hidden' },
+    ctaInner: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
+    ctaText: { fontSize: 14, fontWeight: '800', color: '#FFF', letterSpacing: 1 },
 });

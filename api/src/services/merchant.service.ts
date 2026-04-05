@@ -1,4 +1,5 @@
 import prisma from '../lib/prisma';
+import { cacheable, cacheDelete } from '../lib/redis';
 import { BadRequestError } from '../middleware/error-handler';
 import * as chatService from './chat.service';
 import * as notificationService from './notification.service';
@@ -18,56 +19,60 @@ import type {
 // ─── Dashboard ───
 
 export async function getDashboard(userId: string) {
-    const profile = await prisma.merchantProfile.findUnique({
-        where: { userId },
+    return cacheable(`merchant:dash:${userId}`, 60, async () => {
+        const profile = await prisma.merchantProfile.findUnique({
+            where: { userId },
+        });
+        if (!profile) throw new BadRequestError('Merchant profile not found');
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const [todayOrders, activeOrders, pendingOrders, agentCount, revenueResult] = await Promise.all([
+            prisma.booking.count({
+                where: { merchantId: userId, scheduledAt: { gte: today, lt: tomorrow } },
+            }),
+            prisma.booking.count({
+                where: { merchantId: userId, status: { in: ['ACCEPTED', 'AGENT_ASSIGNED', 'EN_ROUTE', 'ARRIVED', 'IN_PROGRESS'] } },
+            }),
+            prisma.booking.count({
+                where: { merchantId: userId, status: 'PENDING' },
+            }),
+            prisma.agent.count({
+                where: { merchantId: profile.id, isActive: true },
+            }),
+            prisma.booking.aggregate({
+                where: { merchantId: userId, status: 'COMPLETED', completedAt: { gte: today } },
+                _sum: { total: true },
+            }),
+        ]);
+
+        return {
+            todayRevenue: revenueResult._sum.total || 0,
+            todayOrders,
+            activeOrders,
+            pendingOrders,
+            agentCount,
+            rating: profile.rating,
+            totalReviews: profile.totalReviews,
+            verificationStatus: profile.verificationStatus,
+        };
     });
-    if (!profile) throw new BadRequestError('Merchant profile not found');
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const [todayOrders, activeOrders, pendingOrders, agentCount, revenueResult] = await Promise.all([
-        prisma.booking.count({
-            where: { merchantId: userId, scheduledAt: { gte: today, lt: tomorrow } },
-        }),
-        prisma.booking.count({
-            where: { merchantId: userId, status: { in: ['ACCEPTED', 'AGENT_ASSIGNED', 'EN_ROUTE', 'ARRIVED', 'IN_PROGRESS'] } },
-        }),
-        prisma.booking.count({
-            where: { merchantId: userId, status: 'PENDING' },
-        }),
-        prisma.agent.count({
-            where: { merchantId: profile.id, isActive: true },
-        }),
-        prisma.booking.aggregate({
-            where: { merchantId: userId, status: 'COMPLETED', completedAt: { gte: today } },
-            _sum: { total: true },
-        }),
-    ]);
-
-    return {
-        todayRevenue: revenueResult._sum.total || 0,
-        todayOrders,
-        activeOrders,
-        pendingOrders,
-        agentCount,
-        rating: profile.rating,
-        totalReviews: profile.totalReviews,
-        verificationStatus: profile.verificationStatus,
-    };
 }
 
 // ─── Merchant Services (Catalog) ───
 
 export async function listMerchantServices(userId: string) {
     const profile = await getMerchantProfile(userId);
-    return prisma.merchantService.findMany({
-        where: { merchantId: profile.id },
-        include: { service: { include: { category: true } } },
-        orderBy: { createdAt: 'desc' },
-    });
+    return cacheable(`merchant:services:${profile.id}`, 300, () =>
+        prisma.merchantService.findMany({
+            where: { merchantId: profile.id },
+            include: { service: { include: { category: true } } },
+            orderBy: { createdAt: 'desc' },
+        }),
+    );
 }
 
 export async function enableService(userId: string, data: CreateMerchantServiceInput) {
@@ -76,12 +81,25 @@ export async function enableService(userId: string, data: CreateMerchantServiceI
     const service = await prisma.service.findUnique({ where: { id: data.serviceId } });
     if (!service) throw new BadRequestError('Service not found');
 
-    return prisma.merchantService.upsert({
+    const result = await prisma.merchantService.upsert({
         where: { merchantId_serviceId: { merchantId: profile.id, serviceId: data.serviceId } },
-        create: { merchantId: profile.id, serviceId: data.serviceId, price: data.price },
-        update: { price: data.price, isActive: true },
+        create: { 
+            merchantId: profile.id, 
+            serviceId: data.serviceId, 
+            price: data.price,
+            unit: data.unit,
+            description: data.description,
+        },
+        update: { 
+            price: data.price, 
+            unit: data.unit,
+            description: data.description,
+            isActive: true 
+        },
         include: { service: true },
     });
+    await cacheDelete(`merchant:services:${profile.id}`);
+    return result;
 }
 
 export async function updateMerchantService(userId: string, id: string, data: UpdateMerchantServiceInput) {
@@ -89,11 +107,13 @@ export async function updateMerchantService(userId: string, id: string, data: Up
     const ms = await prisma.merchantService.findFirst({ where: { id, merchantId: profile.id } });
     if (!ms) throw new BadRequestError('Merchant service not found');
 
-    return prisma.merchantService.update({
+    const result = await prisma.merchantService.update({
         where: { id },
         data,
         include: { service: true },
     });
+    await cacheDelete(`merchant:services:${profile.id}`);
+    return result;
 }
 
 export async function disableService(userId: string, id: string) {
@@ -101,10 +121,12 @@ export async function disableService(userId: string, id: string) {
     const ms = await prisma.merchantService.findFirst({ where: { id, merchantId: profile.id } });
     if (!ms) throw new BadRequestError('Merchant service not found');
 
-    return prisma.merchantService.update({
+    const result = await prisma.merchantService.update({
         where: { id },
         data: { isActive: false },
     });
+    await cacheDelete(`merchant:services:${profile.id}`);
+    return result;
 }
 
 export async function createCustomService(

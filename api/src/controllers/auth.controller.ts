@@ -2,6 +2,13 @@ import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { sendSuccess, sendCreated } from '../utils/response';
 import * as authService from '../services/auth.service';
+import { bloomService } from '../services/bloom.service';
+
+export async function checkPhone(req: Request, res: Response) {
+    const { phone } = req.body;
+    const exists = bloomService.checkPhone(phone);
+    sendSuccess(res, { exists }, 'Phone check completed');
+}
 
 export async function register(req: Request, res: Response) {
     const result = await authService.register(req.body);

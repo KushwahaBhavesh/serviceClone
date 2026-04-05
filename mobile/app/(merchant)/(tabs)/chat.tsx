@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
+import { StatusBar } from 'expo-status-bar';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
     MessageCircle,
@@ -66,22 +68,20 @@ export default function MerchantChatScreen() {
         return (
             <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 60).springify()}>
                 <Pressable
-                    style={({ pressed }) => [styles.chatItem, pressed && { backgroundColor: '#F8FAFC' }]}
+                    style={({ pressed }) => [styles.chatItem, pressed && { backgroundColor: '#F1F5F9' }]}
                     onPress={() => router.push(`/(merchant)/chat/${item.id}` as any)}
                 >
-                    {/* Avatar */}
                     <View style={styles.avatarWrap}>
                         {participantAvatar ? (
                             <Image source={{ uri: participantAvatar }} style={styles.avatar} />
                         ) : (
                             <View style={styles.avatarPlaceholder}>
-                                <UserIcon size={22} color={Colors.primary} strokeWidth={2} />
+                                <UserIcon size={24} color={Colors.primary} strokeWidth={2} />
                             </View>
                         )}
                         {item.isActive && <View style={styles.onlineDot} />}
                     </View>
 
-                    {/* Content */}
                     <View style={styles.chatContent}>
                         <View style={styles.chatTopRow}>
                             <Text style={styles.chatName} numberOfLines={1}>{participantName}</Text>
@@ -97,6 +97,11 @@ export default function MerchantChatScreen() {
                                 <View style={styles.bookingTag}>
                                     <Hash size={9} color="#94A3B8" strokeWidth={2.5} />
                                     <Text style={styles.bookingTagText}>{item.booking.bookingNumber}</Text>
+                                </View>
+                            )}
+                            {item.unreadCount && item.unreadCount > 0 && (
+                                <View style={styles.unreadPill}>
+                                    <Text style={styles.unreadText}>{item.unreadCount}</Text>
                                 </View>
                             )}
                         </View>
@@ -116,9 +121,18 @@ export default function MerchantChatScreen() {
 
     return (
         <View style={styles.container}>
-            <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
-                <Text style={styles.title}>Messages</Text>
-                <Text style={styles.subtitle}>Chat with customers & agents</Text>
+            <StatusBar style="dark" translucent />
+            
+            {/* ─── Sticky Header ─── */}
+            <View style={[styles.stickyHeader, { height: insets.top + 60 }]}>
+                <BlurView intensity={100} tint="light" style={styles.absoluteFill} />
+                <View style={[styles.headerContent, { paddingTop: insets.top }]}>
+                    <Text style={styles.title}>Messages</Text>
+                    <View style={styles.activeBadge}>
+                        <View style={styles.liveDot} />
+                        <Text style={styles.activeLabel}>LIVE</Text>
+                    </View>
+                </View>
             </View>
 
             <FlatList
@@ -126,7 +140,13 @@ export default function MerchantChatScreen() {
                 renderItem={renderChatItem}
                 keyExtractor={(item) => item.id}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} colors={[Colors.primary]} />
+                    <RefreshControl 
+                        refreshing={refreshing} 
+                        onRefresh={onRefresh} 
+                        tintColor={Colors.primary} 
+                        colors={[Colors.primary]} 
+                        progressViewOffset={insets.top + 60}
+                    />
                 }
                 removeClippedSubviews={true}
                 maxToRenderPerBatch={10}
@@ -141,7 +161,10 @@ export default function MerchantChatScreen() {
                         <Text style={styles.emptyHint}>Active conversations will appear here</Text>
                     </View>
                 }
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[
+                    styles.listContent,
+                    { paddingTop: insets.top + 70 }
+                ]}
             />
         </View>
     );
@@ -150,59 +173,93 @@ export default function MerchantChatScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F8FAFC' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
+    absoluteFill: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+    },
 
-    header: {
+    // Header
+    stickyHeader: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+        backgroundColor: 'transparent',
+    },
+    headerContent: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         paddingHorizontal: Spacing.xl,
-        paddingBottom: Spacing.md,
     },
     title: {
-        fontSize: 24,
+        fontSize: 20,
         fontWeight: '800',
         color: '#0F172A',
         letterSpacing: -0.5,
     },
-    subtitle: {
-        fontSize: 13,
+    activeBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F1F5F9',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 12,
+        gap: 6,
+    },
+    liveDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: Colors.success,
+    },
+    activeLabel: {
+        fontSize: 10,
+        fontWeight: '900',
         color: '#64748B',
-        fontWeight: '600',
-        marginTop: 2,
+        letterSpacing: 0.5,
     },
 
-    listContent: { paddingBottom: 100 },
+    listContent: { paddingBottom: 120 },
 
     chatItem: {
         flexDirection: 'row',
         paddingHorizontal: Spacing.xl,
-        paddingVertical: 14,
+        paddingVertical: 18,
         alignItems: 'center',
-        gap: 14,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9',
+        gap: 16,
+        backgroundColor: '#FFF',
+        marginBottom: 1,
     },
     avatarWrap: { position: 'relative' },
     avatar: {
-        width: 52,
-        height: 52,
-        borderRadius: 18,
+        width: 56,
+        height: 56,
+        borderRadius: 20,
     },
     avatarPlaceholder: {
-        width: 52,
-        height: 52,
-        borderRadius: 18,
-        backgroundColor: Colors.primary + '12',
+        width: 56,
+        height: 56,
+        borderRadius: 20,
+        backgroundColor: Colors.primary + '10',
         justifyContent: 'center',
         alignItems: 'center',
     },
     onlineDot: {
         position: 'absolute',
-        bottom: 0,
-        right: 0,
+        bottom: -2,
+        right: -2,
         width: 14,
         height: 14,
         borderRadius: 7,
         backgroundColor: Colors.success,
-        borderWidth: 2.5,
-        borderColor: '#F8FAFC',
+        borderWidth: 3,
+        borderColor: '#FFF',
     },
 
     chatContent: { flex: 1 },
@@ -210,70 +267,84 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 4,
+        marginBottom: 6,
     },
     chatName: {
-        fontSize: 15,
+        fontSize: 16,
         fontWeight: '800',
         color: '#0F172A',
         flex: 1,
         marginRight: 8,
+        letterSpacing: -0.2,
     },
     chatTime: {
         fontSize: 11,
         color: '#94A3B8',
-        fontWeight: '600',
+        fontWeight: '700',
     },
     chatBottomRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
+        gap: 10,
     },
     chatMessage: {
         fontSize: 13,
         color: '#64748B',
         fontWeight: '500',
         flex: 1,
-        marginRight: 8,
     },
     bookingTag: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 2,
+        gap: 3,
         backgroundColor: '#F1F5F9',
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        borderRadius: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
     },
     bookingTagText: {
         fontSize: 10,
-        fontWeight: '700',
+        fontWeight: '800',
         color: '#94A3B8',
+    },
+    unreadPill: {
+        backgroundColor: Colors.primary,
+        minWidth: 20,
+        height: 20,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 6,
+    },
+    unreadText: {
+        fontSize: 10,
+        fontWeight: '900',
+        color: '#FFF',
     },
 
     empty: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 80,
+        paddingVertical: 120,
         gap: 8,
     },
     emptyIconBox: {
-        width: 64,
-        height: 64,
-        borderRadius: 20,
+        width: 72,
+        height: 72,
+        borderRadius: 24,
         backgroundColor: '#F1F5F9',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 12,
     },
     emptyTitle: {
-        fontSize: 16,
-        fontWeight: '700',
+        fontSize: 18,
+        fontWeight: '800',
         color: '#334155',
     },
     emptyHint: {
-        fontSize: 13,
+        fontSize: 14,
         color: '#94A3B8',
-        fontWeight: '500',
+        fontWeight: '600',
     },
 });

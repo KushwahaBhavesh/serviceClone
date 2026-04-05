@@ -49,7 +49,7 @@ const ROLES: RoleOption[] = [
     },
     {
         id: 'MERCHANT',
-        title: 'Partner',
+        title: 'Merchant',
         subtitle: 'I provide services',
         description: 'Scale your business and manage your professional team.',
         icon: 'briefcase-outline',
@@ -123,7 +123,7 @@ export default function RoleSelectScreen() {
                 <ScrollView
                     contentContainerStyle={[
                         styles.scrollContent,
-                        { paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + 140 }
+                        { paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom }
                     ]}
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
@@ -133,7 +133,7 @@ export default function RoleSelectScreen() {
                             <Ionicons name="chevron-back" size={24} color={Colors.textDark} />
                         </Pressable>
                         <Animated.Text entering={FadeInDown.delay(200)} style={styles.title}>
-                            {selectedRole ? `Ready to join as ${selectedRole.toLowerCase()}?` : `Hello, ${user?.name?.split(' ')[0] || 'Partner'}!`}
+                            {selectedRole ? `Ready to join as ${selectedRole.toLowerCase()}?` : `Hello, ${user?.name?.split(' ')[0] || 'Merchant'}!`}
                         </Animated.Text>
                     </Animated.View>
                     <View style={styles.header}>
@@ -147,34 +147,29 @@ export default function RoleSelectScreen() {
                     {/* Personal Details Section */}
                     <Animated.View entering={FadeInUp.delay(400)} style={styles.section}>
                         <Text style={styles.sectionLabel}>Personal Details</Text>
-                        <View style={styles.glassCard}>
-                            <View style={styles.inputRow}>
-                                <Ionicons name="person-outline" size={20} color="#64748B" style={styles.inputIcon} />
-                                <Input
-                                    value={name}
-                                    onChangeText={setName}
-                                    placeholder="Full Name"
-                                    placeholderTextColor="rgba(0,0,0,0.3)"
-                                    autoCapitalize="words"
-                                    style={[styles.input, { color: Colors.textDark }]}
-                                    containerStyle={styles.inputContainer}
-                                />
-                            </View>
-                            <View style={styles.divider} />
-                            <View style={styles.inputRow}>
-                                <Ionicons name="mail-outline" size={20} color="#64748B" style={styles.inputIcon} />
-                                <Input
-                                    value={email}
-                                    onChangeText={setEmail}
-                                    placeholder="Email Address"
-                                    placeholderTextColor="rgba(0,0,0,0.3)"
-                                    keyboardType="email-address"
-                                    autoCapitalize="none"
-                                    style={[styles.input, { color: Colors.textDark }]}
-                                    containerStyle={styles.inputContainer}
-                                />
-                            </View>
-                        </View>
+
+                        <Input
+                            label="Full Name"
+                            value={name}
+                            onChangeText={setName}
+                            placeholder="Enter your full name"
+                            autoCapitalize="words"
+                            leftIcon={<Ionicons name="person-outline" size={20} color={Colors.primary} />}
+                        // containerStyle={styles.cardInput}
+                        />
+
+                        <View style={{ height: Spacing.md }} />
+
+                        <Input
+                            label="Email Address"
+                            value={email}
+                            onChangeText={setEmail}
+                            placeholder="Enter your email address"
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            leftIcon={<Ionicons name="mail-outline" size={20} color={Colors.primary} />}
+                        // containerStyle={styles.cardInput}
+                        />
                     </Animated.View>
 
                     {/* Role Selection Section */}
@@ -334,35 +329,14 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         marginLeft: 4,
     },
-    glassCard: {
+    cardInput: {
         backgroundColor: '#FFFFFF',
         borderRadius: 24,
-        borderWidth: 1.5,
-        borderColor: '#F1F5F9',
-        overflow: 'hidden',
-    },
-    inputRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-    },
-    inputIcon: {
-        marginRight: 4,
-    },
-    inputContainer: {
-        flex: 1,
-        backgroundColor: 'transparent',
-    },
-    input: {
-        color: Colors.textDark,
-        fontSize: 16,
-        fontWeight: '600',
-        height: 56,
-    },
-    divider: {
-        height: 1,
-        backgroundColor: '#F1F5F9',
-        marginHorizontal: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.03,
+        shadowRadius: 10,
+        elevation: 2,
     },
     roleList: {
         gap: 16,

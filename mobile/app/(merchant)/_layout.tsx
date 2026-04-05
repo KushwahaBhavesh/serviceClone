@@ -16,7 +16,7 @@ export default function MerchantLayout() {
             <Stack.Screen name="verification" />
             <Stack.Screen name="earnings" />
             <Stack.Screen name="reviews" />
-            <Stack.Screen name="profile" />
+            <Stack.Screen name="profile-edit" />
             <Stack.Screen name="notifications" />
             <Stack.Screen name="agents" />
             <Stack.Screen name="agents/map" />

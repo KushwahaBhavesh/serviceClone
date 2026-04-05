@@ -4,7 +4,7 @@ import {
     ActivityIndicator, Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
     ChevronLeft, ShoppingBag, ArrowLeftRight, Star,
@@ -49,7 +49,11 @@ export default function NotificationsScreen() {
         finally { setLoading(false); setRefreshing(false); }
     }, []);
 
-    useEffect(() => { fetchData(); }, [fetchData]);
+    useFocusEffect(
+        useCallback(() => {
+            fetchData();
+        }, [fetchData])
+    );
 
     const handleMarkRead = async (id: string) => {
         try {

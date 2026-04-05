@@ -45,7 +45,10 @@ export const authApi = {
 
     updateLocation: (data: { locationName: string; latitude: number; longitude: number }) =>
         api.put<{ user: User }>(`${AUTH_BASE}/location`, data),
-    
+
     updateProfile: (data: { name?: string; email?: string; avatarUrl?: string }) =>
         api.put<{ user: User }>(`${AUTH_BASE}/profile`, data),
+
+    checkPhone: (phone: string) =>
+        api.post<{ exists: boolean }>(`${AUTH_BASE}/check-phone`, { phone }),
 };

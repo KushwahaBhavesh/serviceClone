@@ -24,6 +24,7 @@ router.post('/otp/send', validate(sendOtpSchema), asyncHandler(authController.se
 router.post('/otp/verify', validate(verifyOtpSchema), asyncHandler(authController.verifyOtp));
 router.post('/social/google', validate(socialLoginSchema), asyncHandler(authController.googleLogin));
 router.post('/refresh', validate(refreshTokenSchema), asyncHandler(authController.refreshTokens));
+router.post('/check-phone', asyncHandler(authController.checkPhone));
 
 // ─── PROTECTED ROUTES ───
 router.delete('/logout', authenticate, asyncHandler(authController.logout));

@@ -19,6 +19,8 @@ export interface MerchantService {
     merchantId: string;
     serviceId: string;
     price: number;
+    unit?: string | null;
+    description?: string | null;
     isActive: boolean;
     service: Service & { category: { id: string; name: string; slug: string } };
 }
@@ -181,10 +183,10 @@ export const merchantApi = {
     listServices: () =>
         api.get<{ services: MerchantService[] }>(MERCHANT + '/services'),
 
-    enableService: (data: { serviceId: string; price: number }) =>
+    enableService: (data: { serviceId: string; price: number; unit?: string; description?: string }) =>
         api.post<{ service: MerchantService }>(MERCHANT + '/services', data),
 
-    updateService: (id: string, data: { price?: number; isActive?: boolean }) =>
+    updateService: (id: string, data: { price?: number; unit?: string; description?: string; isActive?: boolean }) =>
         api.put<{ service: MerchantService }>(MERCHANT + `/services/${id}`, data),
 
     disableService: (id: string) =>
@@ -195,8 +197,8 @@ export const merchantApi = {
         description?: string;
         categoryId: string;
         price: number;
-        duration?: number;
         unit?: string;
+        duration?: number;
         imageUrl?: string;
     }) =>
         api.post<{ service: MerchantService }>(MERCHANT + '/services/custom', data),

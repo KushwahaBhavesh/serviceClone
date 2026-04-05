@@ -21,6 +21,7 @@ import { Colors, Spacing } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Button } from '../../components/ui/Button';
 import { verifyOtpSchema } from '../../lib/validations/auth';
+import { AuthDecorations } from '../../components/ui/AuthDecorations';
 
 const OTP_LENGTH = 6;
 const RESEND_COOLDOWN = 60;
@@ -106,8 +107,7 @@ export default function OtpScreen() {
             <StatusBar style="dark" />
 
             <View style={styles.bgContainer}>
-                <View style={[styles.decoration, styles.decor1]} />
-                <View style={[styles.decoration, styles.decor2]} />
+                <AuthDecorations />
             </View>
 
             <KeyboardAvoidingView
@@ -206,24 +206,6 @@ const styles = StyleSheet.create({
     },
     bgContainer: {
         ...StyleSheet.absoluteFillObject,
-    },
-    decoration: {
-        position: 'absolute',
-        borderRadius: 100,
-    },
-    decor1: {
-        width: 250,
-        height: 250,
-        backgroundColor: Colors.primary + '08',
-        top: -80,
-        right: -80,
-    },
-    decor2: {
-        width: 150,
-        height: 150,
-        backgroundColor: Colors.secondary + '08',
-        bottom: '10%',
-        left: -50,
     },
     flex: { flex: 1 },
     scrollContent: {

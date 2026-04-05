@@ -16,6 +16,7 @@ import {
 import { Colors, Spacing } from '../../../constants/theme';
 import { merchantApi } from '../../../lib/merchant';
 import type { Agent, MerchantOrderEvent } from '../../../lib/merchant';
+import { useToast } from '../../../context/ToastContext';
 import type { Booking } from '../../../lib/marketplace';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -30,6 +31,7 @@ export default function OrderDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
     const insets = useSafeAreaInsets();
+    const { showSuccess, showError } = useToast();
     const [order, setOrder] = useState<OrderDetail | null>(null);
     const [agents, setAgents] = useState<Agent[]>([]);
     const [loading, setLoading] = useState(true);
@@ -45,7 +47,7 @@ export default function OrderDetailScreen() {
             setOrder(orderRes.data.booking);
             setAgents(agentsRes.data.agents.filter((a) => a.status === 'AVAILABLE'));
         } catch {
-            Alert.alert('Error', 'Failed to load order details');
+            showError('Failed to load order details');
         } finally { setLoading(false); }
     }, [id]);
 
@@ -58,9 +60,9 @@ export default function OrderDetailScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             await merchantApi.assignAgent(id, agentId);
             await fetchData();
-            Alert.alert('Success', 'Agent assigned successfully');
+            showSuccess('Agent assigned successfully');
         } catch {
-            Alert.alert('Error', 'Failed to assign agent');
+            showError('Failed to assign agent');
         } finally { setAssigning(false); }
     };
 

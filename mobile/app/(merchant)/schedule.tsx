@@ -15,6 +15,7 @@ import {
 import { Colors, Spacing } from '../../constants/theme';
 import { merchantApi } from '../../lib/merchant';
 import type { Slot, Agent } from '../../lib/merchant';
+import { useToast } from '../../context/ToastContext';
 
 const TIME_SLOTS = [
     { start: '08:00', end: '10:00' },
@@ -31,6 +32,7 @@ function toISODate(d: Date) { return d.toISOString().split('T')[0]; }
 
 export default function ScheduleScreen() {
     const insets = useSafeAreaInsets();
+    const { showSuccess, showError, showInfo } = useToast();
     const [dayOffset, setDayOffset] = useState(0);
     const [slots, setSlots] = useState<Slot[]>([]);
     const [agents, setAgents] = useState<Agent[]>([]);
@@ -50,7 +52,7 @@ export default function ScheduleScreen() {
             ]);
             setSlots(slotsRes.data.slots);
             setAgents(agentsRes.data.agents);
-        } catch { Alert.alert('Error', 'Failed to load schedule'); }
+        } catch { showError('Failed to load schedule'); }
         finally { setLoading(false); }
     }, [dateStr]);
 
@@ -62,7 +64,7 @@ export default function ScheduleScreen() {
     };
 
     const handleCreateSlots = async () => {
-        if (selectedSlots.length === 0) { Alert.alert('Select Slots', 'Please select at least one time slot'); return; }
+        if (selectedSlots.length === 0) { showInfo('Please select at least one time slot'); return; }
         setCreating(true);
         try {
             const slotsPayload = selectedSlots.map((key) => {
@@ -71,9 +73,9 @@ export default function ScheduleScreen() {
             });
             const res = await merchantApi.createSlots({ date: dateStr, slots: slotsPayload });
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert('Success', `${res.data.created} slot(s) created`);
+            showSuccess(`${res.data.created} slot(s) created`);
             fetchData();
-        } catch { Alert.alert('Error', 'Failed to create slots'); }
+        } catch { showError('Failed to create slots'); }
         finally { setCreating(false); }
     };
 

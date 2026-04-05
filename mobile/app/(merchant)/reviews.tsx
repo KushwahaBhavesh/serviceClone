@@ -14,10 +14,12 @@ import {
 import { Colors, Spacing } from '../../constants/theme';
 import { merchantApi } from '../../lib/merchant';
 import type { Review } from '../../lib/merchant';
+import { useToast } from '../../context/ToastContext';
 
 export default function ReviewsScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const { showSuccess, showError } = useToast();
     const [reviews, setReviews] = useState<Review[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -46,7 +48,8 @@ export default function ReviewsScreen() {
             setReviews(prev => prev.map(r => r.id === reviewId ? res.data.review : r));
             setReplyingTo(null);
             setReplyText('');
-        } catch { Alert.alert('Error', 'Failed to submit reply'); }
+            showSuccess('Reply submitted successfully!');
+        } catch { showError('Failed to submit reply'); }
         finally { setSubmitting(false); }
     };
 

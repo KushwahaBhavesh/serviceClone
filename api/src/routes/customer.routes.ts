@@ -9,8 +9,12 @@ import {
 import { sendMessageSchema } from '../validators/merchant.validators';
 import { asyncHandler } from '../utils/async-handler';
 import * as cc from '../controllers/customer.controller';
+import * as aiController from '../controllers/ai.controller';
 
 const router = Router();
+
+// ─── AI ASSISTANT ───
+router.post('/ai-assistant/chat', authenticate, asyncHandler(aiController.chat as any));
 
 // ─── ADDRESSES ───
 router.get('/addresses', authenticate, asyncHandler(cc.listAddresses as any));

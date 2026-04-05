@@ -5,8 +5,8 @@ import {
     StyleSheet,
     Pressable,
     ActivityIndicator,
-    Alert,
     Platform,
+    Dimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,12 +14,35 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import MapView, { Marker, Circle, Region, MapPressEvent, MarkerDragStartEndEvent } from 'react-native-maps';
 import * as Location from 'expo-location';
-import Animated, { FadeInUp, FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, {
+    FadeInUp,
+    FadeIn,
+    FadeOut,
+    FadeInRight,
+    SlideInDown,
+    useAnimatedStyle,
+    withSpring,
+    withRepeat,
+    withTiming,
+    interpolate,
+    useSharedValue,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
+import {
+    ChevronLeft,
+    Navigation,
+    CheckCircle2,
+    Locate,
+    ShieldCheck,
+    ChevronRight,
+    MapPin,
+    Sparkles,
+} from 'lucide-react-native';
 
 import { Colors, Spacing } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useToast } from '../../context/ToastContext';
 import type { UserRole } from '../../types/auth';
 
 // ─── Constants ───
@@ -52,6 +75,7 @@ export default function LocationScreen() {
     }>();
 
     const { completeOnboarding, isLoading, user } = useAuthStore();
+    const { showInfo, showError, showSuccess } = useToast();
 
     const [locationName, setLocationName] = useState('');
     const [markerCoord, setMarkerCoord] = useState({
@@ -63,9 +87,20 @@ export default function LocationScreen() {
     const [isLocationSet, setIsLocationSet] = useState(false);
     const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
 
+    // Animation values
+    const markerScale = useSharedValue(1);
+    const pulse = useSharedValue(0);
+
     // ─── Auto-detect on mount ───
     useEffect(() => {
         attemptAutoDetect();
+
+        // Start pulse animation
+        pulse.value = withRepeat(
+            withTiming(1, { duration: 2000 }),
+            -1, // infinite
+            false // no reverse
+        );
     }, []);
 
     // Animate map camera to coordinates
@@ -155,11 +190,7 @@ export default function LocationScreen() {
             setHasLocationPermission(status === 'granted');
 
             if (status !== 'granted') {
-                Alert.alert(
-                    'Permission Required',
-                    'Location access is needed to detect your area. You can also tap the map to pick manually.',
-                    [{ text: 'OK' }],
-                );
+                showInfo('Location access is needed to detect your area.');
                 setIsFetchingLocation(false);
                 return;
             }
@@ -178,11 +209,7 @@ export default function LocationScreen() {
             await reverseGeocode(coords);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch {
-            Alert.alert(
-                'Detection Failed',
-                'Could not get your current location. Try tapping the map instead.',
-                [{ text: 'OK' }],
-            );
+            showError('Could not get your current location.');
         } finally {
             setIsFetchingLocation(false);
         }
@@ -212,11 +239,7 @@ export default function LocationScreen() {
     const handleFinishOnboarding = useCallback(async () => {
         if (!locationName.trim()) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            Alert.alert(
-                'Location Required',
-                'Please select your location by tapping the map or using auto-detect.',
-                [{ text: 'OK' }],
-            );
+            showInfo('Please select your location first.');
             return;
         }
 
@@ -268,7 +291,7 @@ export default function LocationScreen() {
                 router.replace('/(tabs)/home');
             }
         } catch (err: any) {
-            Alert.alert('Error', err.message || 'Failed to complete onboarding. Please try again.');
+            showError(err.message || 'Failed to complete onboarding.');
         }
     }, [
         locationName, markerCoord, role, email, businessName,
@@ -288,41 +311,24 @@ export default function LocationScreen() {
     // ─── RENDER ───
     return (
         <View style={styles.container}>
-            <StatusBar style="dark" />
-            
-            <View style={styles.bgContainer}>
-                <View style={[styles.decoration, styles.decor1]} />
-                <View style={[styles.decoration, styles.decor2]} />
-            </View>
+            <StatusBar style="dark" translucent />
 
-            {/* ═══ Header ═══ */}
-            <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
-                <View style={styles.navbar}>
-                    <Pressable
-                        onPress={() => router.back()}
-                        style={({ pressed }) => [
-                            styles.navBtn,
-                            pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
-                        ]}
-                    >
-                        <Ionicons name="chevron-back" size={24} color={Colors.textDark} />
+            {/* ─── Sticky Header ─── */}
+            <View style={[styles.stickyHeader, { height: insets.top + 60 }]}>
+                <BlurView intensity={100} tint="light" style={StyleSheet.absoluteFill} />
+                <View style={[styles.headerContent, { paddingTop: insets.top }]}>
+                    <Pressable onPress={() => router.back()} style={styles.navBtn}>
+                        <ChevronLeft size={22} color="#0F172A" />
                     </Pressable>
-
                     <View style={styles.headerInfo}>
-                        <Animated.Text entering={FadeInUp.delay(100)} style={styles.headerTitle}>Set Location</Animated.Text>
-                        <Animated.Text entering={FadeInUp.delay(200)} style={styles.headerSubtitle}>
-                            Pin your {getRoleLabel()} area on the map
-                        </Animated.Text>
+                        <Text style={styles.headerTitle}>SET LOCATION</Text>
+                        <Text style={styles.headerSubtitle}>Pin your {getRoleLabel()} area</Text>
                     </View>
-
-                    <Animated.View entering={FadeInUp.delay(300)} style={styles.stepBadge}>
-                        <Text style={styles.stepBadgeText}>Final</Text>
-                    </Animated.View>
                 </View>
             </View>
 
-            {/* ═══ Map ═══ */}
-            <View style={styles.mapWrapper}>
+            {/* ═══ Map Viewport ═══ */}
+            <View style={styles.mapContainer}>
                 <MapView
                     ref={mapRef}
                     style={styles.map}
@@ -331,516 +337,198 @@ export default function LocationScreen() {
                     showsUserLocation={hasLocationPermission}
                     showsMyLocationButton={false}
                     showsCompass={false}
-                    toolbarEnabled={false}
-                    userInterfaceStyle="dark"
-                    mapPadding={{ top: 80, right: 0, bottom: 30, left: 0 }}
+                    userInterfaceStyle="light"
+                    mapPadding={{ top: insets.top + 80, right: 0, bottom: 200, left: 0 }}
                 >
-                    {/* Draggable Marker */}
                     <Marker
                         coordinate={markerCoord}
                         draggable
                         onDragEnd={handleMarkerDragEnd}
-                        anchor={{ x: 0.5, y: 1 }}
+                        anchor={{ x: 1, y: 1 }}
                     >
-                        <View style={styles.customMarker}>
-                            <LinearGradient
-                                colors={[Colors.primary, Colors.primaryLight]}
-                                style={styles.markerCircle}
-                            >
-                                <Ionicons name="location" size={24} color="#FFF" />
-                            </LinearGradient>
-                            <View style={styles.markerPointer} />
-                            <View style={styles.markerShadow} />
+                        <View style={styles.markerContainer}>
+                            {/* Pulse Rings - Rooted at tip */}
+                            <Animated.View style={[styles.pulseRing,
+                            useAnimatedStyle(() => ({
+                                transform: [{ scale: interpolate(pulse.value, [0, 1], [0.2, 2.0]) }],
+                                opacity: interpolate(pulse.value, [0, 0.5, 1], [0, 0.5, 0]),
+                            }))
+                            ]} />
+
+                            {/* Main Pin Marker */}
+                            <Animated.View style={[styles.customMarker,
+                            useAnimatedStyle(() => ({
+                                transform: [{ scale: withSpring(isReverseGeocoding ? 1.15 : 1) }]
+                            }))
+                            ]}>
+                                <View style={styles.pinWrapper}>
+                                    <View style={styles.pinGlass}>
+                                        <LinearGradient
+                                            colors={[Colors.primary, '#FF7A00']}
+                                            style={styles.pinInner}
+                                        >
+                                            <Navigation size={22} color="#FFF" />
+                                        </LinearGradient>
+                                    </View>
+                                    <View style={styles.pinBeak} />
+                                </View>
+                            </Animated.View>
                         </View>
                     </Marker>
 
-                    {/* Service radius overlay for merchant / agent */}
                     {(role === 'MERCHANT' || role === 'AGENT') && (
                         <Circle
                             center={markerCoord}
-                            radius={500}
-                            fillColor={Colors.primary + '20'}
-                            strokeColor={Colors.primary + '80'}
+                            radius={800}
+                            fillColor={Colors.primary + '15'}
+                            strokeColor={Colors.primary + '40'}
                             strokeWidth={2}
                         />
                     )}
                 </MapView>
 
-                {/* ─── Address Card (top) ─── */}
+                {/* Overlapping Address Bento Card */}
                 <Animated.View
-                    entering={FadeInUp.delay(400).springify()}
-                    style={styles.addressCard}
+                    entering={FadeInUp.delay(300).springify()}
+                    style={[styles.floatingBento, { top: insets.top + 80 }]}
                 >
-                    <View style={styles.addressRow}>
-                        <View style={[
-                            styles.searchIconBox,
-                            isLocationSet && { backgroundColor: 'rgba(34, 197, 94, 0.15)' },
-                        ]}>
-                            {isReverseGeocoding ? (
-                                <ActivityIndicator size="small" color={Colors.primary} />
-                            ) : isLocationSet ? (
-                                <Ionicons name="checkmark-circle" size={18} color="#22C55E" />
-                            ) : (
-                                <Ionicons name="scan-outline" size={18} color={Colors.primary} />
-                            )}
+                    <BlurView intensity={100} tint="light" style={styles.bentoBlur}>
+                        <View style={styles.bentoContent}>
+                            <View style={[
+                                styles.bentoIconBox,
+                                isLocationSet && { backgroundColor: 'rgba(34, 197, 94, 0.15)' }
+                            ]}>
+                                {isReverseGeocoding ? (
+                                    <ActivityIndicator size="small" color={Colors.primary} />
+                                ) : isLocationSet ? (
+                                    <CheckCircle2 size={18} color="#22C55E" strokeWidth={3} />
+                                ) : (
+                                    <MapPin size={18} color={Colors.primary} strokeWidth={2.5} />
+                                )}
+                            </View>
+                            <View style={styles.bentoTextCol}>
+                                <Text style={styles.bentoLabel}>SELECTED ADDRESS</Text>
+                                {isReverseGeocoding ? (
+                                    <Text style={styles.bentoPlaceholder}>Verifying coordinates...</Text>
+                                ) : (
+                                    <Text style={styles.bentoAddress} numberOfLines={2}>
+                                        {locationName || 'Tap the map to select your operative base'}
+                                    </Text>
+                                )}
+                            </View>
                         </View>
-                        <View style={styles.addressTextBox}>
-                            {isReverseGeocoding ? (
-                                <Text style={styles.addressPlaceholderText}>Finding address…</Text>
-                            ) : locationName ? (
-                                <Text style={styles.addressText} numberOfLines={2}>
-                                    {locationName}
-                                </Text>
-                            ) : (
-                                <Text style={styles.addressPlaceholderText}>
-                                    Tap map or drag pin to select
-                                </Text>
-                            )}
-                        </View>
-                    </View>
+                    </BlurView>
                 </Animated.View>
 
-                {/* ─── Auto-Detect FAB ─── */}
-                <Animated.View entering={FadeIn.delay(500)} style={styles.fabContainer}>
+                {/* GPS Precision FAB */}
+                <Animated.View entering={FadeIn.delay(500)} style={styles.gpsFabCol}>
                     <Pressable
                         onPress={handleAutoDetect}
                         disabled={isFetchingLocation}
                         style={({ pressed }) => [
-                            styles.fab,
-                            pressed && { transform: [{ scale: 0.92 }] },
-                            isFetchingLocation && styles.fabLoading,
+                            styles.gpsFab,
+                            pressed && { transform: [{ scale: 0.94 }] }
                         ]}
                     >
                         {isFetchingLocation ? (
                             <ActivityIndicator color={Colors.primary} size="small" />
                         ) : (
-                            <Ionicons name="locate" size={24} color={Colors.primary} />
+                            <Locate size={24} color={Colors.primary} strokeWidth={2.5} />
                         )}
                     </Pressable>
-                    {!isLocationSet && !isFetchingLocation && (
-                        <Animated.View entering={FadeIn.delay(600)} style={styles.fabLabel}>
-                            <Text style={styles.fabLabelText}>Detect</Text>
-                        </Animated.View>
-                    )}
                 </Animated.View>
-
-                {/* ─── Tap hint (only when no location set) ─── */}
-                {!isLocationSet && !isFetchingLocation && !isReverseGeocoding && (
-                    <Animated.View
-                        entering={FadeIn.delay(800)}
-                        exiting={FadeOut.duration(300)}
-                        style={styles.tapHint}
-                    >
-                        <Text style={styles.tapHintText}>Tap anywhere or drag the pin</Text>
-                    </Animated.View>
-                )}
             </View>
 
-            {/* ═══ Footer ═══ */}
-            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Spacing.lg) }]}>
-                <LinearGradient
-                    colors={['rgba(255, 255, 255, 0)', '#FFFFFF']}
-                    style={styles.footerGradient}
-                    pointerEvents="none"
-                />
-                
-                {/* Location info card */}
-                <Animated.View entering={FadeInUp.delay(700)} style={[
-                    styles.infoRow,
-                    isReady && styles.infoRowSuccess,
-                ]}>
-                    <View style={[
-                        styles.infoIconBox,
-                        isReady && { backgroundColor: 'rgba(34, 197, 94, 0.15)' },
-                    ]}>
-                        {isReady ? (
-                            <Ionicons name="checkmark-circle" size={18} color="#22C55E" />
-                        ) : (
-                            <Ionicons name="location" size={18} color={Colors.primary} />
-                        )}
-                    </View>
-                    <View style={styles.infoTextBox}>
-                        <Text style={styles.infoLabel}>
-                            {isReady ? 'Location Confirmed' : 'Select Your Area'}
-                        </Text>
-                        <Text style={styles.infoValue} numberOfLines={2}>
-                            {locationName || 'Tap the map or use auto-detect to set your location'}
+            {/* ═══ Immersive Footer ═══ */}
+            <View style={[styles.footer, { paddingBottom: insets.bottom + 20 }]}>
+                <View style={styles.footerContent}>
+                    <View style={styles.luxeInfoCard}>
+                        <ShieldCheck size={20} color={Colors.primary} strokeWidth={2.5} />
+                        <Text style={styles.luxeInfoText}>
+                            Your base location determines your service marketplace visibility.
                         </Text>
                     </View>
-                </Animated.View>
 
-                {/* Privacy note */}
-                <Animated.View entering={FadeInUp.delay(800)} style={styles.privacyNote}>
-                    <Ionicons name="shield-checkmark" size={14} color="#94A3B8" />
-                    <Text style={styles.privacyText}>
-                        Your location is private and only used to match nearby services
-                    </Text>
-                </Animated.View>
-
-                {/* CTA */}
-                <Animated.View entering={FadeInUp.delay(900)}>
-                    <Pressable
-                        onPress={handleFinishOnboarding}
-                        disabled={!isReady || isLoading}
-                        style={({ pressed }) => [
-                            styles.ctaBtn,
-                            (!isReady || isLoading) && styles.ctaBtnDisabled,
-                            pressed && isReady && !isLoading && styles.ctaBtnPressed,
-                        ]}
-                    >
-                        <LinearGradient
-                            colors={
-                                !isReady || isLoading
-                                    ? ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']
-                                    : [Colors.primary, Colors.primaryLight]
-                            }
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.ctaGradient}
+                    <Animated.View entering={SlideInDown.delay(200)}>
+                        <Pressable
+                            onPress={handleFinishOnboarding}
+                            disabled={!isReady || isLoading}
+                            style={({ pressed }) => [
+                                styles.primaryBtn,
+                                (!isReady || isLoading) && styles.primaryBtnDisabled,
+                                pressed && isReady && { transform: [{ scale: 0.98 }] }
+                            ]}
                         >
-                            {isLoading ? (
-                                <ActivityIndicator color={!isReady ? "#94A3B8" : "#FFF"} />
-                            ) : (
-                                <>
-                                    <Text style={[styles.ctaText, !isReady && { color: '#94A3B8' }]}>Finish Registration</Text>
-                                    <Ionicons name="chevron-forward" size={20} color={!isReady ? "#94A3B8" : "#FFF"} />
-                                </>
-                            )}
-                        </LinearGradient>
-                    </Pressable>
-                </Animated.View>
+                            <LinearGradient
+                                colors={!isReady || isLoading ? ['#E2E8F0', '#CBD5E1'] : [Colors.primary, '#FF7A00']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.btnGradient}
+                            >
+                                {isLoading ? (
+                                    <ActivityIndicator color="#FFF" />
+                                ) : (
+                                    <>
+                                        <Text style={styles.btnText}>
+                                            {role === 'MERCHANT' ? 'SET BASE & PRICING' : 'COMPLETE REGISTER'}
+                                        </Text>
+                                        <ChevronRight size={22} color="#FFF" strokeWidth={2.5} />
+                                    </>
+                                )}
+                            </LinearGradient>
+                        </Pressable>
+                    </Animated.View>
+                </View>
             </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: Colors.background,
-    },
-    bgContainer: {
-        ...StyleSheet.absoluteFillObject,
-    },
-    decoration: {
-        position: 'absolute',
-        borderRadius: 100,
-    },
-    decor1: {
-        width: 250,
-        height: 250,
-        backgroundColor: Colors.primary + '08',
-        top: -80,
-        right: -80,
-    },
-    decor2: {
-        width: 150,
-        height: 150,
-        backgroundColor: Colors.secondary + '08',
-        bottom: '10%',
-        left: -50,
-    },
-    header: {
-        paddingHorizontal: Spacing.xl,
-        paddingBottom: 20,
-    },
-    navbar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
-    },
-    navBtn: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
-        backgroundColor: '#FFFFFF',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1.5,
-        borderColor: '#E2E8F0',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 2,
-    },
-    headerInfo: {
-        flex: 1,
-    },
-    headerTitle: {
-        fontSize: 24,
-        fontWeight: '900',
-        color: Colors.textDark,
-        letterSpacing: -0.5,
-    },
-    headerSubtitle: {
-        fontSize: 14,
-        color: Colors.textSecondary,
-        fontWeight: '600',
-        marginTop: 2,
-    },
-    stepBadge: {
-        backgroundColor: Colors.primary + '15',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: Colors.primary + '30',
-    },
-    stepBadgeText: {
-        fontSize: 11,
-        fontWeight: '900',
-        color: Colors.primary,
-        textTransform: 'uppercase',
-        letterSpacing: 0.5,
-    },
-    mapWrapper: {
-        flex: 1,
-        backgroundColor: '#F1F5F9',
-        overflow: 'hidden',
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        borderWidth: 1.5,
-        borderColor: '#E2E8F0',
-    },
-    map: {
-        ...StyleSheet.absoluteFillObject,
-    },
-    customMarker: {
-        alignItems: 'center',
-    },
-    markerCircle: {
-        width: 54,
-        height: 54,
-        borderRadius: 27,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 4,
-        borderColor: '#FFFFFF',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-        elevation: 10,
-    },
-    markerPointer: {
-        width: 14,
-        height: 14,
-        backgroundColor: Colors.primary,
-        transform: [{ rotate: '45deg' }],
-        marginTop: -8,
-        borderBottomRightRadius: 2,
-    },
-    markerShadow: {
-        width: 24,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: 'rgba(0,0,0,0.1)',
-        marginTop: 4,
-    },
-    addressCard: {
-        position: 'absolute',
-        top: 16,
-        left: 16,
-        right: 16,
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        borderRadius: 20,
-        paddingHorizontal: 14,
-        paddingVertical: 14,
-        borderWidth: 1.5,
-        borderColor: '#E2E8F0',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
-        shadowRadius: 20,
-        elevation: 12,
-    },
-    addressRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    searchIconBox: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
-        backgroundColor: '#F8FAFC',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-    },
-    addressTextBox: {
-        flex: 1,
-        justifyContent: 'center',
-        minHeight: 36,
-    },
-    addressText: {
-        fontSize: 15,
-        fontWeight: '700',
-        color: Colors.textDark,
-        lineHeight: 20,
-    },
-    addressPlaceholderText: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: Colors.textSecondary,
-        lineHeight: 20,
-    },
-    fabContainer: {
-        position: 'absolute',
-        bottom: 28,
-        right: 16,
-        alignItems: 'center',
-    },
-    fab: {
-        width: 56,
-        height: 56,
-        borderRadius: 18,
-        backgroundColor: '#FFFFFF',
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.15,
-        shadowRadius: 16,
-        elevation: 8,
-        borderWidth: 1.5,
-        borderColor: '#E2E8F0',
-    },
-    fabLoading: {
-        opacity: 0.7,
-    },
-    fabLabel: {
-        marginTop: 6,
-        backgroundColor: '#FFFFFF',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-    },
-    fabLabelText: {
-        color: Colors.textDark,
-        fontSize: 11,
-        fontWeight: '800',
-    },
-    tapHint: {
-        position: 'absolute',
-        bottom: 40,
-        alignSelf: 'center',
-        backgroundColor: 'rgba(15, 23, 42, 0.8)',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 20,
-    },
-    tapHintText: {
-        color: '#FFF',
-        fontSize: 13,
-        fontWeight: '700',
-    },
-    footer: {
-        paddingHorizontal: Spacing.xl,
-        paddingTop: 24,
-        backgroundColor: '#FFFFFF',
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        marginTop: -32,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -10 },
-        shadowOpacity: 0.05,
-        shadowRadius: 20,
-        elevation: 16,
-    },
-    footerGradient: {
-        position: 'absolute',
-        top: -80,
-        left: 0,
-        right: 0,
-        height: 80,
-    },
-    infoRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
-        marginBottom: 16,
-        backgroundColor: '#F8FAFC',
-        padding: 16,
-        borderRadius: 20,
-        borderWidth: 1.5,
-        borderColor: '#E2E8F0',
-    },
-    infoRowSuccess: {
-        backgroundColor: 'rgba(34, 197, 94, 0.05)',
-        borderColor: 'rgba(34, 197, 94, 0.1)',
-    },
-    infoIconBox: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
-        backgroundColor: Colors.primary + '10',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: Colors.primary + '20',
-    },
-    infoTextBox: {
-        flex: 1,
-    },
-    infoLabel: {
-        fontSize: 12,
-        fontWeight: '900',
-        color: Colors.textSecondary,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-        marginBottom: 2,
-    },
-    infoValue: {
-        fontSize: 14,
-        color: Colors.textDark,
-        fontWeight: '600',
-    },
-    privacyNote: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-        marginBottom: 20,
-    },
-    privacyText: {
-        fontSize: 11,
-        color: '#64748B',
-        fontWeight: '600',
-    },
-    ctaBtn: {
-        borderRadius: 20,
-        overflow: 'hidden',
-        height: 64,
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 15,
-        elevation: 8,
-    },
-    ctaBtnDisabled: {
-        opacity: 0.5,
-        shadowOpacity: 0,
-        elevation: 0,
-    },
-    ctaBtnPressed: {
-        transform: [{ scale: 0.98 }],
-        opacity: 0.9,
-    },
-    ctaGradient: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 12,
-    },
-    ctaText: {
-        fontSize: 18,
-        fontWeight: '900',
-        color: '#FFFFFF',
-    },
+    container: { flex: 1, backgroundColor: '#F8FAFC' },
+
+    // Header
+    stickyHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100 },
+    headerContent: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 15, paddingHorizontal: 20 },
+    navBtn: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+    headerInfo: { flex: 1 },
+    headerTitle: { fontSize: 18, fontWeight: '900', color: '#0F172A', letterSpacing: 0.5 },
+    headerSubtitle: { fontSize: 12, fontWeight: '600', color: '#64748B' },
+    oracleBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primary + '10', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: Colors.primary + '20' },
+    oracleBadgeText: { fontSize: 9, fontWeight: '900', color: Colors.primary, letterSpacing: 1 },
+
+    // Map Section
+    mapContainer: { flex: 1, backgroundColor: '#E2E8F0' },
+    map: { flex: 1 },
+    markerContainer: { width: 80, height: 100, justifyContent: 'flex-end', alignItems: 'center' },
+    pulseRing: { position: 'absolute', bottom: 10, width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primary, borderWidth: 1, borderColor: Colors.primary },
+    customMarker: { alignItems: 'center', marginBottom: 5 },
+    pinWrapper: { alignItems: 'center' },
+    pinGlass: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFF', padding: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 15, elevation: 12, borderWidth: 1.5, borderColor: '#F1F5F9' },
+    pinInner: { flex: 1, borderRadius: 27, justifyContent: 'center', alignItems: 'center' },
+    pinBeak: { width: 16, height: 16, backgroundColor: '#FFF', transform: [{ rotate: '45deg' }], marginTop: -10, borderBottomRightRadius: 2, borderWidth: 1.5, borderRightColor: '#F1F5F9', borderBottomColor: '#F1F5F9', borderLeftColor: 'transparent', borderTopColor: 'transparent' },
+
+    // Bento Floating Card
+    floatingBento: { position: 'absolute', left: 20, right: 20, zIndex: 50 },
+    bentoBlur: { borderRadius: 24, overflow: 'hidden', borderWidth: 1.5, borderColor: '#FFF', shadowColor: '#000', },
+    bentoContent: { flexDirection: 'row', alignItems: 'center', gap: 16, padding: 16 },
+    bentoIconBox: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#F1F5F9' },
+    bentoTextCol: { flex: 1 },
+    bentoLabel: { fontSize: 10, fontWeight: '900', color: '#94A3B8', letterSpacing: 1, marginBottom: 2 },
+    bentoAddress: { fontSize: 14, fontWeight: '800', color: '#0F172A', lineHeight: 20 },
+    bentoPlaceholder: { fontSize: 14, fontWeight: '600', color: '#94A3B8' },
+
+    // GPS FAB
+    gpsFabCol: { position: 'absolute', bottom: 30, right: 20 },
+    gpsFab: { width: 60, height: 60, borderRadius: 20, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10, borderWidth: 1.5, borderColor: '#F1F5F9' },
+
+    // Footer
+    footer: { position: 'absolute', bottom: 0, left: 0, right: 0 },
+    footerContent: { paddingHorizontal: 25, paddingVertical: 20, gap: 15 },
+    luxeInfoCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#F8FAFC', padding: 16, borderRadius: 20, borderWidth: 1.5, borderColor: '#F1F5F9' },
+    luxeInfoText: { flex: 1, fontSize: 12, color: '#64748B', fontWeight: '600', lineHeight: 18 },
+    primaryBtn: { height: 70, borderRadius: 24, overflow: 'hidden', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 25, elevation: 15 },
+    primaryBtnDisabled: { opacity: 0.5 },
+    btnGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 15 },
+    btnText: { color: 'white', fontSize: 16, fontWeight: '900', letterSpacing: 1.5 },
 });

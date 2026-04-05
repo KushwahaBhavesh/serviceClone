@@ -15,6 +15,7 @@ import {
 import { Colors, Spacing } from '../../constants/theme';
 import api from '../../lib/api';
 import { AnalyticsDashboard } from '../../lib/merchant';
+import { useToast } from '../../context/ToastContext';
 
 const MERCHANT = '/api/v1/merchant';
 type FilterDays = 7 | 30 | 90;
@@ -100,6 +101,7 @@ function AgentRow({ rank, name, rating, completedJobs }: { rank: number; name: s
 export default function MerchantAnalyticsScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const { showError } = useToast();
     const [analytics, setAnalytics] = useState<AnalyticsDashboard | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [daysFilter, setDaysFilter] = useState<FilterDays>(30);
@@ -114,7 +116,7 @@ export default function MerchantAnalyticsScreen() {
             );
             setAnalytics(res.data.analytics);
         } catch (error: any) {
-            Alert.alert('Error', error.response?.data?.error ?? 'Failed to load analytics');
+            showError(error.response?.data?.error ?? 'Failed to load analytics');
         } finally { setIsLoading(false); }
     };
 

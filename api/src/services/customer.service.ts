@@ -1,14 +1,17 @@
 import prisma from '../lib/prisma';
+import { cacheable, cacheDelete } from '../lib/redis';
 import { BadRequestError } from '../middleware/error-handler';
 import type { AddressInput, TopupInput } from '../validators/customer.validators';
 
 // ─── Addresses ───
 
 export async function listAddresses(userId: string) {
-    return prisma.address.findMany({
-        where: { userId },
-        orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
-    });
+    return cacheable(`customer:addresses:${userId}`, 300, () =>
+        prisma.address.findMany({
+            where: { userId },
+            orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+        }),
+    );
 }
 
 export async function createAddress(userId: string, data: AddressInput) {
@@ -19,9 +22,11 @@ export async function createAddress(userId: string, data: AddressInput) {
         });
     }
 
-    return prisma.address.create({
+    const result = await prisma.address.create({
         data: { ...data, userId },
     });
+    await cacheDelete(`customer:addresses:${userId}`);
+    return result;
 }
 
 export async function updateAddress(userId: string, addressId: string, data: Partial<AddressInput>) {
@@ -37,10 +42,12 @@ export async function updateAddress(userId: string, addressId: string, data: Par
         });
     }
 
-    return prisma.address.update({
+    const result = await prisma.address.update({
         where: { id: addressId },
         data,
     });
+    await cacheDelete(`customer:addresses:${userId}`);
+    return result;
 }
 
 export async function deleteAddress(userId: string, addressId: string) {
@@ -49,9 +56,11 @@ export async function deleteAddress(userId: string, addressId: string) {
     });
     if (!address) throw new BadRequestError('Address not found');
 
-    return prisma.address.delete({
+    const result = await prisma.address.delete({
         where: { id: addressId },
     });
+    await cacheDelete(`customer:addresses:${userId}`);
+    return result;
 }
 
 // ─── Wallet ───

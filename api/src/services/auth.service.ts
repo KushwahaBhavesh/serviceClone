@@ -9,6 +9,7 @@ import {
     ConflictError,
     UnauthorizedError,
 } from '../middleware/error-handler';
+import { bloomService } from './bloom.service';
 import type {
     RegisterInput,
     LoginInput,
@@ -83,6 +84,10 @@ export async function register(data: RegisterInput) {
             status: 'ONBOARDING',
         },
     });
+
+    if (user.phone) {
+        bloomService.addPhone(user.phone);
+    }
 
     const tokens = await generateTokens(user.id, user.email, user.phone, user.role);
     return { user: sanitizeUser(user), ...tokens };
@@ -172,6 +177,10 @@ export async function verifyOtp(data: VerifyOtpInput) {
                 status: 'ONBOARDING'
             },
         });
+        
+        if (user.phone) {
+            bloomService.addPhone(user.phone);
+        }
     } else {
         await prisma.user.update({
             where: { id: user.id },
@@ -285,7 +294,7 @@ export async function completeOnboarding(userId: string, data: CompleteOnboardin
         }
     }
 
-    return await prisma.$transaction(async (tx) => {
+    const onboardingResult = await prisma.$transaction(async (tx) => {
         // Update user core profile
         const user = await tx.user.update({
             where: { id: userId },
@@ -377,11 +386,12 @@ export async function completeOnboarding(userId: string, data: CompleteOnboardin
                 });
             }
         }
-
-        const tokens = await generateTokens(user.id, user.email, user.phone, user.role);
-
-        return { user: sanitizeUser(user), ...tokens };
+        return user;
     });
+
+    const tokens = await generateTokens(onboardingResult.id, onboardingResult.email, onboardingResult.phone, onboardingResult.role);
+
+    return { user: sanitizeUser(onboardingResult), ...tokens };
 }
 
 export async function updateLocation(userId: string, data: { locationName: string; latitude: number; longitude: number }) {

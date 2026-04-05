@@ -8,10 +8,13 @@ import {
     RefreshControl,
     ActivityIndicator,
     Alert,
+    Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { StatusBar } from 'expo-status-bar';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import {
@@ -24,9 +27,10 @@ import {
     Package,
 } from 'lucide-react-native';
 
-import { Colors, Spacing, FontSize } from '../../../constants/theme';
+import { Colors, Spacing } from '../../../constants/theme';
 import { merchantApi } from '../../../lib/merchant';
 import type { Booking } from '../../../lib/marketplace';
+import { useToast } from '../../../context/ToastContext';
 
 type TabKey = 'PENDING' | 'ACTIVE' | 'COMPLETED';
 
@@ -43,7 +47,7 @@ const STATUS_COLORS: Record<string, string> = {
     EN_ROUTE: '#0EA5E9',
     ARRIVED: '#F97316',
     IN_PROGRESS: Colors.primary,
-    COMPLETED: Colors.success,
+    COMPLETED: '#10B981',
     CANCELLED: '#EF4444',
     REJECTED: '#94A3B8',
 };
@@ -57,6 +61,7 @@ function getStatusFilter(tab: TabKey): string | undefined {
 export default function MerchantJobsScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const { showError } = useToast();
     const [activeTab, setActiveTab] = useState<TabKey>('PENDING');
     const [orders, setOrders] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
@@ -81,8 +86,11 @@ export default function MerchantJobsScreen() {
         }
     }, [activeTab]);
 
-    useEffect(() => { setLoading(true); fetchOrders(); }, [fetchOrders]);
-
+    useFocusEffect(
+        useCallback(() => {
+            fetchOrders();
+        }, [fetchOrders])
+    );
     const onRefresh = () => { setRefreshing(true); fetchOrders(); };
 
     const handleAccept = async (id: string) => {
@@ -90,7 +98,7 @@ export default function MerchantJobsScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             await merchantApi.acceptOrder(id);
             fetchOrders();
-        } catch { Alert.alert('Error', 'Failed to accept order'); }
+        } catch { showError('Failed to accept order'); }
     };
 
     const handleReject = async (id: string) => {
@@ -103,7 +111,7 @@ export default function MerchantJobsScreen() {
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                         await merchantApi.rejectOrder(id);
                         fetchOrders();
-                    } catch { Alert.alert('Error', 'Failed to reject order'); }
+                    } catch { showError('Failed to reject order'); }
                 },
             },
         ]);
@@ -119,14 +127,12 @@ export default function MerchantJobsScreen() {
                     style={({ pressed }) => [styles.orderCard, pressed && { transform: [{ scale: 0.98 }] }]}
                     onPress={() => router.push(`/(merchant)/orders/${item.id}` as any)}
                 >
-                    {/* Status accent */}
                     <View style={[styles.orderAccent, { backgroundColor: statusColor }]} />
 
                     <View style={styles.orderContent}>
-                        {/* Header row */}
                         <View style={styles.orderHeader}>
                             <Text style={styles.orderNumber}>{item.bookingNumber}</Text>
-                            <View style={[styles.statusPill, { backgroundColor: statusColor + '14' }]}>
+                            <View style={[styles.statusPill, { backgroundColor: statusColor + '12' }]}>
                                 <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
                                 <Text style={[styles.statusText, { color: statusColor }]}>
                                     {item.status.replace(/_/g, ' ')}
@@ -134,16 +140,15 @@ export default function MerchantJobsScreen() {
                             </View>
                         </View>
 
-                        {/* Info rows */}
                         <View style={styles.orderBody}>
                             {item.customer && (
                                 <View style={styles.infoRow}>
-                                    <User size={14} color="#94A3B8" strokeWidth={2} />
+                                    <User size={13} color="#94A3B8" strokeWidth={2} />
                                     <Text style={styles.infoText}>{item.customer.name || 'Customer'}</Text>
                                 </View>
                             )}
                             <View style={styles.infoRow}>
-                                <Calendar size={14} color="#94A3B8" strokeWidth={2} />
+                                <Calendar size={13} color="#94A3B8" strokeWidth={2} />
                                 <Text style={styles.infoText}>
                                     {new Date(item.scheduledAt).toLocaleDateString('en-IN', {
                                         day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
@@ -151,12 +156,11 @@ export default function MerchantJobsScreen() {
                                 </Text>
                             </View>
                             <View style={styles.infoRow}>
-                                <IndianRupee size={14} color="#94A3B8" strokeWidth={2} />
+                                <IndianRupee size={13} color="#94A3B8" strokeWidth={2} />
                                 <Text style={styles.priceText}>₹{(item.total ?? 0).toLocaleString()}</Text>
                             </View>
                         </View>
 
-                        {/* Service chips */}
                         {item.items && item.items.length > 0 && (
                             <View style={styles.chipRow}>
                                 {item.items.map((bi) => (
@@ -169,14 +173,13 @@ export default function MerchantJobsScreen() {
                             </View>
                         )}
 
-                        {/* Actions for pending */}
                         {item.status === 'PENDING' && (
                             <View style={styles.actionRow}>
                                 <Pressable
                                     onPress={() => handleReject(item.id)}
                                     style={({ pressed }) => [styles.rejectBtn, pressed && { opacity: 0.7 }]}
                                 >
-                                    <X size={16} color="#EF4444" strokeWidth={2.5} />
+                                    <X size={15} color="#EF4444" strokeWidth={2.5} />
                                     <Text style={styles.rejectText}>Reject</Text>
                                 </Pressable>
                                 <Pressable
@@ -184,12 +187,12 @@ export default function MerchantJobsScreen() {
                                     style={({ pressed }) => [styles.acceptBtn, pressed && { transform: [{ scale: 0.96 }] }]}
                                 >
                                     <LinearGradient
-                                        colors={[Colors.success, '#34D399']}
+                                        colors={[Colors.primary, '#FF8533']}
                                         start={{ x: 0, y: 0 }}
                                         end={{ x: 1, y: 0 }}
                                         style={styles.acceptGradient}
                                     >
-                                        <Check size={16} color="#FFF" strokeWidth={2.5} />
+                                        <Check size={15} color="#FFF" strokeWidth={2.5} />
                                         <Text style={styles.acceptText}>Accept</Text>
                                     </LinearGradient>
                                 </Pressable>
@@ -203,14 +206,21 @@ export default function MerchantJobsScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Header */}
-            <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
-                <Text style={styles.title}>Orders</Text>
-                <Text style={styles.subtitle}>{orders.length} orders</Text>
+            <StatusBar style="dark" translucent />
+            
+            {/* ─── Sticky Header ─── */}
+            <View style={[styles.stickyHeader, { height: insets.top + 60 }]}>
+                <BlurView intensity={100} tint="light" style={styles.absoluteFill} />
+                <View style={[styles.headerContent, { paddingTop: insets.top }]}>
+                    <Text style={styles.headerTitle}>Orders</Text>
+                    <View style={styles.tabBadge}>
+                        <Text style={styles.tabBadgeText}>{orders.length} TOTAL</Text>
+                    </View>
+                </View>
             </View>
 
             {/* Tabs */}
-            <View style={styles.tabBar}>
+            <View style={[styles.tabBar, { marginTop: insets.top + 70 }]}>
                 {TABS.map((tab) => {
                     const isActive = activeTab === tab.key;
                     return (
@@ -236,7 +246,14 @@ export default function MerchantJobsScreen() {
                     renderItem={renderOrderCard}
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.list}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
+                    refreshControl={
+                        <RefreshControl 
+                            refreshing={refreshing} 
+                            onRefresh={onRefresh} 
+                            colors={[Colors.primary]} 
+                            progressViewOffset={insets.top + 60}
+                        />
+                    }
                     removeClippedSubviews={true}
                     maxToRenderPerBatch={10}
                     windowSize={5}
@@ -247,7 +264,7 @@ export default function MerchantJobsScreen() {
                                 <ClipboardList size={32} color="#CBD5E1" strokeWidth={1.5} />
                             </View>
                             <Text style={styles.emptyTitle}>No {activeTab.toLowerCase()} orders</Text>
-                            <Text style={styles.emptyHint}>New orders will appear here</Text>
+                            <Text style={styles.emptyHint}>New bookings will appear here</Text>
                         </View>
                     }
                 />
@@ -259,37 +276,61 @@ export default function MerchantJobsScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F8FAFC' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-    header: {
-        paddingHorizontal: Spacing.xl,
-        paddingBottom: Spacing.sm,
+    absoluteFill: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
     },
-    title: {
-        fontSize: 24,
+
+    // Header
+    stickyHeader: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 100,
+        backgroundColor: 'transparent',
+    },
+    headerContent: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: Spacing.xl,
+    },
+    headerTitle: {
+        fontSize: 20,
         fontWeight: '800',
         color: '#0F172A',
         letterSpacing: -0.5,
     },
-    subtitle: {
-        fontSize: 13,
-        color: '#64748B',
-        fontWeight: '600',
-        marginTop: 2,
+    tabBadge: {
+        backgroundColor: Colors.primary + '12',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 12,
+    },
+    tabBadgeText: {
+        fontSize: 10,
+        fontWeight: '900',
+        color: Colors.primary,
+        letterSpacing: 0.5,
     },
 
     // Tabs
     tabBar: {
         flexDirection: 'row',
         paddingHorizontal: Spacing.lg,
-        marginTop: Spacing.sm,
         marginBottom: Spacing.sm,
         gap: 8,
     },
     tab: {
         flex: 1,
-        paddingVertical: 10,
+        paddingVertical: 12,
         alignItems: 'center',
-        borderRadius: 14,
+        borderRadius: 16,
         backgroundColor: '#FFF',
         borderWidth: 1,
         borderColor: '#F1F5F9',
@@ -305,7 +346,7 @@ const styles = StyleSheet.create({
     },
     tabText: {
         fontSize: 13,
-        fontWeight: '700',
+        fontWeight: '800',
         color: '#64748B',
     },
     activeTabText: {
@@ -314,15 +355,16 @@ const styles = StyleSheet.create({
 
     // List
     list: {
-        padding: Spacing.lg,
-        paddingBottom: 100,
+        paddingVertical: Spacing.sm,
+        paddingHorizontal: Spacing.lg,
+        paddingBottom: 120,
         gap: 12,
     },
 
-    // Order Card
+    // Card
     orderCard: {
         backgroundColor: '#FFF',
-        borderRadius: 18,
+        borderRadius: 20,
         overflow: 'hidden',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
@@ -344,12 +386,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 14,
     },
     orderNumber: {
         fontSize: 14,
-        fontWeight: '800',
+        fontWeight: '900',
         color: '#0F172A',
+        letterSpacing: -0.2,
     },
     statusPill: {
         flexDirection: 'row',
@@ -366,52 +409,54 @@ const styles = StyleSheet.create({
     },
     statusText: {
         fontSize: 10,
-        fontWeight: '800',
+        fontWeight: '900',
         textTransform: 'uppercase',
         letterSpacing: 0.3,
     },
 
-    orderBody: { gap: 6 },
+    orderBody: { gap: 8 },
     infoRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 10,
     },
     infoText: {
         fontSize: 13,
         color: '#64748B',
-        fontWeight: '500',
+        fontWeight: '600',
     },
     priceText: {
         fontSize: 14,
         color: '#0F172A',
-        fontWeight: '800',
+        fontWeight: '900',
     },
 
     chipRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: 6,
-        marginTop: 10,
+        marginTop: 12,
     },
     serviceChip: {
-        backgroundColor: Colors.primary + '10',
+        backgroundColor: '#F8FAFC',
         paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 8,
+        paddingVertical: 5,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
     },
     serviceChipText: {
         fontSize: 11,
         fontWeight: '700',
-        color: Colors.primary,
+        color: '#64748B',
     },
 
     // Actions
     actionRow: {
         flexDirection: 'row',
-        gap: 10,
-        marginTop: 14,
-        paddingTop: 14,
+        gap: 12,
+        marginTop: 16,
+        paddingTop: 16,
         borderTopWidth: 1,
         borderTopColor: '#F1F5F9',
     },
@@ -420,8 +465,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 10,
-        borderRadius: 12,
+        paddingVertical: 12,
+        borderRadius: 14,
         borderWidth: 1.5,
         borderColor: '#FEE2E2',
         backgroundColor: '#FEF2F2',
@@ -429,24 +474,24 @@ const styles = StyleSheet.create({
     },
     rejectText: {
         fontSize: 13,
-        fontWeight: '700',
+        fontWeight: '800',
         color: '#EF4444',
     },
     acceptBtn: {
         flex: 1,
-        borderRadius: 12,
+        borderRadius: 14,
         overflow: 'hidden',
     },
     acceptGradient: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 10,
+        paddingVertical: 12,
         gap: 6,
     },
     acceptText: {
         fontSize: 13,
-        fontWeight: '700',
+        fontWeight: '800',
         color: '#FFF',
     },
 
@@ -454,26 +499,26 @@ const styles = StyleSheet.create({
     empty: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 60,
+        paddingVertical: 100,
         gap: 8,
     },
     emptyIconBox: {
         width: 64,
         height: 64,
-        borderRadius: 20,
+        borderRadius: 22,
         backgroundColor: '#F1F5F9',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 8,
     },
     emptyTitle: {
-        fontSize: 16,
-        fontWeight: '700',
+        fontSize: 17,
+        fontWeight: '800',
         color: '#334155',
     },
     emptyHint: {
-        fontSize: 13,
+        fontSize: 14,
         color: '#94A3B8',
-        fontWeight: '500',
+        fontWeight: '600',
     },
 });

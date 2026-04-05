@@ -16,6 +16,12 @@ export interface Category {
     _count?: { services: number };
 }
 
+export interface ServiceUnit {
+    id: string;
+    name: string;
+    label: string;
+}
+
 export interface Service {
     id: string;
     name: string;
@@ -174,6 +180,9 @@ const BOOKINGS = '/api/v1/bookings';
 export const catalogApi = {
     listCategories: (parentId?: string) =>
         api.get<{ categories: Category[] }>(CATALOG + '/categories', { params: { parentId } }),
+
+    listUnits: () =>
+        api.get<{ units: ServiceUnit[] }>(CATALOG + '/units'),
 
     getCategoryBySlug: (slug: string) =>
         api.get<{ category: Category & { services: Service[] } }>(CATALOG + `/categories/${slug}`),
@@ -386,4 +395,9 @@ export const customerApi = {
 
     sendMessage: (chatId: string, content: string) =>
         api.post<{ message: ChatMessage }>(CUSTOMER + `/chats/${chatId}/messages`, { content }),
+
+    aiAssistant: {
+        chat: (content: string, context?: any) =>
+            api.post<{ reply: string }>(CUSTOMER + '/ai-assistant/chat', { content, context }),
+    },
 };

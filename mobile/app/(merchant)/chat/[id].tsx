@@ -8,6 +8,7 @@ import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { ChevronLeft, Send, MessageCircle } from 'lucide-react-native';
 import { Colors, Spacing } from '../../../constants/theme';
 import { merchantApi, type Chat as MerchantChat } from '../../../lib/merchant';
+import { useToast } from '../../../context/ToastContext';
 
 interface Sender { id: string; name: string | null; avatarUrl: string | null; role: string; }
 interface Message { id: string; content: string; type: string; createdAt: string; sender: Sender; }
@@ -15,6 +16,7 @@ interface Message { id: string; content: string; type: string; createdAt: string
 export default function ChatScreen() {
     const { id: bookingId } = useLocalSearchParams<{ id: string }>();
     const insets = useSafeAreaInsets();
+    const { showError } = useToast();
     const [chat, setChat] = useState<any>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(true);
@@ -29,7 +31,7 @@ export default function ChatScreen() {
             const c = res.data.chat;
             setChat(c);
             setMessages((c.messages ?? []).reverse());
-        } catch { Alert.alert('Error', 'Could not open chat'); }
+        } catch { showError('Could not open chat'); }
         finally { setLoading(false); }
     }, [bookingId]);
 
@@ -59,7 +61,7 @@ export default function ChatScreen() {
             setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
         } catch {
             setText(msgText);
-            Alert.alert('Error', 'Failed to send message');
+            showError('Failed to send message');
         } finally { setSending(false); }
     };
 

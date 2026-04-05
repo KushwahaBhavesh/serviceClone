@@ -18,6 +18,7 @@ import {
 import { Colors, Spacing } from '../../constants/theme';
 import { merchantApi, KycDocType } from '../../lib/merchant';
 import { getImageUrl } from '../../lib/api';
+import { useToast } from '../../context/ToastContext';
 
 const DOC_TYPES: { label: string; value: KycDocType; icon: React.ReactNode }[] = [
     { label: 'PAN Card', value: 'PAN_CARD', icon: <CreditCard size={20} color="#6366F1" strokeWidth={2} /> },
@@ -35,6 +36,7 @@ const DOC_ICON_BG: Record<string, string> = {
 export default function MerchantVerificationScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const { showSuccess, showError, showInfo } = useToast();
     const [selectedType, setSelectedType] = useState<KycDocType>('PAN_CARD');
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -55,7 +57,7 @@ export default function MerchantVerificationScreen() {
 
     const handleSelectImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') { Alert.alert('Permission Denied', 'Camera roll permission needed.'); return; }
+        if (status !== 'granted') { showInfo('Camera roll permission needed.'); return; }
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true, aspect: [4,3], quality: 0.8,
@@ -64,17 +66,17 @@ export default function MerchantVerificationScreen() {
     };
 
     const handleUpload = async () => {
-        if (!selectedImage) { Alert.alert('Error', 'Please select an image first'); return; }
+        if (!selectedImage) { showInfo('Please select an image first'); return; }
         setSubmitting(true);
         try {
             const uploadRes = await merchantApi.uploadFile(selectedImage);
             await merchantApi.submitKycDoc({ type: selectedType, fileUrl: uploadRes.data.fileUrl });
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert('Success', 'Document submitted. Our team will review it shortly.');
+            showSuccess('Document submitted. Our team will review it shortly.');
             setSelectedImage(null);
             fetchDocs();
         } catch (error: any) {
-            Alert.alert('Error', error.response?.data?.message || 'Failed to submit document');
+            showError(error.response?.data?.message || 'Failed to submit document');
         } finally { setSubmitting(false); }
     };
 

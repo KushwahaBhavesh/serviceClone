@@ -1,4 +1,5 @@
 import prisma from '../lib/prisma';
+import { cacheable, cacheDelete } from '../lib/redis';
 import { BadRequestError } from '../middleware/error-handler';
 
 import type {
@@ -26,20 +27,23 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 // ─── Categories ───
 
 export async function listCategories(parentId?: string) {
-    return prisma.category.findMany({
-        where: {
-            isActive: true,
-            parentId: parentId ?? null,
-        },
-        include: {
-            children: {
-                where: { isActive: true },
-                orderBy: { sortOrder: 'asc' },
+    const cacheKey = `catalog:categories:${parentId ?? 'root'}`;
+    return cacheable(cacheKey, 600, () =>
+        prisma.category.findMany({
+            where: {
+                isActive: true,
+                parentId: parentId ?? null,
             },
-            _count: { select: { services: true } },
-        },
-        orderBy: { sortOrder: 'asc' },
-    });
+            include: {
+                children: {
+                    where: { isActive: true },
+                    orderBy: { sortOrder: 'asc' },
+                },
+                _count: { select: { services: true } },
+            },
+            orderBy: { sortOrder: 'asc' },
+        }),
+    );
 }
 
 export async function getCategoryBySlug(slug: string) {
@@ -55,15 +59,21 @@ export async function getCategoryBySlug(slug: string) {
 }
 
 export async function createCategory(data: CreateCategoryInput) {
-    return prisma.category.create({ data });
+    const result = await prisma.category.create({ data });
+    await cacheDelete('catalog:categories:*');
+    return result;
 }
 
 export async function updateCategory(id: string, data: UpdateCategoryInput) {
-    return prisma.category.update({ where: { id }, data });
+    const result = await prisma.category.update({ where: { id }, data });
+    await cacheDelete('catalog:categories:*');
+    return result;
 }
 
 export async function deleteCategory(id: string) {
-    return prisma.category.update({ where: { id }, data: { isActive: false } });
+    const result = await prisma.category.update({ where: { id }, data: { isActive: false } });
+    await cacheDelete('catalog:categories:*');
+    return result;
 }
 
 // ─── Services ───
@@ -262,15 +272,21 @@ export async function getServiceReviews(serviceId: string, options: { page?: num
 }
 
 export async function createService(data: CreateServiceInput) {
-    return prisma.service.create({ data });
+    const result = await prisma.service.create({ data });
+    await cacheDelete('catalog:services:*');
+    return result;
 }
 
 export async function updateService(id: string, data: UpdateServiceInput) {
-    return prisma.service.update({ where: { id }, data });
+    const result = await prisma.service.update({ where: { id }, data });
+    await cacheDelete('catalog:services:*');
+    return result;
 }
 
 export async function deleteService(id: string) {
-    return prisma.service.update({ where: { id }, data: { isActive: false } });
+    const result = await prisma.service.update({ where: { id }, data: { isActive: false } });
+    await cacheDelete('catalog:services:*');
+    return result;
 }
 
 // ─── Merchant Profile (Customer-facing) ───
@@ -456,4 +472,14 @@ export async function getNearbyPromotions({
         .slice(0, limit);
 
     return nearbyPromotions;
+}
+
+// ─── Units ───
+
+export async function listUnits() {
+    return cacheable('catalog:units', 1800, () =>
+        prisma.serviceUnit.findMany({
+            orderBy: { label: 'asc' },
+        }),
+    );
 }

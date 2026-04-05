@@ -23,6 +23,7 @@ router.get('/merchants/:id', asyncHandler(catalogController.getMerchantProfile))
 router.get('/services/:slug', asyncHandler(catalogController.getServiceBySlug));
 router.get('/services/:id/slots', asyncHandler(catalogController.getAvailableSlots));
 router.get('/services/:id/reviews', asyncHandler(catalogController.getServiceReviews));
+router.get('/units', asyncHandler(catalogController.listUnits));
 router.post('/promotions/validate', asyncHandler(catalogController.validatePromoCode));
 
 

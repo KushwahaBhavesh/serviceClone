@@ -75,10 +75,10 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
   });
 
   return (
-    <View style={[styles.container, { bottom: insets.bottom + 16 }]}>
-      <BlurView 
-        intensity={90} 
-        tint="light" 
+    <View style={[styles.container, { bottom: insets.bottom }]}>
+      <BlurView
+        intensity={100}
+        tint="light"
         style={styles.pill}
       >
         {/* Animated Background Indicator */}
@@ -103,7 +103,7 @@ export function CustomTabBar({ state, descriptors, navigation }: BottomTabBarPro
             });
 
             if (!isFocused && !event.defaultPrevented) {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               navigation.navigate(route.name);
             }
           };
@@ -147,7 +147,7 @@ function TabIcon({ icon, isFocused, label, onLayout }: { icon: any, isFocused: b
   const scale = useSharedValue(1);
 
   React.useEffect(() => {
-    scale.value = withSpring(isFocused ? 1.05 : 1, { damping: 15 });
+    scale.value = withSpring(isFocused ? 1.05 : 1, { damping: 12, stiffness: 100 });
   }, [isFocused]);
 
   const animatedIconStyle = useAnimatedStyle(() => ({
@@ -162,9 +162,9 @@ function TabIcon({ icon, isFocused, label, onLayout }: { icon: any, isFocused: b
       <View style={styles.iconContainer}>
         {icon && icon({
           focused: isFocused,
-          color: isFocused ? '#FFFFFF' : Colors.textMuted,
-          size: 24,
-          strokeWidth: isFocused ? 2.5 : 2,
+          color: isFocused ? '#FFFFFF' : '#94A3B8',
+          size: 20,
+          strokeWidth: isFocused ? 3 : 2,
         })}
       </View>
       {isFocused && (
@@ -172,7 +172,7 @@ function TabIcon({ icon, isFocused, label, onLayout }: { icon: any, isFocused: b
           style={styles.label}
           numberOfLines={1}
         >
-          {label}
+          {label.toUpperCase()}
         </Text>
       )}
     </Animated.View>
@@ -182,43 +182,42 @@ function TabIcon({ icon, isFocused, label, onLayout }: { icon: any, isFocused: b
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    left: 16,
-    right: 16,
+    left: 12,
+    right: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1000,
   },
   pill: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    borderRadius: 36, // More rounded for premium feel
-    padding: 8,
-    height: 72,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    borderRadius: 32,
+    padding: 6,
+    height: 68,
     width: '100%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 20 },
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
-    shadowRadius: 30,
-    elevation: 12,
+    shadowRadius: 20,
+    elevation: 10,
     position: 'relative',
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.5)',
-    overflow: 'hidden', // Required for BlurView rounding
+    overflow: 'hidden',
   },
   activeIndicator: {
     position: 'absolute',
-    top: 8,
-    left: 8,
+    top: 6,
+    left: 6,
     height: 56,
-    backgroundColor: Colors.primary, // #FF6B00
-    borderRadius: 28,
+    backgroundColor: Colors.primary,
+    borderRadius: 26,
     zIndex: 0,
     shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
     elevation: 8,
-    borderWidth: 1,
-    borderColor: '#FF853340', // Semi-transparent primaryLight
   },
   tabItem: {
     alignItems: 'center',
@@ -233,14 +232,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     height: '100%',
   },
   label: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: '900',
-    marginLeft: 10,
-    letterSpacing: -0.1,
+    marginLeft: 8,
+    letterSpacing: 0.5,
   },
 });

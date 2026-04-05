@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, FlatList, Pressable, Alert,
     Modal, TextInput, ScrollView, Switch, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -16,6 +16,7 @@ import {
 import { Colors, Spacing } from '../../constants/theme';
 import api from '../../lib/api';
 import { Promotion } from '../../lib/merchant';
+import { useToast } from '../../context/ToastContext';
 
 const MERCHANT = '/api/v1/merchant';
 type PromoType = 'PERCENTAGE' | 'FLAT';
@@ -105,6 +106,7 @@ function PromoCard({ item, onToggle }: { item: Promotion; onToggle: (p: Promotio
 
 function CreatePromoModal({ visible, onClose, onCreated }: { visible: boolean; onClose: () => void; onCreated: (p: Promotion) => void }) {
     const insets = useSafeAreaInsets();
+    const { showSuccess, showError, showInfo } = useToast();
     const [form, setForm] = useState<CreatePromoForm>(DEFAULT_FORM);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -129,7 +131,7 @@ function CreatePromoModal({ visible, onClose, onCreated }: { visible: boolean; o
         if (form.usageLimit && (isNaN(parseInt(form.usageLimit, 10)) || parseInt(form.usageLimit, 10) < 1))
             errors.push('Usage limit must be a positive integer.');
 
-        if (errors.length > 0) { Alert.alert('Validation Error', errors.join('\n')); return; }
+        if (errors.length > 0) { showInfo(errors.join('\n')); return; }
 
         const expiryDate = new Date();
         expiryDate.setDate(expiryDate.getDate() + days);
@@ -146,11 +148,12 @@ function CreatePromoModal({ visible, onClose, onCreated }: { visible: boolean; o
         try {
             const res = await api.post<{ promotion: Promotion }>(MERCHANT + '/promotions', payload);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            showSuccess('Promotion created successfully!');
             onCreated(res.data.promotion);
             setForm(DEFAULT_FORM);
             onClose();
         } catch (error: any) {
-            Alert.alert('Error', error.response?.data?.error ?? 'Failed to create promotion');
+            showError(error.response?.data?.error ?? 'Failed to create promotion');
         } finally { setIsSubmitting(false); }
     };
 
@@ -246,21 +249,26 @@ function CreatePromoModal({ visible, onClose, onCreated }: { visible: boolean; o
 export default function MerchantPromotionsScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const { showError } = useToast();
     const [promotions, setPromotions] = useState<Promotion[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showModal, setShowModal] = useState(false);
 
-    const load = async (refresh = false) => {
+    const loadPromotions = useCallback(async (refresh = false) => {
         try {
             const res = await api.get<{ promotions: Promotion[] }>(MERCHANT + '/promotions');
             setPromotions(res.data.promotions);
         } catch (error: any) {
-            Alert.alert('Error', error.response?.data?.error ?? 'Failed to load promotions');
+            showError(error.response?.data?.error ?? 'Failed to load promotions');
         } finally { setIsLoading(false); if (refresh) setIsRefreshing(false); }
-    };
+    }, [showError]);
 
-    useEffect(() => { load(); }, []);
+    useFocusEffect(
+        useCallback(() => {
+            loadPromotions();
+        }, [loadPromotions])
+    );
 
     const handleToggle = async (promo: Promotion) => {
         const next = !promo.isActive;
@@ -269,7 +277,7 @@ export default function MerchantPromotionsScreen() {
             await api.put(MERCHANT + `/promotions/${promo.id}`, { isActive: next });
         } catch (error: any) {
             setPromotions(prev => prev.map(p => p.id === promo.id ? { ...p, isActive: promo.isActive } : p));
-            Alert.alert('Error', error.response?.data?.error ?? 'Failed to update promotion');
+            showError(error.response?.data?.error ?? 'Failed to update promotion');
         }
     };
 
@@ -308,7 +316,7 @@ export default function MerchantPromotionsScreen() {
                     renderItem={({ item }) => <PromoCard item={item} onToggle={handleToggle} />}
                     contentContainerStyle={styles.list}
                     refreshing={isRefreshing}
-                    onRefresh={() => { setIsRefreshing(true); load(true); }}
+                    onRefresh={() => { setIsRefreshing(true); loadPromotions(true); }}
                     ListEmptyComponent={
                         <View style={styles.empty}>
                             <View style={styles.emptyIconBox}>

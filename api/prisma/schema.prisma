@@ -28,6 +28,7 @@ model User {
   createdAt           DateTime         @default(now()) @map("created_at")
   updatedAt           DateTime         @updatedAt @map("updated_at")
   lastLoginAt         DateTime?        @map("last_login_at")
+  plan                CustomerPlan     @default(FREE)
   addresses           Address[]
   agentProfile        Agent?
   bookings            Booking[]        @relation("CustomerBookings")
@@ -175,15 +176,17 @@ model MerchantProfile {
 }
 
 model MerchantService {
-  id         String          @id @default(cuid())
-  merchantId String          @map("merchant_id")
-  serviceId  String          @map("service_id")
-  price      Float
-  isActive   Boolean         @default(true) @map("is_active")
-  createdAt  DateTime        @default(now()) @map("created_at")
-  updatedAt  DateTime        @updatedAt @map("updated_at")
-  merchant   MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  service    Service         @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  id          String          @id @default(cuid())
+  merchantId  String          @map("merchant_id")
+  serviceId   String          @map("service_id")
+  price       Float
+  unit        String?         @default("visit")
+  description String?
+  isActive    Boolean         @default(true) @map("is_active")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  merchant    MerchantProfile @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  service     Service         @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   @@unique([merchantId, serviceId])
   @@index([serviceId])
@@ -209,6 +212,14 @@ model Address {
 
   @@index([userId])
   @@map("addresses")
+}
+
+model ServiceUnit {
+  id    String @id @default(cuid())
+  name  String @unique
+  label String
+
+  @@map("service_units")
 }
 
 model Booking {
@@ -377,6 +388,12 @@ enum AuthProvider {
   PHONE
   GOOGLE
   APPLE
+}
+
+enum CustomerPlan {
+  FREE
+  PRO
+  ENTERPRISE
 }
 
 enum BookingStatus {

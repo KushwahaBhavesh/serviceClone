@@ -22,6 +22,7 @@ export interface User {
     createdAt: string;
     updatedAt: string;
     lastLoginAt?: string;
+    plan?: 'FREE' | 'PRO' | 'ENTERPRISE';
 }
 
 export interface AuthTokens {

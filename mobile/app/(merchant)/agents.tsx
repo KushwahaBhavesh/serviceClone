@@ -5,7 +5,7 @@ import {
     Modal, TextInput, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -16,6 +16,7 @@ import {
 
 import { Colors, Spacing } from '../../constants/theme';
 import { merchantApi } from '../../lib/merchant';
+import { useToast } from '../../context/ToastContext';
 import type { Agent } from '../../lib/merchant';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -29,6 +30,7 @@ const SKILLS_OPTIONS = ['Plumbing', 'Electrician', 'Cleaning', 'Carpentry', 'Pai
 export default function AgentManagementScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const { showSuccess, showError, showInfo } = useToast();
     const [agents, setAgents] = useState<Agent[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -40,11 +42,15 @@ export default function AgentManagementScreen() {
         try {
             const res = await merchantApi.listAgents();
             setAgents(res.data.agents);
-        } catch { Alert.alert('Error', 'Failed to load agents'); }
+        } catch { showError('Failed to load agents'); }
         finally { setLoading(false); setRefreshing(false); }
     }, []);
 
-    useEffect(() => { fetchAgents(); }, [fetchAgents]);
+    useFocusEffect(
+        useCallback(() => {
+            fetchAgents();
+        }, [fetchAgents])
+    );
 
     const toggleSkill = (skill: string) => {
         setForm((f) => ({
@@ -55,17 +61,18 @@ export default function AgentManagementScreen() {
 
     const handleAdd = async () => {
         if (!form.name.trim() || !form.phone.trim()) {
-            Alert.alert('Validation', 'Name and phone are required');
+            showInfo('Name and phone are required');
             return;
         }
         setSaving(true);
         try {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             await merchantApi.createAgent({ name: form.name, phone: form.phone, email: form.email || undefined, skills: form.skills });
+            showSuccess('Agent created successfully');
             setShowAddModal(false);
             setForm({ name: '', phone: '', email: '', skills: [] });
             fetchAgents();
-        } catch { Alert.alert('Error', 'Failed to create agent'); }
+        } catch { showError('Failed to create agent'); }
         finally { setSaving(false); }
     };
 
@@ -73,7 +80,8 @@ export default function AgentManagementScreen() {
         try {
             await merchantApi.updateAgent(agent.id, { isActive: !agent.isActive });
             fetchAgents();
-        } catch { Alert.alert('Error', 'Failed to update agent'); }
+            showSuccess(`Agent ${!agent.isActive ? 'activated' : 'deactivated'}`);
+        } catch { showError('Failed to update agent'); }
     };
 
     const renderAgent = useCallback(({ item, index }: { item: Agent; index: number }) => {

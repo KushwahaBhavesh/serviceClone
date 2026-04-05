@@ -22,7 +22,9 @@ import { requestTimeout } from './middleware/timeout';
 import { globalLimiter, authLimiter, uploadLimiter } from './middleware/rate-limiter';
 
 import prisma from './lib/prisma';
+import redis, { redisHealthCheck } from './lib/redis';
 import { initializeSocket } from './socket';
+import { bloomService } from './services/bloom.service';
 import logger from './utils/logger';
 
 const app = express();
@@ -79,11 +81,13 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'public/uploads')));
 app.get('/health', async (_req, res) => {
     try {
         await prisma.$queryRaw`SELECT 1`;
+        const redisStatus = await redisHealthCheck();
         res.json({
             success: true,
             data: {
                 status: 'ok',
                 db: 'connected',
+                redis: redisStatus,
                 uptime: process.uptime(),
                 memory: process.memoryUsage().rss,
                 environment: env.NODE_ENV,
@@ -110,6 +114,10 @@ async function start() {
     try {
         await prisma.$connect();
         logger.info('✅ Database connected');
+
+        // await redis.connect();
+
+        await bloomService.initialize();
 
         httpServer = createServer(app);
         initializeSocket(httpServer);
@@ -143,6 +151,9 @@ async function gracefulShutdown(signal: string) {
     try {
         await prisma.$disconnect();
         logger.info('✅ Database disconnected');
+
+        await redis.quit();
+        logger.info('✅ Redis disconnected');
 
         clearTimeout(drainTimeout);
         logger.info('✅ Graceful shutdown complete');

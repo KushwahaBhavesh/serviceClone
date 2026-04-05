@@ -15,6 +15,7 @@ import {
 
 import { Colors, Spacing } from '../../constants/theme';
 import { merchantApi } from '../../lib/merchant';
+import { useToast } from '../../context/ToastContext';
 import type { Earnings } from '../../lib/merchant';
 import type { Booking } from '../../lib/marketplace';
 
@@ -28,6 +29,7 @@ const PERIODS: { key: PeriodKey; label: string }[] = [
 export default function EarningsScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const { showError } = useToast();
     const [period, setPeriod] = useState<PeriodKey>('month');
     const [data, setData] = useState<Earnings | null>(null);
     const [loading, setLoading] = useState(true);
@@ -37,7 +39,7 @@ export default function EarningsScreen() {
         try {
             const res = await merchantApi.getEarnings({ period });
             setData(res.data);
-        } catch { Alert.alert('Error', 'Failed to load earnings'); }
+        } catch { showError('Failed to load earnings'); }
         finally { setLoading(false); }
     }, [period]);
 

@@ -21,12 +21,17 @@ import { Input } from '../../components/ui/Input';
 import { loginSchema } from '../../lib/validations/auth';
 import { COUNTRIES, Country } from '../../constants/countries';
 import { CountrySelector } from '../../components/ui/CountrySelector';
+import { AuthDecorations } from '../../components/ui/AuthDecorations';
+import { useToast } from '../../context/ToastContext';
+import { authApi } from '../../lib/auth';
 
 export default function LoginScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const { sendOtp, isLoading, error, clearError } = useAuthStore();
+    const { showError } = useToast();
+    const { sendOtp, isLoading: isAuthLoading, error, clearError } = useAuthStore();
 
+    const [isChecking, setIsChecking] = useState(false);
     const [country, setCountry] = useState<Country>(COUNTRIES[0]); // Default to India
     const [phone, setPhone] = useState('');
     const [fieldErrors, setFieldErrors] = useState<{ phone?: string }>({});
@@ -39,6 +44,23 @@ export default function LoginScreen() {
 
             clearError();
             const fullPhone = `${country.callingCode}${phone}`;
+            
+            // Bloom Filter Check
+            setIsChecking(true);
+            try {
+                const { data } = await authApi.checkPhone(fullPhone);
+                if (!data.exists) {
+                    showError('Phone number not registered. Please sign up first.');
+                    setIsChecking(false);
+                    return;
+                }
+            } catch (err) {
+                // If filter check fails, we proceed to OTP (conservative)
+                console.warn('Bloom filter check failed:', err);
+            } finally {
+                setIsChecking(false);
+            }
+
             await sendOtp({ phone: fullPhone });
             router.push({ pathname: '/(auth)/otp', params: { phone: fullPhone } });
         } catch (err: any) {
@@ -59,8 +81,7 @@ export default function LoginScreen() {
             <StatusBar style="dark" />
 
             <View style={styles.bgContainer}>
-                <View style={[styles.decoration, styles.decor1]} />
-                <View style={[styles.decoration, styles.decor2]} />
+                <AuthDecorations />
             </View>
 
             <KeyboardAvoidingView
@@ -95,7 +116,7 @@ export default function LoginScreen() {
                             <Button
                                 title="Send Verification Code"
                                 onPress={handleSendOtp}
-                                loading={isLoading}
+                                loading={isAuthLoading || isChecking}
                                 style={styles.loginBtn}
                             />
                         </View>
@@ -138,24 +159,6 @@ const styles = StyleSheet.create({
     },
     bgContainer: {
         ...StyleSheet.absoluteFillObject,
-    },
-    decoration: {
-        position: 'absolute',
-        borderRadius: 100,
-    },
-    decor1: {
-        width: 250,
-        height: 250,
-        backgroundColor: Colors.primary + '08',
-        top: -80,
-        right: -80,
-    },
-    decor2: {
-        width: 150,
-        height: 150,
-        backgroundColor: Colors.secondary + '08',
-        bottom: '10%',
-        left: -50,
     },
     keyboardView: {
         flex: 1,

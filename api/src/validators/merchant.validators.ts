@@ -29,10 +29,14 @@ export type UpdateMerchantProfileInput = z.infer<typeof updateMerchantProfileSch
 export const createMerchantServiceSchema = z.object({
     serviceId: z.string().cuid(),
     price: z.number().positive(),
+    unit: z.string().optional(),
+    description: z.string().max(1000).optional(),
 });
 
 export const updateMerchantServiceSchema = z.object({
     price: z.number().positive().optional(),
+    unit: z.string().optional(),
+    description: z.string().max(1000).optional(),
     isActive: z.boolean().optional(),
 });
 

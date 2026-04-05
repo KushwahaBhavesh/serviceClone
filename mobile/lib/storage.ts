@@ -6,6 +6,7 @@ const KEYS = {
     REFRESH_TOKEN: 'auth_refresh_token',
     USER: 'auth_user',
     HAS_VISITED_ONBOARDING: 'has_visited_onboarding',
+    FAVORITES: 'favorite_merchants',
 } as const;
 
 // Web fallback: SecureStore doesn't work on web, use localStorage
@@ -89,6 +90,36 @@ export async function setVisitedOnboarding(): Promise<void> {
 export async function getVisitedOnboarding(): Promise<boolean> {
     const value = await getItem(KEYS.HAS_VISITED_ONBOARDING);
     return value === 'true';
+}
+
+// ─── Favorites ───
+export async function getFavorites(): Promise<string[]> {
+    try {
+        const data = await getItem(KEYS.FAVORITES);
+        return data ? JSON.parse(data) : [];
+    } catch {
+        return [];
+    }
+}
+
+export async function toggleFavorite(merchantId: string): Promise<boolean> {
+    const favorites = await getFavorites();
+    const index = favorites.indexOf(merchantId);
+    let newState = false;
+    if (index > -1) {
+        favorites.splice(index, 1);
+        newState = false;
+    } else {
+        favorites.push(merchantId);
+        newState = true;
+    }
+    await setItem(KEYS.FAVORITES, JSON.stringify(favorites));
+    return newState;
+}
+
+export async function isFavorite(merchantId: string): Promise<boolean> {
+    const favorites = await getFavorites();
+    return favorites.includes(merchantId);
 }
 
 // ─── Clear All ───

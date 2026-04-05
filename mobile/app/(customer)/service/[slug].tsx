@@ -7,12 +7,25 @@ import {
     Pressable,
     Image,
     ActivityIndicator,
-    FlatList,
 } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, FontSize, BorderRadius } from '../../constants/theme';
-import { catalogApi, type Service } from '../../lib/marketplace';
+import {
+    ArrowLeft,
+    ChevronRight,
+    Star,
+    Timer,
+    Sparkles,
+    Store,
+    ShieldCheck,
+    Plus,
+    Minus,
+    ArrowRight
+} from 'lucide-react-native';
+import { Colors } from '../../../constants/theme';
+import { catalogApi, type Service } from '../../../lib/marketplace';
+import { getImageUrl } from '../../../lib/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 
 interface MerchantOffer {
     id: string;
@@ -39,6 +52,7 @@ interface ServiceReview {
 
 export default function ServiceDetailScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const { slug } = useLocalSearchParams<{ slug: string }>();
     const [service, setService] = useState<Service & { merchantServices?: MerchantOffer[] } | null>(null);
     const [reviews, setReviews] = useState<ServiceReview[]>([]);
@@ -95,28 +109,32 @@ export default function ServiceDetailScreen() {
     return (
         <View style={styles.container}>
             <Stack.Screen options={{ headerShown: false }} />
+            <StatusBar style="dark" translucent />
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
                 {/* Hero Image */}
                 <View style={styles.heroContainer}>
                     {service.imageUrl ? (
-                        <Image source={{ uri: service.imageUrl }} style={styles.heroImage} />
+                        <Image source={{ uri: getImageUrl(service.imageUrl) || '' }} style={styles.heroImage} />
                     ) : (
                         <View style={[styles.heroImage, styles.heroPlaceholder]}>
-                            <Ionicons name="construct" size={64} color={Colors.textMuted} />
+                            <Sparkles size={64} color="#DDD" strokeWidth={1} />
                         </View>
                     )}
-                    <Pressable style={styles.backButton} onPress={() => router.back()}>
-                        <Ionicons name="arrow-back" size={22} color={Colors.text} />
+                    <Pressable
+                        style={[styles.backButton, { top: insets.top + 10 }]}
+                        onPress={() => router.back()}
+                    >
+                        <ArrowLeft size={22} color="#111" strokeWidth={2.5} />
                     </Pressable>
                 </View>
 
                 {/* Service Info */}
                 <View style={styles.content}>
                     <View style={styles.titleRow}>
-                        <Text style={styles.serviceName}>{service.name}</Text>
+                        <Text style={styles.serviceName}>{service.name.toUpperCase()}</Text>
                         {avgRating > 0 && (
                             <View style={styles.ratingBadge}>
-                                <Ionicons name="star" size={14} color="#FFB800" />
+                                <Star size={14} color={Colors.primary} fill={Colors.primary} />
                                 <Text style={styles.ratingText}>{avgRating.toFixed(1)}</Text>
                             </View>
                         )}
@@ -131,69 +149,75 @@ export default function ServiceDetailScreen() {
                     {/* Quick Stats */}
                     <View style={styles.statsRow}>
                         <View style={styles.statItem}>
-                            <Ionicons name="time-outline" size={18} color={Colors.primary} />
-                            <Text style={styles.statText}>{service.duration} min</Text>
+                            <Timer size={18} color={Colors.primary} strokeWidth={2.5} />
+                            <Text style={styles.statText}>{service.duration} MINS</Text>
                         </View>
                         <View style={styles.statItem}>
-                            <Ionicons name="pricetag-outline" size={18} color={Colors.primary} />
-                            <Text style={styles.statText}>From ₹{bestPrice}</Text>
+                            <Sparkles size={18} color={Colors.primary} strokeWidth={2.5} />
+                            <Text style={styles.statText}>FROM ₹{bestPrice}</Text>
                         </View>
                         <View style={styles.statItem}>
-                            <Ionicons name="storefront-outline" size={18} color={Colors.primary} />
+                            <Store size={18} color={Colors.primary} strokeWidth={2.5} />
                             <Text style={styles.statText}>
-                                {service.merchantServices?.length || 0} providers
+                                {service.merchantServices?.length || 0} EXPERTS
                             </Text>
                         </View>
                     </View>
 
                     {/* Quantity */}
                     <View style={styles.qtySection}>
-                        <Text style={styles.sectionTitle}>Quantity</Text>
+                        <Text style={styles.sectionTitle}>QUANTITY</Text>
                         <View style={styles.qtyControl}>
                             <Pressable
                                 style={styles.qtyBtn}
                                 onPress={() => setQty(Math.max(1, qty - 1))}
                             >
-                                <Ionicons name="remove" size={20} color={Colors.text} />
+                                <Minus size={20} color="#111" />
                             </Pressable>
                             <Text style={styles.qtyValue}>{qty}</Text>
                             <Pressable
                                 style={styles.qtyBtn}
                                 onPress={() => setQty(qty + 1)}
                             >
-                                <Ionicons name="add" size={20} color={Colors.text} />
+                                <Plus size={20} color="#111" />
                             </Pressable>
                         </View>
                     </View>
 
-                    {/* Merchant Offers */}
+                    {/* Merchant Offers - Refined "Short Cards" */}
                     {service.merchantServices && service.merchantServices.length > 0 && (
                         <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Available Providers</Text>
+                            <Text style={styles.sectionTitle}>AVAILABLE PROVIDERS</Text>
                             {service.merchantServices.map((ms) => (
-                                <View key={ms.id} style={styles.merchantCard}>
-                                    <View style={styles.merchantLeft}>
-                                        {ms.merchant.logoUrl ? (
-                                            <Image
-                                                source={{ uri: ms.merchant.logoUrl }}
-                                                style={styles.merchantLogo}
-                                            />
-                                        ) : (
-                                            <View style={[styles.merchantLogo, styles.logoPlaceholder]}>
-                                                <Ionicons name="storefront" size={20} color={Colors.textMuted} />
-                                            </View>
-                                        )}
-                                        <View style={styles.merchantInfo}>
+                                <Pressable
+                                    key={ms.id}
+                                    style={styles.merchantCard}
+                                    onPress={() => router.push(`/(customer)/merchant/${ms.merchant.id}`)}
+                                >
+                                    <View style={styles.merchantHeader}>
+                                        <View style={styles.merchantVisual}>
+                                            {ms.merchant.logoUrl ? (
+                                                <Image
+                                                    source={{ uri: getImageUrl(ms.merchant.logoUrl) || '' }}
+                                                    style={styles.merchantLogo}
+                                                />
+                                            ) : (
+                                                <View style={styles.logoPlaceholder}>
+                                                    <Store size={18} color="#AAA" />
+                                                </View>
+                                            )}
+                                        </View>
+                                        <View style={styles.merchantIdentify}>
                                             <View style={styles.merchantNameRow}>
                                                 <Text style={styles.merchantName} numberOfLines={1}>
-                                                    {ms.merchant.businessName}
+                                                    {ms.merchant.businessName.toUpperCase()}
                                                 </Text>
                                                 {ms.merchant.isVerified && (
-                                                    <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
+                                                    <ShieldCheck size={14} color={Colors.primary} strokeWidth={3} />
                                                 )}
                                             </View>
                                             <View style={styles.merchantMeta}>
-                                                <Ionicons name="star" size={12} color="#FFB800" />
+                                                <Star size={10} color={Colors.primary} fill={Colors.primary} />
                                                 <Text style={styles.merchantRating}>
                                                     {ms.merchant.rating.toFixed(1)} ({ms.merchant.totalReviews})
                                                 </Text>
@@ -202,9 +226,12 @@ export default function ServiceDetailScreen() {
                                                 )}
                                             </View>
                                         </View>
+                                        <View style={styles.priceAction}>
+                                            <Text style={styles.merchantPrice}>₹{ms.price}</Text>
+                                            <ChevronRight size={16} color="#DDD" strokeWidth={2.5} />
+                                        </View>
                                     </View>
-                                    <Text style={styles.merchantPrice}>₹{ms.price}</Text>
-                                </View>
+                                </Pressable>
                             ))}
                         </View>
                     )}
@@ -212,7 +239,7 @@ export default function ServiceDetailScreen() {
                     {/* Reviews */}
                     {reviews.length > 0 && (
                         <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Customer Reviews</Text>
+                            <Text style={styles.sectionTitle}>CUSTOMER REVIEWS</Text>
                             {reviews.map((review) => (
                                 <View key={review.id} style={styles.reviewCard}>
                                     <View style={styles.reviewHeader}>
@@ -221,18 +248,18 @@ export default function ServiceDetailScreen() {
                                                 <Image source={{ uri: review.user.avatarUrl }} style={styles.reviewerAvatar} />
                                             ) : (
                                                 <View style={[styles.reviewerAvatar, styles.avatarPlaceholder]}>
-                                                    <Ionicons name="person" size={14} color={Colors.textMuted} />
+                                                    <Store size={14} color="#AAA" />
                                                 </View>
                                             )}
                                             <Text style={styles.reviewerName}>{review.user.name || 'Customer'}</Text>
                                         </View>
                                         <View style={styles.starsRow}>
                                             {[1, 2, 3, 4, 5].map(i => (
-                                                <Ionicons
+                                                <Star
                                                     key={i}
-                                                    name={i <= review.rating ? 'star' : 'star-outline'}
                                                     size={14}
-                                                    color="#FFB800"
+                                                    color={i <= review.rating ? Colors.primary : "#DDD"}
+                                                    fill={i <= review.rating ? Colors.primary : "transparent"}
                                                 />
                                             ))}
                                         </View>
@@ -250,10 +277,10 @@ export default function ServiceDetailScreen() {
                 </View>
             </ScrollView>
 
-            {/* Bottom CTA */}
-            <View style={styles.bottomBar}>
+            {/* Bottom Bar - White & Orange */}
+            <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 20 }]}>
                 <View style={styles.priceContainer}>
-                    <Text style={styles.priceLabel}>Starting at</Text>
+                    <Text style={styles.priceLabel}>TOTAL ESTIMATE</Text>
                     <Text style={styles.priceValue}>₹{bestPrice * qty}</Text>
                 </View>
                 <Pressable
@@ -262,16 +289,16 @@ export default function ServiceDetailScreen() {
                         router.push({
                             pathname: '/(booking)/checkout',
                             params: {
-                                serviceId: service.id,
-                                serviceName: service.name,
+                                serviceId: service?.id || '',
+                                serviceName: service?.name || '',
                                 price: String(bestPrice),
                                 qty: String(qty),
                             },
                         })
                     }
                 >
-                    <Text style={styles.bookBtnText}>Book Now</Text>
-                    <Ionicons name="arrow-forward" size={18} color="white" />
+                    <Text style={styles.bookBtnText}>BOOK NOW</Text>
+                    <ArrowRight size={18} color="white" strokeWidth={3} />
                 </Pressable>
             </View>
         </View>
@@ -279,97 +306,105 @@ export default function ServiceDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background },
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-    errorText: { fontSize: FontSize.md, color: Colors.textMuted },
+    container: { flex: 1, backgroundColor: '#FFF' },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' },
+    errorText: { fontSize: 16, color: '#AAA', fontWeight: '800' },
     scroll: { paddingBottom: 0 },
-    // ─── Hero ───
+
+    // Hero
     heroContainer: { position: 'relative' },
-    heroImage: { width: '100%', height: 260, backgroundColor: Colors.backgroundAlt },
+    heroImage: { width: '100%', height: 260, backgroundColor: '#FAFAFA' },
     heroPlaceholder: { justifyContent: 'center', alignItems: 'center' },
     backButton: {
-        position: 'absolute', top: 50, left: Spacing.md,
-        width: 40, height: 40, borderRadius: 20,
-        backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center',
+        position: 'absolute', left: 20,
+        width: 45, height: 45, borderRadius: 18,
+        backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5,
     },
-    // ─── Content ───
-    content: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg },
-    titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    serviceName: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text, flex: 1 },
+
+    // Content
+    content: { paddingHorizontal: 25, paddingTop: 25 },
+    titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    serviceName: { fontSize: 22, fontWeight: '800', color: '#111', flex: 1, letterSpacing: -0.5 },
     ratingBadge: {
-        flexDirection: 'row', alignItems: 'center', gap: 4,
-        backgroundColor: '#FFF8E1', paddingHorizontal: 10, paddingVertical: 4, borderRadius: BorderRadius.full,
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: '#F0F0F0'
     },
-    ratingText: { fontSize: FontSize.sm, fontWeight: '700', color: '#F59E0B' },
+    ratingText: { fontSize: 13, fontWeight: '800', color: '#111' },
     categoryTag: {
-        fontSize: FontSize.xs, fontWeight: '600', color: Colors.primary,
-        backgroundColor: Colors.primary + '15', paddingHorizontal: 10, paddingVertical: 4,
-        borderRadius: BorderRadius.full, alignSelf: 'flex-start', marginTop: Spacing.sm,
+        fontSize: 10, fontWeight: '800', color: Colors.primary,
+        backgroundColor: Colors.primary + '10', paddingHorizontal: 12, paddingVertical: 6,
+        borderRadius: 10, alignSelf: 'flex-start', letterSpacing: 0.5
     },
-    description: { fontSize: FontSize.md, color: Colors.textSecondary, lineHeight: 24, marginTop: Spacing.md },
-    // ─── Stats ───
+    description: { fontSize: 14, color: '#AAAAAA', fontWeight: '500', lineHeight: 22, marginTop: 15 },
+
+    // Stats
     statsRow: {
-        flexDirection: 'row', justifyContent: 'space-around', gap: Spacing.md,
-        backgroundColor: Colors.backgroundAlt, borderRadius: BorderRadius.lg,
-        padding: Spacing.md, marginTop: Spacing.lg,
-    },
-    statItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    statText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text },
-    // ─── Quantity ───
-    qtySection: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: Spacing.xl,
-    },
-    qtyControl: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-    qtyBtn: {
-        width: 36, height: 36, borderRadius: 18,
-        backgroundColor: Colors.backgroundAlt, justifyContent: 'center', alignItems: 'center',
-    },
-    qtyValue: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text, minWidth: 24, textAlign: 'center' },
-    // ─── Sections ───
-    section: { marginTop: Spacing.xl },
-    sectionTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text, marginBottom: Spacing.md },
-    // ─── Merchant Cards ───
-    merchantCard: {
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        backgroundColor: Colors.backgroundAlt, borderRadius: BorderRadius.lg,
-        padding: Spacing.md, marginBottom: Spacing.sm,
+        paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: '#FAFAFA', borderTopWidth: 1, borderTopColor: '#FAFAFA', marginTop: 25
     },
-    merchantLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
-    merchantLogo: { width: 44, height: 44, borderRadius: 22 },
-    logoPlaceholder: { backgroundColor: Colors.border, justifyContent: 'center', alignItems: 'center' },
-    merchantInfo: { flex: 1 },
-    merchantNameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    merchantName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
-    merchantMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-    merchantRating: { fontSize: FontSize.xs, color: Colors.textSecondary },
-    merchantCity: { fontSize: FontSize.xs, color: Colors.textMuted },
-    merchantPrice: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.primary },
-    // ─── Reviews ───
+    statItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    statText: { fontSize: 11, fontWeight: '800', color: '#DDD', letterSpacing: 0.5 },
+
+    // Quantity
+    qtySection: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 30, paddingVertical: 10
+    },
+    qtyControl: { flexDirection: 'row', alignItems: 'center', gap: 15 },
+    qtyBtn: {
+        width: 40, height: 40, borderRadius: 14,
+        backgroundColor: '#FAFAFA', justifyContent: 'center', alignItems: 'center',
+    },
+    qtyValue: { fontSize: 18, fontWeight: '800', color: '#111', minWidth: 24, textAlign: 'center' },
+
+    // Sections
+    section: { marginTop: 30 },
+    sectionTitle: { fontSize: 12, fontWeight: '800', color: '#DDD', letterSpacing: 1.5, marginBottom: 15 },
+
+    // Merchant Cards (Refined short format)
+    merchantCard: {
+        backgroundColor: '#FFF', borderRadius: 20, padding: 15, marginBottom: 12,
+        borderWidth: 1, borderColor: '#EEEEEE'
+    },
+    merchantHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    merchantVisual: { width: 50, height: 50, borderRadius: 16, overflow: 'hidden', backgroundColor: '#FAFAFA' },
+    merchantLogo: { width: '100%', height: '100%' },
+    logoPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    merchantIdentify: { flex: 1 },
+    merchantNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    merchantName: { fontSize: 13, fontWeight: '800', color: '#111', letterSpacing: -0.3 },
+    merchantMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+    merchantRating: { fontSize: 12, fontWeight: '800', color: '#111' },
+    merchantCity: { fontSize: 12, color: '#AAAAAA', fontWeight: '500' },
+    priceAction: { alignItems: 'flex-end', gap: 4 },
+    merchantPrice: { fontSize: 18, fontWeight: '800', color: Colors.primary, letterSpacing: -0.5 },
+
+    // Reviews
     reviewCard: {
-        backgroundColor: Colors.backgroundAlt, borderRadius: BorderRadius.lg,
-        padding: Spacing.md, marginBottom: Spacing.sm,
+        backgroundColor: '#FAFAFA', borderRadius: 16, padding: 15, marginBottom: 10,
     },
     reviewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    reviewerInfo: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-    reviewerAvatar: { width: 32, height: 32, borderRadius: 16 },
-    avatarPlaceholder: { backgroundColor: Colors.border, justifyContent: 'center', alignItems: 'center' },
-    reviewerName: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text },
+    reviewerInfo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    reviewerAvatar: { width: 32, height: 32, borderRadius: 12, backgroundColor: '#F0F0F0' },
+    avatarPlaceholder: { justifyContent: 'center', alignItems: 'center' },
+    reviewerName: { fontSize: 12, fontWeight: '800', color: '#111' },
     starsRow: { flexDirection: 'row', gap: 2 },
-    reviewComment: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: Spacing.sm, lineHeight: 20 },
-    // ─── Bottom Bar ───
+    reviewComment: { fontSize: 13, color: '#AAAAAA', fontWeight: '500', marginTop: 10, lineHeight: 18 },
+
+    // Bottom Bar
     bottomBar: {
         position: 'absolute', bottom: 0, left: 0, right: 0,
         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, paddingBottom: Spacing.xl + 10,
-        backgroundColor: Colors.background, borderTopWidth: 1, borderTopColor: Colors.border,
+        paddingHorizontal: 25, paddingVertical: 15,
+        backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#F0F0F0',
     },
     priceContainer: {},
-    priceLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
-    priceValue: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
+    priceLabel: { fontSize: 9, fontWeight: '800', color: '#DDD', letterSpacing: 1 },
+    priceValue: { fontSize: 24, fontWeight: '800', color: '#111', letterSpacing: -1 },
     bookBtn: {
-        flexDirection: 'row', alignItems: 'center', gap: 8,
-        backgroundColor: Colors.primary, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
-        borderRadius: BorderRadius.full,
+        flexDirection: 'row', alignItems: 'center', gap: 10,
+        backgroundColor: Colors.primary, paddingHorizontal: 25, paddingVertical: 15,
+        borderRadius: 16,
     },
-    bookBtnText: { fontSize: FontSize.md, fontWeight: '700', color: 'white' },
+    bookBtnText: { fontSize: 14, fontWeight: '800', color: 'white', letterSpacing: 0.5 },
 });

@@ -10,9 +10,15 @@ import {
     Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import Animated, { FadeInDown, FadeIn, FadeInRight } from 'react-native-reanimated';
+import { router, useFocusEffect } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import Animated, { 
+    FadeInDown, 
+    FadeIn, 
+    FadeInRight,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import {
     TrendingUp,
@@ -69,8 +75,12 @@ export default function MerchantDashboardScreen() {
         }
     }, []);
 
-    useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
-
+    useFocusEffect(
+        useCallback(() => {
+            fetchDashboard();
+        }, [fetchDashboard])
+    );
+    
     const onRefresh = () => { setRefreshing(true); fetchDashboard(); };
 
     if (loading) {
@@ -99,27 +109,54 @@ export default function MerchantDashboardScreen() {
 
     return (
         <View style={styles.container}>
+            <StatusBar style="dark" translucent />
+            
+            {/* ─── Sticky Header ─── */}
+            <View style={[styles.stickyHeader, { height: insets.top + 60 }]}>
+                <BlurView intensity={100} tint="light" style={StyleSheet.absoluteFill} />
+                <View style={[styles.headerContent, { paddingTop: insets.top }]}>
+                    <View style={styles.headerLeft}>
+                        <View style={styles.liveIndicator} />
+                        <Text style={styles.headerTitle}>{user?.name?.split(' ')[0] || 'Merchant'}</Text>
+                    </View>
+                    <Pressable 
+                        onPress={() => router.push('/(merchant)/notifications')}
+                        style={styles.headerIcon}
+                    >
+                        <Zap size={20} color={Colors.primary} />
+                        <View style={styles.headerDot} />
+                    </Pressable>
+                </View>
+            </View>
+
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 style={{ flex: 1 }}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} tintColor={Colors.primary} />
+                    <RefreshControl
+                        refreshing={refreshing} 
+                        onRefresh={onRefresh} 
+                        colors={[Colors.primary]} 
+                        tintColor="#FFF"
+                        progressViewOffset={insets.top + 60}
+                    />
                 }
-                // FIXED: Use insets.bottom + extra padding to ensure last content isn't cut off
-                contentContainerStyle={{ paddingBottom: insets.bottom + 160 }}
+                contentContainerStyle={{
+                    paddingTop: insets.top + 60,
+                    paddingBottom: insets.bottom + 120
+                }}
             >
-                <DashboardHero 
-                    user={user} 
-                    insets={insets} 
-                    dashboard={dashboard} 
+                <PrismHero
+                    user={user}
+                    dashboard={dashboard}
                 />
 
-                <RevenueCard 
-                    dashboard={dashboard} 
+                <PremiumRevenue
+                    dashboard={dashboard}
                 />
 
-                <StatsBentoGrid 
-                    dashboard={dashboard} 
+                <StatsBentoGrid
+                    dashboard={dashboard}
                 />
 
                 <QuickActions />
@@ -132,105 +169,90 @@ export default function MerchantDashboardScreen() {
 
 // ─── Modular Components ───
 
-function DashboardHero({ user, insets, dashboard }: any) {
+function PrismHero({ user, dashboard }: any) {
     const isVerified = dashboard?.verificationStatus === 'APPROVED';
     const rating = dashboard?.rating ?? 0;
-    const totalReviews = dashboard?.totalReviews ?? 0;
 
     return (
-        <View style={[styles.heroSection, { paddingTop: insets.top + Spacing.md }]}>
-            <LinearGradient
-                colors={['#FFFFFF', '#F8FAFC']}
-                style={styles.heroBackground}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-            />
-            
-            <View style={styles.heroCircle1} />
-            <View style={styles.heroCircle2} />
+        <View style={styles.prismHero}>
+            <View style={styles.heroContent}>
+                <Animated.View entering={FadeInDown.delay(200).springify()}>
+                    <Text style={styles.welcomeText}>WELCOME BACK</Text>
+                    <Text style={styles.heroBusinessName}>{user?.name || 'Dashboard'}</Text>
+                </Animated.View>
 
-            <View style={styles.heroMain}>
-                <View style={styles.heroRow}>
-                    {/* RATING AT START */}
-                    <Animated.View entering={FadeInRight.delay(100).springify()} style={styles.ratingBadge}>
-                        <Star size={24} color="#F59E0B" fill="#F59E0B" />
-                        <Text style={styles.ratingNumber}>{rating.toFixed(1)}</Text>
-                    </Animated.View>
-
-                    <View style={styles.businessInfo}>
-                        <Text style={styles.greetLabel}>{getTimeOfDay()} 👋</Text>
-                        <Text style={styles.businessName} numberOfLines={1}>{user?.name || 'Dashboard'}</Text>
-                    </View>
-
-                    <Pressable 
-                        onPress={() => router.push('/(merchant)/verification')}
-                        style={({ pressed }) => [
-                            styles.statusIconBadge,
-                            isVerified ? styles.statusVerified : styles.statusPending,
-                            pressed && { opacity: 0.7 }
-                        ]}
-                    >
-                        {isVerified ? (
-                            <CheckCircle size={18} color="#10B981" strokeWidth={2.5} />
-                        ) : (
-                            <AlertCircle size={18} color="#F59E0B" strokeWidth={2.5} />
-                        )}
-                    </Pressable>
-                </View>
-
-                <Animated.View entering={FadeInDown.delay(300).springify()} style={styles.heroStatsRow}>
-                    <View style={styles.heroStatItem}>
-                        <Text style={styles.heroStatLabel}>Reviews</Text>
-                        <Text style={styles.heroStatValue}>{totalReviews}</Text>
-                    </View>
-                    <View style={styles.heroStatDivider} />
-                    <View style={styles.heroStatItem}>
-                        <Text style={styles.heroStatLabel}>Status</Text>
-                        <Text style={[styles.heroStatValue, { color: isVerified ? '#10B981' : '#F59E0B' }]}>
-                            {isVerified ? 'Active' : 'Pending'}
+                <Animated.View entering={FadeInRight.delay(400).springify()} style={styles.heroBadges}>
+                    <View style={[styles.statusBadge, isVerified ? styles.statusApproved : styles.statusPending]}>
+                        <CheckCircle size={10} color={isVerified ? '#10B981' : '#F59E0B'} />
+                        <Text style={[styles.statusText, { color: isVerified ? '#10B981' : '#F59E0B' }]}>
+                            {isVerified ? 'VERIFIED' : 'PENDING'}
                         </Text>
+                    </View>
+                    <View style={styles.heroRating}>
+                        <Star size={10} color="#F59E0B" fill="#F59E0B" />
+                        <Text style={styles.ratingValue}>{rating.toFixed(1)}</Text>
                     </View>
                 </Animated.View>
             </View>
+
+            <Animated.View entering={FadeInDown.delay(500).springify()} style={styles.heroQuickPulse}>
+                <BlurView intensity={20} tint="light" style={styles.pulseInner}>
+                    <View style={styles.pulseItem}>
+                        <Activity size={14} color="#64748B" />
+                        <Text style={styles.pulseLabel}>Active Now</Text>
+                        <Text style={styles.pulseValue}>{dashboard?.agentCount || 0} Agents</Text>
+                    </View>
+                    <View style={styles.pulseDivider} />
+                    <View style={styles.pulseItem}>
+                        <Clock size={14} color="#64748B" />
+                        <Text style={styles.pulseLabel}>Avg. Wait</Text>
+                        <Text style={styles.pulseValue}>12.5m</Text>
+                    </View>
+                </BlurView>
+            </Animated.View>
         </View>
     );
 }
 
-function RevenueCard({ dashboard }: any) {
+function PremiumRevenue({ dashboard }: any) {
     return (
-        <Animated.View entering={FadeInDown.delay(400).springify()} style={styles.mainRevenueCard}>
+        <Animated.View entering={FadeInDown.delay(600).springify()} style={styles.prismRevenueBox}>
             <LinearGradient
                 colors={[Colors.primary, '#FF8533']}
-                style={styles.revenueInner}
+                style={styles.revenuePrismGradient}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                end={{ x: 1, y: 1 }}
             >
-                <View>
-                    <Text style={styles.revLabel}>Today's Earnings</Text>
-                    <Text style={styles.revValue}>₹{(dashboard?.todayRevenue ?? 0).toLocaleString('en-IN')}</Text>
+                <View style={styles.revMainHeader}>
+                    <View>
+                        <Text style={styles.revTitle}>TODAY'S REVENUE</Text>
+                        <Text style={styles.revAmount}>₹{(dashboard?.todayRevenue ?? 0).toLocaleString('en-IN')}</Text>
+                    </View>
+                    <View style={styles.revTrendPill}>
+                        <ArrowUpRight size={12} color="#FFF" />
+                        <Text style={styles.revTrendText}>+18.5%</Text>
+                    </View>
                 </View>
-                <View style={styles.revGraphIcon}>
-                    <TrendingUp size={24} color="#FFF" />
+
+                <View style={styles.revStatsRow}>
+                    <View style={styles.revStatCol}>
+                        <Text style={styles.revStatLab}>ORDERS</Text>
+                        <Text style={styles.revStatVal}>{dashboard?.todayOrders || 0}</Text>
+                    </View>
+                    <View style={styles.revStatCol}>
+                        <Text style={styles.revStatLab}>PENDING</Text>
+                        <Text style={styles.revStatVal}>{dashboard?.pendingOrders || 0}</Text>
+                    </View>
+                    <View style={styles.revStatCol}>
+                        <Text style={styles.revStatLab}>RATING</Text>
+                        <Text style={styles.revStatVal}>{dashboard?.rating?.toFixed(1) || '0.0'}</Text>
+                    </View>
                 </View>
+
+                {/* Decorative Accents */}
+                <View style={styles.prismGlassOverlay} />
+                <View style={[styles.prismGlowCircle, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
             </LinearGradient>
-            <View style={styles.revStats}>
-                <View style={styles.revStatCol}>
-                    <Text style={styles.revStatVal}>{dashboard?.todayOrders ?? 0}</Text>
-                    <Text style={styles.revStatLabel}>Orders</Text>
-                </View>
-                <View style={styles.revStatDivider} />
-                <View style={styles.revStatCol}>
-                    <Text style={styles.revStatVal}>{dashboard?.activeOrders ?? 0}</Text>
-                    <Text style={styles.revStatLabel}>Active</Text>
-                </View>
-                <View style={styles.revStatDivider} />
-                <View style={styles.revStatCol}>
-                    <Text style={[styles.revStatVal, dashboard?.pendingOrders ? { color: '#F59E0B' } : {}]}>
-                        {dashboard?.pendingOrders ?? 0}
-                    </Text>
-                    <Text style={styles.revStatLabel}>Queue</Text>
-                </View>
-            </View>
         </Animated.View>
     );
 }
@@ -239,31 +261,29 @@ function StatsBentoGrid({ dashboard }: any) {
     return (
         <View style={styles.statsBentoGrid}>
             <BentoItem
-                icon={<Zap size={18} color={Colors.primary} />}
-                label="Live Orders"
-                value={dashboard?.activeOrders ?? 0}
-                color={Colors.primary}
+                icon={<Activity size={20} color={Colors.primary} />}
+                label="Efficiency"
+                value="94%"
+                trend="+2%"
                 delay={500}
             />
             <BentoItem
-                icon={<Clock size={18} color={Colors.primary} />}
-                label="Waiting"
-                value={dashboard?.pendingOrders ?? 0}
-                color={Colors.primary}
+                icon={<Clock size={20} color="#F59E0B" />}
+                label="Avg. Wait"
+                value="14m"
+                trend="-3m"
                 delay={550}
             />
             <BentoItem
-                icon={<Users size={18} color={Colors.primary} />}
-                label="Active Staff"
-                value={dashboard?.agentCount ?? 0}
-                color={Colors.primary}
+                icon={<Star size={20} color="#8B5CF6" />}
+                label="Rating"
+                value={dashboard?.rating?.toFixed(1) || "4.8"}
                 delay={600}
             />
             <BentoItem
-                icon={<Activity size={18} color={Colors.primary} />}
-                label="Success Rate"
+                icon={<Users size={20} color="#10B981" />}
+                label="Satisfaction"
                 value="98%"
-                color={Colors.primary}
                 delay={650}
             />
         </View>
@@ -272,60 +292,70 @@ function StatsBentoGrid({ dashboard }: any) {
 
 function QuickActions() {
     return (
-        <View>
-            <Text style={styles.sectionHeaderTitle}>Manage Business</Text>
-            <View style={styles.actionsPillGrid}>
-                <ActionItem icon={<BookOpen size={18} color={Colors.primary} />} label="Services" onPress={() => router.push('/(merchant)/(tabs)/catalog')} delay={700} />
-                <ActionItem icon={<Users size={18} color={Colors.primary} />} label="Agents" onPress={() => router.push('/(merchant)/agents')} delay={730} />
-                <ActionItem icon={<Map size={18} color={Colors.primary} />} label="Map View" onPress={() => router.push('/(merchant)/agents/map')} delay={760} />
-                <ActionItem icon={<CalendarDays size={18} color={Colors.primary} />} label="Schedule" onPress={() => router.push('/(merchant)/schedule')} delay={790} />
-                <ActionItem icon={<Wallet size={18} color={Colors.primary} />} label="Payouts" onPress={() => router.push('/(merchant)/earnings')} delay={820} />
-                <ActionItem icon={<Tag size={18} color={Colors.primary} />} label="Coupons" onPress={() => router.push('/(merchant)/promotions')} delay={850} />
-                <ActionItem icon={<BarChart3 size={18} color={Colors.primary} />} label="Growth" onPress={() => router.push('/(merchant)/analytics')} delay={880} />
-                <ActionItem icon={<Star size={18} color={Colors.primary} />} label="Reviews" onPress={() => router.push('/(merchant)/reviews')} delay={910} />
+        <View style={styles.quickActionsSection}>
+            <View style={styles.sectionHeading}>
+                <Text style={styles.sectionHeaderTitle}>Manage Operations</Text>
             </View>
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.actionsScroller}
+            >
+                <ActionItem icon={<BookOpen size={20} color="#FFF" />} label="Catalog" color="#6366F1" onPress={() => router.push('/(merchant)/(tabs)/catalog')} delay={700} />
+                <ActionItem icon={<Users size={20} color="#FFF" />} label="Team" color="#8B5CF6" onPress={() => router.push('/(merchant)/agents')} delay={730} />
+                <ActionItem icon={<Map size={20} color="#FFF" />} label="Map" color="#10B981" onPress={() => router.push('/(merchant)/agents/map')} delay={760} />
+                <ActionItem icon={<CalendarDays size={20} color="#FFF" />} label="Schedule" color="#F59E0B" onPress={() => router.push('/(merchant)/schedule')} delay={790} />
+                <ActionItem icon={<Wallet size={20} color="#FFF" />} label="Payouts" color="#EC4899" onPress={() => router.push('/(merchant)/earnings')} delay={820} />
+                <ActionItem icon={<BarChart3 size={20} color="#FFF" />} label="Analytics" color={Colors.primary} onPress={() => router.push('/(merchant)/analytics')} delay={850} />
+            </ScrollView>
         </View>
     );
 }
 
 function TeamStatus({ agents }: any) {
     return (
-        <View>
-            <View style={[styles.sectionHeading, { marginTop: 32 }]}>
-                <Text style={styles.sectionHeaderTitle}>Team Real-time</Text>
+        <View style={styles.teamSection}>
+            <View style={styles.sectionHeading}>
+                <Text style={styles.sectionHeaderTitle}>Real-time Network</Text>
                 <Pressable onPress={() => router.push('/(merchant)/agents/map')}>
-                    <Text style={styles.linkText}>See Map</Text>
+                    <Text style={styles.linkText}>View Global Map</Text>
                 </Pressable>
             </View>
 
             {agents.length === 0 ? (
                 <View style={styles.emptyAgents}>
-                    <Text style={styles.emptyText}>No agents online</Text>
+                    <BlurView intensity={10} tint="dark" style={styles.emptyBlur}>
+                        <Users size={32} color="#94A3B8" strokeWidth={1.5} />
+                        <Text style={styles.emptyText}>No active agents found</Text>
+                    </BlurView>
                 </View>
             ) : (
-                <ScrollView 
-                    horizontal 
-                    showsHorizontalScrollIndicator={false} 
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.agentsList}
                 >
                     {agents.map((agent: any, i: number) => {
                         const isOnline = agent.status !== 'OFFLINE';
                         const isBusy = agent.bookings && agent.bookings.length > 0;
-                        const statusColor = !isOnline ? '#94A3B8' : isBusy ? '#F59E0B' : Colors.success;
+                        const statusColor = !isOnline ? '#94A3B8' : isBusy ? '#F59E0B' : '#10B981';
 
                         return (
                             <Animated.View key={agent.id} entering={FadeIn.delay(950 + i * 50)}>
-                                <Pressable 
+                                <Pressable
                                     onPress={() => router.push(`/(merchant)/agents/${agent.id}` as any)}
-                                    style={styles.agentSmallCard}
+                                    style={styles.agentCard}
                                 >
                                     <View style={styles.agentAvatarBox}>
-                                        <Text style={styles.agentInitial}>{agent.user?.name?.[0] || 'A'}</Text>
+                                        <View style={styles.agentAvatarPlaceholder}>
+                                            <Text style={styles.agentInitial}>{agent.user?.name?.[0] || 'A'}</Text>
+                                        </View>
                                         <View style={[styles.agentStatusIndicator, { backgroundColor: statusColor }]} />
                                     </View>
-                                    <Text style={styles.agentMiniName} numberOfLines={1}>
+                                    <Text style={styles.agentName} numberOfLines={1}>
                                         {agent.user?.name?.split(' ')[0]}
                                     </Text>
+                                    <Text style={styles.agentSubText}>{isBusy ? 'Busy' : 'Available'}</Text>
                                 </Pressable>
                             </Animated.View>
                         );
@@ -338,11 +368,18 @@ function TeamStatus({ agents }: any) {
 
 // ─── Internal Atomic Components ───
 
-function BentoItem({ icon, label, value, color, delay }: any) {
+function BentoItem({ icon, label, value, trend, delay }: any) {
     return (
         <Animated.View entering={FadeInDown.delay(delay).springify()} style={styles.bentoItem}>
-            <View style={[styles.bentoIconBox, { backgroundColor: color + '10' }]}>{icon}</View>
-            <View>
+            <View style={styles.bentoHeader}>
+                <View style={styles.bentoIconBox}>{icon}</View>
+                {trend && (
+                    <View style={[styles.trendBadge, { backgroundColor: trend.startsWith('+') ? '#10B98120' : '#F59E0B20' }]}>
+                        <Text style={[styles.trendText, { color: trend.startsWith('+') ? '#10B981' : '#F59E0B' }]}>{trend}</Text>
+                    </View>
+                )}
+            </View>
+            <View style={styles.bentoBody}>
                 <Text style={styles.bentoVal}>{value}</Text>
                 <Text style={styles.bentoLab}>{label}</Text>
             </View>
@@ -350,14 +387,16 @@ function BentoItem({ icon, label, value, color, delay }: any) {
     );
 }
 
-function ActionItem({ icon, label, onPress, delay }: any) {
+function ActionItem({ icon, label, color, onPress, delay }: any) {
     return (
         <Animated.View entering={FadeIn.delay(delay)}>
             <Pressable
                 onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPress(); }}
-                style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.7, transform: [{ scale: 0.96 }] }]}
+                style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.8, transform: [{ scale: 0.95 }] }]}
             >
-                <View style={styles.actionIconOuter}>{icon}</View>
+                <View style={[styles.actionIconOuter, { backgroundColor: color }]}>
+                    {icon}
+                </View>
                 <Text style={styles.actionLabel}>{label}</Text>
             </Pressable>
         </Animated.View>
@@ -366,7 +405,7 @@ function ActionItem({ icon, label, onPress, delay }: any) {
 
 function getTimeOfDay() {
     const hr = new Date().getHours();
-    return hr < 12 ? 'Morning' : hr < 17 ? 'Afternoon' : 'Evening';
+    return hr < 12 ? 'Good Morning' : hr < 17 ? 'Good Afternoon' : 'Good Evening';
 }
 
 // ═══════════════════════════════════════
@@ -374,138 +413,134 @@ function getTimeOfDay() {
 // ═══════════════════════════════════════
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F8FAFC' },
-    loadingCenter: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    errorTitle: { fontSize: 16, fontWeight: '700', color: '#334155', marginTop: 12 },
-    errorSub: { fontSize: 13, color: '#94A3B8', marginTop: 4 },
-    retryBtn: { marginTop: 20, backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14 },
+    loadingCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
+    errorTitle: { fontSize: 16, fontWeight: '700', color: '#0F172A', marginTop: 12 },
+    errorSub: { fontSize: 13, color: '#64748B', marginTop: 4 },
+    retryBtn: { marginTop: 20, backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 16 },
     retryBtnText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
 
-    // ─── Hero Section ───
-    heroSection: {
-        paddingHorizontal: Spacing.xl,
-        paddingBottom: 40,
-        backgroundColor: Colors.background,
-        borderBottomLeftRadius: 36,
-        borderBottomRightRadius: 36,
-        overflow: 'hidden',
+    // ─── Sticky Header ───
+    stickyHeader: {
+        position: 'absolute', top: 0, left: 0, right: 0,
+        zIndex: 100, overflow: 'hidden',
     },
-    heroBackground: { ...StyleSheet.absoluteFillObject },
-    heroCircle1: {
-        position: 'absolute', top: -50, right: -50, width: 200, height: 200,
-        borderRadius: 100, backgroundColor: 'rgba(255,107,0,0.03)',
+    headerContent: {
+        flex: 1, flexDirection: 'row', alignItems: 'center',
+        justifyContent: 'space-between', paddingHorizontal: 24,
     },
-    heroCircle2: {
-        position: 'absolute', bottom: -100, left: -50, width: 250, height: 250,
-        borderRadius: 125, backgroundColor: 'rgba(255,107,0,0.02)',
-    },
-    heroMain: { position: 'relative', zIndex: 1 },
-    heroRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-    
-    ratingBadge: {
-        backgroundColor: 'rgba(0,0,0,0.04)',
-        paddingHorizontal: 12,
-        paddingVertical: 16,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.05)',
-    },
-    ratingNumber: { fontSize: 22, fontWeight: '900', color: Colors.textDark },
-    businessInfo: { flex: 1 },
-    greetLabel: { fontSize: 14, color: Colors.textSecondary, fontWeight: '500' },
-    businessName: { fontSize: 24, fontWeight: '800', color: Colors.textDark, marginTop: 2 },
-    
-    statusIconBadge: {
-        width: 44, height: 44, borderRadius: 22,
+    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    liveIndicator: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' },
+    headerTitle: { fontSize: 18, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
+    headerIcon: {
+        width: 40, height: 40, borderRadius: 12,
+        backgroundColor: 'rgba(0,0,0,0.03)',
         justifyContent: 'center', alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.04)',
-        borderWidth: 1,
+        borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)',
     },
-    statusVerified: { borderColor: 'rgba(16,185,129,0.1)' },
-    statusPending: { borderColor: 'rgba(245,158,11,0.1)' },
- 
-    heroStatsRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 24,
-        paddingTop: 20,
-        borderTopWidth: 1,
-        borderTopColor: 'rgba(0,0,0,0.05)',
+    headerDot: {
+        position: 'absolute', top: 10, right: 10, width: 6, height: 6,
+        borderRadius: 3, backgroundColor: Colors.primary, borderWidth: 1.5, borderColor: '#FFF',
     },
-    heroStatItem: { flex: 1, alignItems: 'center' },
-    heroStatLabel: { fontSize: 12, color: Colors.textSecondary, fontWeight: '600' },
-    heroStatValue: { fontSize: 16, fontWeight: '800', color: Colors.textDark, marginTop: 2 },
-    heroStatDivider: { width: 1, height: 30, backgroundColor: 'rgba(0,0,0,0.05)' },
 
+    // ─── Prism Hero ───
+    prismHero: { paddingHorizontal: 24, paddingBottom: 24, marginTop: 20 },
+    heroContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    welcomeText: { fontSize: 11, fontWeight: '800', color: Colors.primary, letterSpacing: 1.5 },
+    heroBusinessName: { fontSize: 32, fontWeight: '900', color: '#0F172A', marginTop: 4, letterSpacing: -1 },
+    heroBadges: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
+    statusBadge: {
+        flexDirection: 'row', alignItems: 'center', gap: 4,
+        paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1
+    },
+    statusApproved: { backgroundColor: '#10B98110', borderColor: '#10B98130' },
+    statusPending: { backgroundColor: '#F59E0B10', borderColor: '#F59E0B30' },
+    statusText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+    heroRating: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F59E0B10', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+    ratingValue: { fontSize: 11, fontWeight: '800', color: '#F59E0B' },
 
-    // ─── Revenue Card ───
-    mainRevenueCard: {
-        marginHorizontal: Spacing.lg,
-        marginTop: -24,
-        borderRadius: 28,
-        backgroundColor: '#FFF',
-        shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1, shadowRadius: 20, elevation: 10,
-        overflow: 'hidden',
-        zIndex: 2,
+    heroQuickPulse: { marginTop: 24, borderRadius: 20, overflow: 'hidden' },
+    pulseInner: {
+        flexDirection: 'row', padding: 16,
+        backgroundColor: 'rgba(255,255,255,0.7)',
+        borderWidth: 1, borderColor: '#F1F5F9',
     },
-    revenueInner: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        padding: 24, paddingBottom: 32,
+    pulseItem: { flex: 1, gap: 2 },
+    pulseLabel: { fontSize: 9, color: '#64748B', fontWeight: '700', textTransform: 'uppercase' },
+    pulseValue: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
+    pulseDivider: { width: 1, backgroundColor: '#F1F5F9', marginHorizontal: 16 },
+
+    // ─── Premium Revenue ───
+    prismRevenueBox: { marginHorizontal: 20, marginTop: 12, borderRadius: 28, overflow: 'hidden', elevation: 8 },
+    revenuePrismGradient: { padding: 24, minHeight: 180 },
+    revMainHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    revTitle: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.8)', letterSpacing: 2 },
+    revAmount: { fontSize: 38, fontWeight: '900', color: '#FFF', marginTop: 6, letterSpacing: -1.5 },
+    revTrendPill: {
+        flexDirection: 'row', alignItems: 'center', gap: 4,
+        backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12
     },
-    revLabel: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.8)' },
-    revValue: { fontSize: 32, fontWeight: '900', color: '#FFF', marginTop: 4 },
-    revGraphIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
-    
-    revStats: { flexDirection: 'row', paddingVertical: 18, backgroundColor: '#FFF' },
-    revStatCol: { flex: 1, alignItems: 'center' },
-    revStatVal: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
-    revStatLabel: { fontSize: 11, fontWeight: '600', color: '#94A3B8', marginTop: 2 },
-    revStatDivider: { width: 1, backgroundColor: '#F1F5F9', height: '60%', alignSelf: 'center' },
+    revTrendText: { fontSize: 11, fontWeight: '900', color: '#FFF' },
+    revStatsRow: { flexDirection: 'row', marginTop: 32, gap: 20 },
+    revStatCol: { flex: 1 },
+    revStatLab: { fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.7)', letterSpacing: 1 },
+    revStatVal: { fontSize: 18, fontWeight: '900', color: '#FFF', marginTop: 2 },
+    prismGlassOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.05)' },
+    prismGlowCircle: {
+        position: 'absolute', top: -50, right: -50, width: 150, height: 150,
+        borderRadius: 75, backgroundColor: 'rgba(255,255,255,0.1)'
+    },
 
     // ─── Bento Grid ───
-    statsBentoGrid: {
-        flexDirection: 'row', flexWrap: 'wrap',
-        paddingHorizontal: Spacing.lg, gap: 12, marginTop: 24,
-    },
+    statsBentoGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20, gap: 12, marginTop: 24 },
     bentoItem: {
-        width: (SCREEN_W - Spacing.lg * 2 - 12) / 2,
-        backgroundColor: '#FFF', borderRadius: 20, padding: 16,
-        flexDirection: 'row', alignItems: 'center', gap: 12,
+        width: (SCREEN_W - 40 - 12) / 2,
+        backgroundColor: '#FFF', borderRadius: 24, padding: 20,
         borderWidth: 1, borderColor: '#F1F5F9',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.03, shadowRadius: 10,
     },
-    bentoIconBox: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-    bentoVal: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
-    bentoLab: { fontSize: 11, fontWeight: '600', color: '#94A3B8' },
+    bentoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    bentoIconBox: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' },
+    trendBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+    trendText: { fontSize: 10, fontWeight: '800' },
+    bentoBody: { gap: 2 },
+    bentoVal: { fontSize: 24, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
+    bentoLab: { fontSize: 12, fontWeight: '600', color: '#64748B' },
 
     // ─── Quick Actions ───
-    sectionHeaderTitle: {
-        fontSize: 16, fontWeight: '800', color: '#0F172A',
-        paddingHorizontal: Spacing.xl, marginTop: 32, marginBottom: 12,
-    },
-    actionsPillGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: Spacing.lg, gap: 10 },
-    actionBtn: { width: (SCREEN_W - Spacing.lg * 2 - 30) / 4, alignItems: 'center', gap: 8 },
+    quickActionsSection: { marginTop: 32 },
+    sectionHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, marginBottom: 16 },
+    sectionHeaderTitle: { fontSize: 18, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
+    actionsScroller: { paddingHorizontal: 20, gap: 12 },
+    actionBtn: { width: 90, alignItems: 'center', gap: 10 },
     actionIconOuter: {
-        width: 54, height: 54, borderRadius: 18,
-        backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center',
-        borderWidth: 1, borderColor: '#F1F5F9',
+        width: 64, height: 64, borderRadius: 24,
+        justifyContent: 'center', alignItems: 'center',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1, shadowRadius: 8, elevation: 4,
     },
-    actionLabel: { fontSize: 10, fontWeight: '700', color: '#64748B' },
+    actionLabel: { fontSize: 11, fontWeight: '800', color: '#64748B' },
 
-    // ─── Agents Scroller ───
-    sectionHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: Spacing.xl },
+    // ─── Team Section ───
+    teamSection: { marginTop: 40 },
     linkText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
-    agentsList: { paddingHorizontal: Spacing.lg, gap: 12, marginTop: 12 },
-    agentSmallCard: {
-        backgroundColor: '#FFF', borderRadius: 16, padding: 12, alignItems: 'center',
-        width: 80, borderWidth: 1, borderColor: '#EEF2FF',
+    agentsList: { paddingHorizontal: 20, gap: 16, marginTop: 4 },
+    agentCard: {
+        backgroundColor: '#FFF', borderRadius: 20, padding: 16, alignItems: 'center',
+        width: 110, borderWidth: 1, borderColor: '#F1F5F9',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.03, shadowRadius: 10,
     },
-    agentAvatarBox: { position: 'relative', width: 44, height: 44, borderRadius: 22, backgroundColor: '#EEF2FF', justifyContent: 'center', alignItems: 'center' },
-    agentInitial: { fontSize: 18, fontWeight: '800', color: Colors.primary },
-    agentStatusIndicator: { position: 'absolute', bottom: 1, right: 1, width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: '#FFF' },
-    agentMiniName: { fontSize: 11, fontWeight: '700', color: '#334155', marginTop: 6 },
-    emptyAgents: { padding: 40, alignItems: 'center' },
-    emptyText: { fontSize: 13, color: '#94A3B8', fontWeight: '500' },
+    agentAvatarBox: { position: 'relative', marginBottom: 12 },
+    agentAvatarPlaceholder: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' },
+    agentInitial: { fontSize: 20, fontWeight: '900', color: Colors.primary },
+    agentStatusIndicator: { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, borderWidth: 3, borderColor: '#FFF' },
+    agentName: { fontSize: 13, fontWeight: '800', color: '#0F172A' },
+    agentSubText: { fontSize: 10, color: '#64748B', fontWeight: '600', marginTop: 2 },
+    emptyAgents: { paddingHorizontal: 20, marginTop: 4 },
+    emptyBlur: {
+        padding: 40, alignItems: 'center', gap: 12, borderRadius: 24, overflow: 'hidden',
+        borderWidth: 1, borderColor: '#F1F5F9', backgroundColor: 'rgba(255,255,255,0.5)'
+    },
+    emptyText: { fontSize: 14, color: '#64748B', fontWeight: '600' },
 });

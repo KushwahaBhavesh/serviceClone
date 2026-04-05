@@ -11,6 +11,11 @@ export async function listCategories(req: Request, res: Response) {
     sendSuccess(res, { categories });
 }
 
+export async function listUnits(req: Request, res: Response) {
+    const units = await catalogService.listUnits();
+    sendSuccess(res, { units });
+}
+
 export async function getCategoryBySlug(req: Request, res: Response) {
     const category = await catalogService.getCategoryBySlug(String(req.params.slug));
     sendSuccess(res, { category });

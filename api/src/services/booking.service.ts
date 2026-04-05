@@ -1,4 +1,5 @@
 import prisma from '../lib/prisma';
+import { cacheDelete } from '../lib/redis';
 import { BadRequestError, UnauthorizedError } from '../middleware/error-handler';
 import { createNotification } from './push.service';
 
@@ -87,7 +88,7 @@ export async function createBooking(customerId: string, data: CreateBookingInput
     const tax = Math.round(subtotal * 0.18 * 100) / 100;
     const total = Math.round((subtotal + tax) * 100) / 100;
 
-    return prisma.booking.create({
+    const booking = await prisma.booking.create({
         data: {
             bookingNumber: generateBookingNumber(),
             customerId,
@@ -105,6 +106,13 @@ export async function createBooking(customerId: string, data: CreateBookingInput
             address: true,
         },
     });
+
+    // Invalidate merchant dashboard cache
+    if (resolvedMerchantId) {
+        await cacheDelete(`merchant:dash:${resolvedMerchantId}`);
+    }
+
+    return booking;
 }
 
 export async function listBookings(
@@ -215,6 +223,11 @@ export async function updateBookingStatus(
             'Booking Update',
             `Your booking #${updatedBooking.bookingNumber} is now ${data.status.replace('_', ' ')}.`,
         );
+    }
+
+    // Invalidate merchant dashboard cache
+    if (booking.merchantId) {
+        await cacheDelete(`merchant:dash:${booking.merchantId}`);
     }
 
     return updatedBooking;

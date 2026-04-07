@@ -11,16 +11,21 @@ import {
   Layers,
   LogOut,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  ChevronLeft,
+  LayoutDashboard
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 const NAV_ITEMS = [
-  { href: '/analytics', label: 'Platform Analytics', icon: BarChart3 },
-  { href: '/merchants', label: 'Merchants & KYC', icon: Store },
-  { href: '/users', label: 'User Management', icon: Users },
+  { href: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/merchants', label: 'Merchants & KYC', icon: Store, badge: '12' },
+  { href: '/agents', label: 'Service Agents', icon: ShieldCheck },
+  { href: '/users', label: 'User Directory', icon: Users },
   { href: '/bookings', label: 'Global Bookings', icon: CalendarDays },
   { href: '/catalog', label: 'Service Catalog', icon: Layers },
 ];
@@ -29,6 +34,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { logout, user } = useAuthStore();
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -40,27 +46,38 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
     router.replace('/login');
   };
 
-  if (!mounted) return <div className="w-72 bg-slate-950 border-r border-slate-800 hidden md:block" />;
+  if (!mounted) return <div className={cn("bg-card border-r border-border hidden md:block transition-all duration-300", isCollapsed ? "w-20" : "w-64")} />;
 
   return (
-    <aside className="w-72 bg-slate-950 border-r border-slate-800 hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 z-30 overflow-hidden">
+    <aside className={cn(
+      "bg-card border-r border-border hidden md:flex flex-col h-screen sticky top-0 z-30 transition-all duration-300 ease-in-out",
+      isCollapsed ? "w-20" : "w-64"
+    )}>
       {/* Brand Section */}
-      <div className="h-24 flex items-center px-8 bg-slate-900/50 border-b border-slate-800/50">
-        <div className="flex items-center group cursor-default">
-          <div className="h-11 w-11 bg-primary rounded-xl flex items-center justify-center mr-4 shadow-lg shadow-orange-500/20 transform transition-transform group-hover:scale-105 duration-300">
-            <span className="text-white font-black text-xl italic">S</span>
+      <div className="h-16 flex items-center px-4 border-b border-border">
+        <div className="flex items-center gap-3 overflow-hidden">
+          <div className="h-9 w-9 bg-primary rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm">
+            <span className="text-white font-bold text-lg">S</span>
           </div>
-          <div className="flex flex-col">
-            <span className="font-extrabold text-white text-lg tracking-tight leading-none">ServiceClone</span>
-            <span className="text-[10px] uppercase tracking-[0.3em] font-black text-primary mt-1">Admin Pro</span>
-          </div>
+          {!isCollapsed && (
+            <motion.div
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex flex-col"
+            >
+              <span className="font-bold text-foreground text-sm tracking-tight">ServiceClone</span>
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Admin Portal</span>
+            </motion.div>
+          )}
         </div>
       </div>
 
       {/* Nav Section */}
-      <nav className="flex-1 px-4 py-8 space-y-1.5 overflow-y-auto custom-scrollbar">
-        <p className="px-4 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Main Navigation</p>
-        
+      <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto custom-scrollbar">
+        {!isCollapsed && (
+          <p className="px-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-4">Management</p>
+        )}
+
         {NAV_ITEMS.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -68,26 +85,34 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
             <Link
               key={item.href}
               href={item.href}
-              onClick={onClose}
-              className="relative block group"
+              className="block"
             >
               <div className={cn(
-                "flex items-center px-4 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 relative z-10",
+                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all group relative",
                 isActive
-                  ? "bg-slate-900 text-primary border border-slate-800"
-                  : "text-slate-400 hover:text-white hover:bg-slate-900/40"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
               )}>
-                <div className={cn(
-                  "mr-4 p-2 rounded-lg transition-all duration-300",
-                  isActive ? "bg-primary text-white shadow-electric" : "bg-slate-900 text-slate-500 group-hover:text-white"
-                )}>
-                  <Icon size={18} />
-                </div>
-                <span className="flex-1">{item.label}</span>
-                {isActive && (
-                  <motion.div layoutId="activeArrow">
-                    <ChevronRight size={14} className="text-primary" />
-                  </motion.div>
+                <Icon size={isCollapsed ? 20 : 18} className={cn("flex-shrink-0", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                {!isCollapsed && (
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex-1 truncate"
+                  >
+                    {item.label}
+                  </motion.span>
+                )}
+                {item.badge && !isCollapsed && (
+                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px] bg-muted group-hover:bg-background">
+                    {item.badge}
+                  </Badge>
+                )}
+
+                {isCollapsed && (
+                  <div className="absolute left-full ml-2 px-2 py-1 bg-slate-900 text-white text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-50">
+                    {item.label}
+                  </div>
                 )}
               </div>
             </Link>
@@ -95,33 +120,52 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
         })}
       </nav>
 
-      {/* Footer / User Profile */}
-      <div className="mt-auto p-4 border-t border-slate-800 bg-slate-900/30">
-        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 mb-4 transition-all hover:border-slate-700">
-          <div className="flex items-center space-x-3">
-             <div className="relative">
-                <div className="h-10 w-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-primary text-lg">
-                  {user?.name?.charAt(0) || 'A'}
-                </div>
-                <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-emerald-500 rounded-full border-2 border-slate-900 shadow-sm" />
-             </div>
-             <div className="flex-1 min-w-0">
-                <p className="text-xs font-black text-white truncate tracking-wide">{user?.name || 'Administrator'}</p>
-                <div className="flex items-center mt-1">
-                  <ShieldCheck size={10} className="text-primary mr-1" />
-                  <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Super Admin</p>
-                </div>
-             </div>
-          </div>
-        </div>
-
+      {/* Collapse Toggle */}
+      <div className="px-3 py-2 border-t border-border">
         <button
-          onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2.5 px-4 py-4 text-xs font-black text-slate-400 rounded-xl border border-slate-800 bg-slate-900/50 hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/20 transition-all duration-300 active:scale-[0.98]"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="w-full flex items-center justify-center p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
         >
-          <LogOut size={16} />
-          <span className="uppercase tracking-widest">Sign out of portal</span>
+          {isCollapsed ? <ChevronRight size={18} /> : <div className="flex items-center gap-2 text-xs font-medium"><ChevronLeft size={16} /> <span>Collapse Sidebar</span></div>}
         </button>
+      </div>
+
+      {/* User / Logout Section */}
+      <div className="p-3 border-t border-border bg-muted/20">
+        {!isCollapsed ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3 p-2 rounded-lg border border-border bg-card">
+              <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center text-xs font-bold text-primary">
+                {user?.name?.charAt(0) || 'A'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-foreground truncate">{user?.name || 'Administrator'}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-tight">Super Admin</p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className="w-full justify-start gap-2 h-9 text-rose-500 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200"
+            >
+              <LogOut size={14} />
+              <span className="text-xs font-medium">Logout</span>
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-2">
+            <div className="h-8 w-8 rounded-md bg-muted flex items-center justify-center text-xs font-bold text-primary cursor-pointer hover:bg-primary/10 transition-all">
+              {user?.name?.charAt(0) || 'A'}
+            </div>
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-lg text-muted-foreground hover:text-rose-500 hover:bg-rose-50 transition-all"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );

@@ -1,105 +1,128 @@
 @import "tailwindcss";
 
-:root {
-  /* High-Impact "Electric" Palette */
-  --background: #020617; /* Slate 950 - Deeper for higher impact */
-  --foreground: #f8fafc; /* Light Slate */
-  
-  --card: #0f172a; /* Slate 900 */
-  --card-foreground: #f8fafc;
-  
-  --popover: #0f172a;
-  --popover-foreground: #f8fafc;
-  
-  --primary: #FF6B00; /* Electric Orange */
-  --primary-foreground: #ffffff;
-  
-  --secondary: #1e293b; /* Slate 800 */
-  --secondary-foreground: #f8fafc;
-  
-  --muted: #0f172a;
-  --muted-foreground: #64748b; /* Slate 500 */
-  
-  --accent: #FF6B00;
-  --accent-foreground: #ffffff;
-  
-  --destructive: #f43f5e; /* Rose 500 */
-  --destructive-foreground: #ffffff;
-  
-  --border: #1e293b; /* Slate 800 */
-  --input: #0f172a;
-  --ring: #FF6B00;
-  
-  --radius: 1rem;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+  /* Brand Identity */
+  --color-primary: #FF6B00;
+  --color-primary-foreground: #FFFFFF;
 
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
+  /* Semantic Colors - Base Light */
+  --color-background: #FFFFFF;
+  --color-foreground: #0F172A; /* Slate 900 */
+  
+  --color-card: #FFFFFF;
+  --color-card-foreground: #0F172A;
+  
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #0F172A;
+  
+  --color-secondary: #F1F5F9; /* Slate 100 */
+  --color-secondary-foreground: #0F172A;
+  
+  --color-muted: #F8FAF0; /* Actually using slate/gray based on naming */
+  --color-muted-foreground: #64748B; /* Slate 500 */
+  
+  --color-accent: #F1F5F9;
+  --color-accent-foreground: #0F172A;
+  
+  --color-destructive: #EF4444;
+  --color-destructive-foreground: #FFFFFF;
+  
+  --color-border: #E2E8F0; /* Slate 200 */
+  --color-input: #E2E8F0;
+  --color-ring: #FF6B00;
 
+  /* Border Scale */
+  --radius-xl: 1rem;
+  --radius-lg: 0.75rem;
+  --radius-md: 0.5rem;
+  --radius-sm: 0.25rem;
+
+  /* Typography */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-primary: 0 10px 15px -3px rgba(255, 107, 0, 0.2);
+
+  /* Animations */
+  --animate-fade-in: fade-in 0.3s ease-out;
+  --animate-slide-in: slide-in 0.4s ease-out;
   
-  /* High-Impact Shadows */
-  --shadow-electric: 0 0 30px -10px rgba(255, 107, 0, 0.4);
-  --shadow-button: 0 4px 14px 0 rgba(255, 107, 0, 0.3);
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-in {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* Dark Mode Overrides */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0B0F19; /* Deep Slate Blue */
+    --foreground: #F8FAF0;
+    
+    --card: #111827; /* Gray 900 */
+    --card-foreground: #F9FAFB;
+    
+    --popover: #111827;
+    --popover-foreground: #F9FAFB;
+    
+    --secondary: #1F2937; /* Gray 800 */
+    --secondary-foreground: #F9FAFB;
+    
+    --muted: #1F2937;
+    --muted-foreground: #9CA3AF;
+    
+    --accent: #1F2937;
+    --accent-foreground: #F9FAFB;
+    
+    --border: #374151; /* Gray 700 */
+    --input: #374151;
+  }
 }
 
+/* Global Styles */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground transition-colors duration-300;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Custom Utilities */
 @layer utilities {
-  .electric-border {
-    @apply border border-primary/20 hover:border-primary/50 transition-colors duration-300;
+  .glass-card {
+    @apply bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-white/20 dark:border-slate-800/20 shadow-lg;
   }
 
-  .text-glow {
-    text-shadow: 0 0 20px rgba(255, 107, 0, 0.3);
+  .nav-link {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all;
   }
 
-  .pro-card {
-    @apply bg-card border border-border rounded-[2rem] transition-all duration-300 hover:border-primary/30 hover:shadow-electric;
+  .nav-link-active {
+    @apply bg-primary/10 text-primary border-r-2 border-primary rounded-r-none;
   }
 
-  .nav-active {
-    @apply bg-primary text-white shadow-electric;
+  .admin-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
   }
 
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
-    height: 6px;
   }
-
   .custom-scrollbar::-webkit-scrollbar-track {
-    @apply bg-background;
+    @apply bg-transparent;
   }
-
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    @apply bg-slate-800 rounded-full hover:bg-slate-700 transition-colors;
+    @apply bg-slate-200 dark:bg-slate-800 rounded-full hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors;
   }
 }

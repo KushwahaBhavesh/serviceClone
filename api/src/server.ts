@@ -115,7 +115,7 @@ async function start() {
         await prisma.$connect();
         logger.info('✅ Database connected');
 
-        // await redis.connect();
+        await redis.connect();
 
         await bloomService.initialize();
 

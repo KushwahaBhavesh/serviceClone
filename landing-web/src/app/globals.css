@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+    --color-background: #F7F5F2;
+    --color-surface: #FFFFFF;
+    --color-primary: #F97316;
+    --color-primary-dark: #EA580C;
+    --color-primary-light: #FDBA74;
+    --color-secondary: #EDEDED;
+    --color-text-primary: #1F1F1F;
+    --color-text-secondary: #6B7280;
+
+    --font-sans: "Inter", "Poppins", ui-sans-serif, system-ui, sans-serif;
+
+    --radius-xl: 1rem;
+    --radius-2xl: 1.5rem;
+
+    --shadow-soft: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+}
+
+@layer base {
+    body {
+        @apply bg-background text-text-primary font-sans antialiased;
+    }
+}
+
+@layer components {
+    .btn-primary {
+        @apply bg-primary text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 hover:bg-primary-dark active:scale-95 text-center inline-block;
+    }
+
+    .card-premium {
+        @apply bg-surface p-6 rounded-xl shadow-soft border border-secondary/50 transition-all duration-300 hover:shadow-md;
+    }
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+section {
+    position: relative;
+    width: 100%;
+}
+
+/* Eliminate whitespace between sections */
+* {
+    margin-top: 0;
+    margin-bottom: 0;
+}

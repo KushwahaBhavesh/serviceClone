@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../middleware/auth';
 import { sendSuccess, sendCreated } from '../utils/response';
 import * as customerService from '../services/customer.service';
 import * as chatService from '../services/chat.service';
+import * as notificationService from '../services/notification.service';
 
 // ─── ADDRESSES ───
 
@@ -77,4 +78,15 @@ export async function getChatMessages(req: AuthenticatedRequest, res: Response) 
 export async function sendChatMessage(req: AuthenticatedRequest, res: Response) {
     const message = await chatService.sendChatMessage(req.user.id, String(req.params.chatId), req.body.content);
     sendCreated(res, { message });
+}
+
+// ─── PUSH TOKEN ───
+
+export async function updatePushToken(req: AuthenticatedRequest, res: Response) {
+    const { token } = req.body;
+    if (!token) {
+        return sendSuccess(res, null, 'Token is required');
+    }
+    await notificationService.updatePushToken(req.user.id, token);
+    sendSuccess(res, null, 'Push token updated');
 }

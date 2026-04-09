@@ -15,25 +15,25 @@ import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { 
-    FadeInDown, 
-    FadeInUp, 
+import Animated, {
+    FadeInDown,
+    FadeInUp,
     FadeInRight,
     useSharedValue,
     useAnimatedStyle,
     withSpring,
 } from 'react-native-reanimated';
-import { 
-    ArrowLeft, 
-    MapPin, 
-    Calendar, 
-    Clock, 
-    ChevronRight, 
-    Plus, 
-    CheckCircle2, 
-    Tag, 
-    Wallet, 
-    CreditCard, 
+import {
+    ArrowLeft,
+    MapPin,
+    Calendar,
+    Clock,
+    ChevronRight,
+    Plus,
+    CheckCircle2,
+    Tag,
+    Wallet,
+    CreditCard,
     Smartphone,
     ShieldCheck,
     X,
@@ -139,7 +139,7 @@ export default function CheckoutScreen() {
                 setAddresses(data.addresses);
                 const def = data.addresses.find((a: any) => a.isDefault) || data.addresses[0];
                 if (def) setSelectedAddressId(def.id);
-                
+
                 const res = await paymentApi.listMethods();
                 setWalletBalance(res?.data?.wallet?.balance || 0);
             } catch { /* silent */ }
@@ -173,9 +173,53 @@ export default function CheckoutScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         try {
             const scheduledAt = new Date(`${selectedDate}T${selectedTime}:00`).toISOString();
-            const res = await bookingApi.createBooking({ addressId: selectedAddressId!, scheduledAt, notes, items: [{ serviceId, quantity }] });
-            await paymentApi.initiate({ bookingId: res.data.booking.id, method: paymentMethod });
-            router.replace('/(booking)/confirmation');
+            const bookingRes = await bookingApi.createBooking({ addressId: selectedAddressId!, scheduledAt, notes, items: [{ serviceId, quantity }] });
+            const bookingId = bookingRes.data.booking.id;
+
+            const payRes = await paymentApi.initiate({ bookingId, method: paymentMethod });
+
+            // WALLET: already completed on server
+            if (payRes.data.status === 'COMPLETED') {
+                router.replace('/(booking)/confirmation');
+                return;
+            }
+
+            // RAZORPAY / UPI / CARD: launch SDK
+            if (payRes.data.gatewayConfig) {
+                const config = payRes.data.gatewayConfig;
+                try {
+                    const RazorpayCheckout = (await import('react-native-razorpay')).default;
+                    const sdkResult = await RazorpayCheckout.open({
+                        key: config.key,
+                        amount: config.amount,
+                        currency: config.currency,
+                        name: config.name,
+                        description: config.description,
+                        order_id: config.orderId,
+                        theme: { color: '#FF5722' },
+                    });
+
+                    // Verify payment on server
+                    await paymentApi.confirm({
+                        transactionId: payRes.data.transactionId,
+                        razorpay_payment_id: sdkResult.razorpay_payment_id,
+                        razorpay_order_id: sdkResult.razorpay_order_id,
+                        razorpay_signature: sdkResult.razorpay_signature,
+                    });
+
+                    router.replace('/(booking)/confirmation');
+                } catch (sdkErr: any) {
+                    // SDK was dismissed or payment failed
+                    router.replace({
+                        pathname: '/(booking)/payment-failed' as any,
+                        params: {
+                            bookingId,
+                            errorCode: sdkErr?.code || 'PAYMENT_FAILED',
+                            errorDescription: sdkErr?.description || sdkErr?.message || 'Payment could not be processed.',
+                        },
+                    });
+                }
+            }
         } catch (err: any) { showError(err.message || 'Booking failed.'); }
         finally { setIsLoading(false); }
     };
@@ -197,8 +241,8 @@ export default function CheckoutScreen() {
                     {addresses.map((addr) => {
                         const isSelected = selectedAddressId === addr.id;
                         return (
-                            <Pressable 
-                                key={addr.id} 
+                            <Pressable
+                                key={addr.id}
                                 style={[styles.addressCard, isSelected && styles.addressCardActive]}
                                 onPress={() => { setSelectedAddressId(addr.id); Haptics.selectionAsync(); }}
                             >
@@ -228,8 +272,8 @@ export default function CheckoutScreen() {
                 {dates.map((d) => {
                     const isSelected = selectedDate === d.key;
                     return (
-                        <Pressable 
-                            key={d.key} 
+                        <Pressable
+                            key={d.key}
                             style={[styles.dateCard, isSelected && styles.dateCardActive]}
                             onPress={() => { setSelectedDate(d.key); Haptics.selectionAsync(); }}
                         >
@@ -246,8 +290,8 @@ export default function CheckoutScreen() {
                 {times.map((t) => {
                     const isSelected = selectedTime === t;
                     return (
-                        <Pressable 
-                            key={t} 
+                        <Pressable
+                            key={t}
                             style={[styles.timeChip, isSelected && styles.timeChipActive]}
                             onPress={() => { setSelectedTime(t); Haptics.selectionAsync(); }}
                         >
@@ -291,7 +335,7 @@ export default function CheckoutScreen() {
 
             <Text style={[styles.sectionTitle, { marginTop: 35 }]}>PAYMENT METHOD</Text>
             <View style={styles.paymentList}>
-                <Pressable 
+                <Pressable
                     style={[styles.payCard, paymentMethod === 'WALLET' && styles.payCardActive]}
                     onPress={() => { setPaymentMethod('WALLET'); Haptics.selectionAsync(); }}
                 >
@@ -305,7 +349,7 @@ export default function CheckoutScreen() {
                     </View>
                 </Pressable>
 
-                <Pressable 
+                <Pressable
                     style={[styles.payCard, paymentMethod === 'RAZORPAY' && styles.payCardActive]}
                     onPress={() => { setPaymentMethod('RAZORPAY'); Haptics.selectionAsync(); }}
                 >
@@ -348,7 +392,7 @@ export default function CheckoutScreen() {
 
             <StepIndicator activeStep={step} totalSteps={3} labels={STEP_LABELS} />
 
-            <ScrollView 
+            <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scroll}
             >
@@ -364,8 +408,8 @@ export default function CheckoutScreen() {
                         <Text style={styles.bottomPriceLabel}>TOTAL ESTIMATE</Text>
                         <Text style={styles.bottomPriceVal}>₹{total.toFixed(0)}</Text>
                     </View>
-                    <Pressable 
-                        style={styles.mainCta} 
+                    <Pressable
+                        style={styles.mainCta}
                         onPress={step < 2 ? handleNext : handleBooking}
                         disabled={isLoading}
                     >
@@ -388,7 +432,7 @@ export default function CheckoutScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#FFF' },
-    
+
     // Header
     header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 25, height: 80, gap: 15 },
     backBtn: { width: 44, height: 44, borderRadius: 16, backgroundColor: '#FAFAFA', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#F0F0F0' },

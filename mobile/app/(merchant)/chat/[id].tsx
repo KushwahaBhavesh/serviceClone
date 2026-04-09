@@ -1,29 +1,40 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     View, Text, StyleSheet, FlatList, TextInput, Pressable,
-    ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
+    ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { ChevronLeft, Send, MessageCircle } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+
 import { Colors, Spacing } from '../../../constants/theme';
-import { merchantApi, type Chat as MerchantChat } from '../../../lib/merchant';
+import { merchantApi } from '../../../lib/merchant';
 import { useToast } from '../../../context/ToastContext';
+import { useAuthStore } from '../../../store/useAuthStore';
+import { useSocket } from '../../../hooks/useSocket';
+import EmptyState from '../../../components/shared/EmptyState';
 
 interface Sender { id: string; name: string | null; avatarUrl: string | null; role: string; }
-interface Message { id: string; content: string; type: string; createdAt: string; sender: Sender; }
+interface Message { id: string; content: string; type: string; createdAt: string; sender: Sender; chatId?: string; }
 
 export default function ChatScreen() {
     const { id: bookingId } = useLocalSearchParams<{ id: string }>();
     const insets = useSafeAreaInsets();
     const { showError } = useToast();
+    const user = useAuthStore((s) => s.user);
+
     const [chat, setChat] = useState<any>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(true);
     const [text, setText] = useState('');
     const [sending, setSending] = useState(false);
+    const [othersTyping, setOthersTyping] = useState(false);
+
     const flatListRef = useRef<FlatList>(null);
-    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const { joinChat, leaveChat, onChatMessage, onTyping, sendTyping } = useSocket();
 
     const initChat = useCallback(async () => {
         try {
@@ -35,26 +46,49 @@ export default function ChatScreen() {
         finally { setLoading(false); }
     }, [bookingId]);
 
-    const pollMessages = useCallback(async () => {
-        if (!chat) return;
-        try {
-            const res = await merchantApi.getChatMessages(chat.id);
-            setMessages(res.data.messages);
-        } catch { /* silent */ }
-    }, [chat]);
+    // Initialize chat + join socket room
+    useEffect(() => {
+        initChat();
+    }, [initChat]);
 
-    useEffect(() => { initChat(); }, [initChat]);
     useEffect(() => {
         if (!chat) return;
-        pollRef.current = setInterval(pollMessages, 5000);
-        return () => { if (pollRef.current) clearInterval(pollRef.current); };
-    }, [chat, pollMessages]);
+        joinChat(chat.id);
+        return () => { leaveChat(chat.id); };
+    }, [chat?.id]);
+
+    // Real-time message + typing listeners
+    useEffect(() => {
+        if (!chat) return;
+        const cleanupMsg = onChatMessage((msg: Message) => {
+            if ((msg.chatId === chat.id || (msg as any).id) && msg.sender?.id !== user?.id) {
+                setMessages(prev => [...prev, msg]);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+        });
+        const cleanupTyping = onTyping((data) => {
+            if (data.chatId === chat.id && data.userId !== user?.id) {
+                setOthersTyping(data.isTyping);
+            }
+        });
+        return () => { cleanupMsg(); cleanupTyping(); };
+    }, [chat?.id, user?.id]);
+
+    const handleTextChange = (value: string) => {
+        setText(value);
+        if (chat) sendTyping(chat.id, true);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => {
+            if (chat) sendTyping(chat.id, false);
+        }, 1500);
+    };
 
     const handleSend = async () => {
         if (!text.trim() || !chat) return;
         setSending(true);
         const msgText = text.trim();
         setText('');
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         try {
             const res = await merchantApi.sendMessage(chat.id, msgText);
             setMessages((prev: Message[]) => [...prev, res.data.message]);
@@ -66,14 +100,14 @@ export default function ChatScreen() {
     };
 
     const renderMessage = ({ item }: { item: Message }) => {
-        const isMerchant = item.sender.role === 'MERCHANT';
+        const isMine = item.sender.id === user?.id;
         return (
-            <View style={[styles.bubble, isMerchant ? styles.myBubble : styles.otherBubble]}>
-                {!isMerchant && (
+            <View style={[styles.bubble, isMine ? styles.myBubble : styles.otherBubble]}>
+                {!isMine && (
                     <Text style={styles.senderName}>{item.sender.name ?? item.sender.role}</Text>
                 )}
-                <Text style={[styles.messageText, isMerchant && styles.myMessageText]}>{item.content}</Text>
-                <Text style={[styles.messageTime, isMerchant && styles.myMessageTime]}>
+                <Text style={[styles.messageText, isMine && styles.myMessageText]}>{item.content}</Text>
+                <Text style={[styles.messageTime, isMine && styles.myMessageTime]}>
                     {new Date(item.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                 </Text>
             </View>
@@ -100,7 +134,12 @@ export default function ChatScreen() {
                 >
                     <ChevronLeft size={22} color="#1E293B" />
                 </Pressable>
-                <Text style={styles.headerTitle}>Order Chat</Text>
+                <View style={styles.headerInfo}>
+                    <Text style={styles.headerTitle}>Order Chat</Text>
+                    {othersTyping && (
+                        <Text style={styles.typingText}>typing...</Text>
+                    )}
+                </View>
                 <View style={{ width: 44 }} />
             </View>
 
@@ -117,13 +156,11 @@ export default function ChatScreen() {
                     contentContainerStyle={styles.messageList}
                     onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
                     ListEmptyComponent={
-                        <View style={styles.empty}>
-                            <View style={styles.emptyIconBox}>
-                                <MessageCircle size={32} color="#CBD5E1" strokeWidth={1.5} />
-                            </View>
-                            <Text style={styles.emptyTitle}>Start the conversation</Text>
-                            <Text style={styles.emptyHint}>Send a message to begin</Text>
-                        </View>
+                        <EmptyState
+                            icon="chatbubble-ellipses-outline"
+                            title="Start the conversation"
+                            subtitle="Send a message to begin"
+                        />
                     }
                 />
 
@@ -132,7 +169,7 @@ export default function ChatScreen() {
                         style={styles.input}
                         placeholder="Type a message..."
                         value={text}
-                        onChangeText={setText}
+                        onChangeText={handleTextChange}
                         multiline
                         maxLength={2000}
                         placeholderTextColor="#CBD5E1"
@@ -169,7 +206,9 @@ const styles = StyleSheet.create({
         borderWidth: 1, borderColor: '#F1F5F9',
         justifyContent: 'center', alignItems: 'center',
     },
-    headerTitle: { flex: 1, fontSize: 17, fontWeight: '800', color: '#0F172A', textAlign: 'center' },
+    headerInfo: { flex: 1 },
+    headerTitle: { fontSize: 17, fontWeight: '800', color: '#0F172A', textAlign: 'center' },
+    typingText: { fontSize: 12, fontWeight: '600', color: Colors.primary, textAlign: 'center', marginTop: 2 },
 
     messageList: { padding: Spacing.lg, paddingBottom: Spacing.sm, flexGrow: 1, justifyContent: 'flex-end' },
 
@@ -196,12 +235,4 @@ const styles = StyleSheet.create({
         justifyContent: 'center', alignItems: 'center',
     },
     sendBtnDisabled: { opacity: 0.35 },
-
-    empty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 8 },
-    emptyIconBox: {
-        width: 64, height: 64, borderRadius: 20, backgroundColor: '#F1F5F9',
-        justifyContent: 'center', alignItems: 'center', marginBottom: 8,
-    },
-    emptyTitle: { fontSize: 16, fontWeight: '700', color: '#334155' },
-    emptyHint: { fontSize: 13, color: '#94A3B8', fontWeight: '500' },
 });

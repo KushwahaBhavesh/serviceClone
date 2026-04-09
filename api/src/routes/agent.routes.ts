@@ -22,6 +22,7 @@ router.put('/availability', asyncHandler(ac.updateAvailability));
 router.post('/location', asyncHandler(ac.updateLocation));
 
 // ─── CHAT ───
+router.get('/chat', asyncHandler(ac.listChats));
 router.post('/chat/open/:bookingId', asyncHandler(ac.openChat));
 router.get('/chat/:chatId/messages', asyncHandler(ac.getChatMessages));
 router.post('/chat/:chatId/messages', asyncHandler(ac.sendChatMessage));

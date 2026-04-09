@@ -96,4 +96,17 @@ export const agentApi = {
 
     acceptJob: (jobId: string) =>
         api.post(`/agent/jobs/${jobId}/accept`),
+
+    // ─── CHAT ───
+    listChats: () =>
+        api.get<{ chats: Chat[] }>('/agent/chat'),
+
+    openChat: (bookingId: string) =>
+        api.post<{ chat: Chat }>(`/agent/chat/open/${bookingId}`),
+
+    getChatMessages: (chatId: string, params?: { page?: number; limit?: number }) =>
+        api.get<{ messages: any[]; total: number }>(`/agent/chat/${chatId}/messages`, { params }),
+
+    sendMessage: (chatId: string, content: string) =>
+        api.post<{ message: any }>(`/agent/chat/${chatId}/messages`, { content }),
 };

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    View, 
-    Text, 
-    StyleSheet, 
-    FlatList, 
-    Pressable, 
-    Image, 
-    ActivityIndicator, 
+import {
+    View,
+    Text,
+    StyleSheet,
+    FlatList,
+    Pressable,
+    Image,
+    ActivityIndicator,
     RefreshControl,
     Dimensions,
     TextInput
@@ -16,9 +16,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { 
-    FadeInDown, 
-    FadeInUp, 
+import Animated, {
+    FadeInDown,
+    FadeInUp,
     FadeIn,
     useSharedValue,
     useAnimatedStyle,
@@ -26,14 +26,14 @@ import Animated, {
     withTiming,
     withSequence,
 } from 'react-native-reanimated';
-import { 
-    MessageSquare, 
-    Search, 
-    User, 
-    ShieldCheck, 
-    ChevronRight, 
-    Zap, 
-    Sparkles, 
+import {
+    MessageSquare,
+    Search,
+    User,
+    ShieldCheck,
+    ChevronRight,
+    Zap,
+    Sparkles,
     Filter,
     BellDot,
     Navigation2
@@ -44,6 +44,7 @@ import { format } from 'date-fns';
 import { Colors, Spacing } from '../../constants/theme';
 import { customerApi, type Chat } from '../../lib/marketplace';
 import { getImageUrl } from '../../lib/api';
+import EmptyState from '../../components/shared/EmptyState';
 
 const { width } = Dimensions.get('window');
 
@@ -103,7 +104,7 @@ export default function ChatScreen() {
                             </View>
                             {item.isActive && <View style={styles.activePulse} />}
                         </View>
-                        
+
                         <View style={styles.chatContent}>
                             <View style={styles.nameRow}>
                                 <Text style={styles.nameText} numberOfLines={1}>{participantName.toUpperCase()}</Text>
@@ -111,7 +112,7 @@ export default function ChatScreen() {
                                     {lastMessage ? format(new Date(lastMessage.createdAt), 'HH:mm') : ''}
                                 </Text>
                             </View>
-                            
+
                             <Text style={styles.msgPreview} numberOfLines={1}>
                                 {lastMessage?.content || 'Waiting for messages...'}
                             </Text>
@@ -136,7 +137,7 @@ export default function ChatScreen() {
     return (
         <View style={styles.container}>
             <StatusBar style="dark" />
-            
+
             {/* Sticky Glass Header */}
             <View style={[styles.header, { paddingTop: insets.top }]}>
                 <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
@@ -180,13 +181,11 @@ export default function ChatScreen() {
                 }
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <View style={styles.emptyIconBox}>
-                            <MessageSquare size={48} color="#E2E8F0" strokeWidth={1.5} />
-                        </View>
-                        <Text style={styles.emptyTitle}>NO MESSAGES</Text>
-                        <Text style={styles.emptySubtitle}>Your active chats will appear here for communication.</Text>
-                    </View>
+                    !loading ? <EmptyState
+                        icon="chatbubble-ellipses-outline"
+                        title="No conversations yet"
+                        subtitle="Start a conversation with a merchant or agent"
+                    /> : null
                 }
             />
         </View>
@@ -208,14 +207,14 @@ const styles = StyleSheet.create({
     searchInput: { flex: 1, fontSize: 13, fontWeight: '700', color: '#0F172A', letterSpacing: 0.5 },
 
     listContent: { paddingHorizontal: 20, paddingBottom: 120 },
-    
+
     chatCard: { backgroundColor: '#FFF', borderRadius: 28, padding: 18, marginBottom: 12, borderWidth: 1.5, borderColor: '#F8FAFC', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.02, shadowRadius: 10, elevation: 1 },
     cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 15 },
     avatarWrap: { position: 'relative' },
     avatar: { width: 60, height: 60, borderRadius: 24, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     avatarImg: { width: '100%', height: '100%' },
     activePulse: { position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.success, borderWidth: 3, borderColor: '#FFF' },
-    
+
     chatContent: { flex: 1 },
     nameRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
     nameText: { fontSize: 14, fontWeight: '900', color: '#0F172A', letterSpacing: -0.2 },

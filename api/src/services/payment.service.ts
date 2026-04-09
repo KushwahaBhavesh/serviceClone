@@ -1,6 +1,37 @@
 import prisma from '../lib/prisma';
 import { BadRequestError } from '../middleware/error-handler';
 import crypto from 'crypto';
+import Razorpay from 'razorpay';
+
+// ─── Razorpay Singleton ───
+
+const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+    key_secret: process.env.RAZORPAY_KEY_SECRET || '',
+});
+
+const CURRENCY = process.env.PAYMENT_CURRENCY || 'INR';
+
+// ─── Signature Verification ───
+
+function verifyRazorpaySignature(orderId: string, paymentId: string, signature: string): boolean {
+    const secret = process.env.RAZORPAY_KEY_SECRET || '';
+    const body = `${orderId}|${paymentId}`;
+    const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(body)
+        .digest('hex');
+    return expectedSignature === signature;
+}
+
+function verifyWebhookSignature(rawBody: string | Buffer, signature: string): boolean {
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET || '';
+    const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(rawBody)
+        .digest('hex');
+    return expectedSignature === signature;
+}
 
 // ─── Payment Intent ───
 
@@ -51,8 +82,19 @@ export async function initiatePayment(userId: string, data: {
         };
     }
 
-    // For RAZORPAY / UPI / CARD — create a payment order (placeholder for gateway SDK)
-    const orderId = `pay_${crypto.randomBytes(12).toString('hex')}`;
+    // For RAZORPAY / UPI / CARD — create a real Razorpay order
+    const amountInPaise = Math.round(booking.total * 100);
+
+    const razorpayOrder = await razorpay.orders.create({
+        amount: amountInPaise,
+        currency: CURRENCY,
+        receipt: `booking_${booking.bookingNumber}`,
+        notes: {
+            bookingId: booking.id,
+            userId,
+            bookingNumber: booking.bookingNumber,
+        },
+    });
 
     // Create a pending wallet transaction as a payment record
     const transaction = await prisma.walletTransaction.create({
@@ -70,26 +112,26 @@ export async function initiatePayment(userId: string, data: {
         status: 'PENDING',
         method: data.method,
         amount: booking.total,
-        orderId,
+        orderId: razorpayOrder.id,
         transactionId: transaction.id,
-        // In production, this would be Razorpay order_id or Stripe payment_intent
         gatewayConfig: {
             key: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
-            amount: Math.round(booking.total * 100), // paise
-            currency: 'INR',
-            name: 'Home Service',
+            amount: amountInPaise,
+            currency: CURRENCY,
+            name: 'ServiceClone',
             description: `Booking #${booking.bookingNumber}`,
-            orderId,
+            orderId: razorpayOrder.id,
         },
     };
 }
 
-// ─── Payment Webhook / Confirmation ───
+// ─── Payment Confirmation ───
 
 export async function confirmPayment(data: {
     transactionId: string;
     gatewayPaymentId: string;
-    gatewaySignature?: string;
+    gatewayOrderId: string;
+    gatewaySignature: string;
 }) {
     const transaction = await prisma.walletTransaction.findUnique({
         where: { id: data.transactionId },
@@ -97,9 +139,13 @@ export async function confirmPayment(data: {
     if (!transaction) throw new BadRequestError('Transaction not found');
     if (transaction.status !== 'PENDING') throw new BadRequestError('Transaction already processed');
 
-    // In production: verify Razorpay signature here
-    // const isValid = razorpay.validateWebhookSignature(...)
-    // if (!isValid) throw new BadRequestError('Invalid payment signature');
+    // Verify Razorpay signature
+    const isValid = verifyRazorpaySignature(
+        data.gatewayOrderId,
+        data.gatewayPaymentId,
+        data.gatewaySignature
+    );
+    if (!isValid) throw new BadRequestError('Invalid payment signature');
 
     const [updatedTx, updatedBooking] = await prisma.$transaction([
         prisma.walletTransaction.update({
@@ -115,6 +161,72 @@ export async function confirmPayment(data: {
     return { status: 'COMPLETED', transactionId: updatedTx.id };
 }
 
+// ─── Webhook Handler ───
+
+export async function handleWebhook(rawBody: string | Buffer, signature: string) {
+    const isValid = verifyWebhookSignature(rawBody, signature);
+    if (!isValid) throw new BadRequestError('Invalid webhook signature');
+
+    const payload = typeof rawBody === 'string' ? JSON.parse(rawBody) : JSON.parse(rawBody.toString());
+    const event = payload.event;
+    const entity = payload.payload?.payment?.entity;
+
+    if (!entity) return { status: 'ignored', event };
+
+    const orderId = entity.order_id;
+    const paymentId = entity.id;
+
+    // Idempotency: find the pending transaction by matching orderId in description
+    // We look up the booking from the Razorpay order notes
+    const notes = entity.notes || {};
+    const bookingId = notes.bookingId;
+
+    if (!bookingId) return { status: 'ignored', reason: 'no bookingId in notes' };
+
+    switch (event) {
+        case 'payment.captured': {
+            // Mark booking as PAID
+            const tx = await prisma.walletTransaction.findFirst({
+                where: { referenceId: bookingId, status: 'PENDING', type: 'PAYMENT' },
+            });
+            if (!tx) return { status: 'ignored', reason: 'no pending transaction' };
+
+            await prisma.$transaction([
+                prisma.walletTransaction.update({
+                    where: { id: tx.id },
+                    data: { status: 'COMPLETED' },
+                }),
+                prisma.booking.update({
+                    where: { id: bookingId },
+                    data: { paymentStatus: 'PAID' },
+                }),
+            ]);
+            return { status: 'processed', event, bookingId };
+        }
+
+        case 'payment.failed': {
+            const tx = await prisma.walletTransaction.findFirst({
+                where: { referenceId: bookingId, status: 'PENDING', type: 'PAYMENT' },
+            });
+            if (!tx) return { status: 'ignored', reason: 'no pending transaction' };
+
+            await prisma.walletTransaction.update({
+                where: { id: tx.id },
+                data: { status: 'FAILED' },
+            });
+            return { status: 'processed', event, bookingId };
+        }
+
+        case 'refund.processed': {
+            // Update refund status if applicable
+            return { status: 'processed', event, bookingId };
+        }
+
+        default:
+            return { status: 'ignored', event };
+    }
+}
+
 // ─── Refund ───
 
 export async function processRefund(userId: string, bookingId: string, reason?: string) {
@@ -127,6 +239,7 @@ export async function processRefund(userId: string, bookingId: string, reason?: 
         throw new BadRequestError('Booking must be cancelled or rejected for refund');
     }
 
+    // Refund to wallet (instant) regardless of original payment method
     const [updatedUser, refundTx, updatedBooking] = await prisma.$transaction([
         prisma.user.update({
             where: { id: userId },
@@ -156,11 +269,90 @@ export async function processRefund(userId: string, bookingId: string, reason?: 
     };
 }
 
+// ─── Wallet Top-Up ───
+
+export async function walletTopup(userId: string, amount: number) {
+    if (amount < 100) throw new BadRequestError('Minimum top-up amount is ₹100');
+
+    const amountInPaise = Math.round(amount * 100);
+
+    const razorpayOrder = await razorpay.orders.create({
+        amount: amountInPaise,
+        currency: CURRENCY,
+        receipt: `wallet_topup_${userId}_${Date.now()}`,
+        notes: { userId, type: 'WALLET_TOPUP' },
+    });
+
+    // Create a pending topup transaction
+    const transaction = await prisma.walletTransaction.create({
+        data: {
+            userId,
+            amount,
+            type: 'TOPUP',
+            status: 'PENDING',
+            description: `Wallet top-up of ₹${amount}`,
+            referenceId: razorpayOrder.id,
+        },
+    });
+
+    return {
+        status: 'PENDING',
+        orderId: razorpayOrder.id,
+        transactionId: transaction.id,
+        gatewayConfig: {
+            key: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+            amount: amountInPaise,
+            currency: CURRENCY,
+            name: 'ServiceClone',
+            description: `Wallet Top-up ₹${amount}`,
+            orderId: razorpayOrder.id,
+        },
+    };
+}
+
+export async function walletConfirm(userId: string, data: {
+    transactionId: string;
+    gatewayPaymentId: string;
+    gatewayOrderId: string;
+    gatewaySignature: string;
+}) {
+    const transaction = await prisma.walletTransaction.findUnique({
+        where: { id: data.transactionId },
+    });
+    if (!transaction) throw new BadRequestError('Transaction not found');
+    if (transaction.userId !== userId) throw new BadRequestError('Unauthorized');
+    if (transaction.status !== 'PENDING') throw new BadRequestError('Transaction already processed');
+
+    // Verify Razorpay signature
+    const isValid = verifyRazorpaySignature(
+        data.gatewayOrderId,
+        data.gatewayPaymentId,
+        data.gatewaySignature
+    );
+    if (!isValid) throw new BadRequestError('Invalid payment signature');
+
+    const [updatedUser, updatedTx] = await prisma.$transaction([
+        prisma.user.update({
+            where: { id: userId },
+            data: { walletBalance: { increment: transaction.amount } },
+        }),
+        prisma.walletTransaction.update({
+            where: { id: transaction.id },
+            data: { status: 'COMPLETED' },
+        }),
+    ]);
+
+    return {
+        status: 'COMPLETED',
+        transactionId: updatedTx.id,
+        amount: transaction.amount,
+        newBalance: updatedUser.walletBalance,
+    };
+}
+
 // ─── Payment Methods (Saved Cards / UPI) ───
 
 export async function listPaymentMethods(userId: string) {
-    // In production, this would query Razorpay/Stripe for saved tokens
-    // For now, return wallet info + placeholder methods
     const user = await prisma.user.findUnique({
         where: { id: userId },
         select: { walletBalance: true },
@@ -168,9 +360,7 @@ export async function listPaymentMethods(userId: string) {
 
     return {
         wallet: { balance: user?.walletBalance || 0 },
-        savedMethods: [
-            // Placeholder — in production, fetched from payment gateway
-        ],
+        savedMethods: [],
         available: ['WALLET', 'RAZORPAY', 'UPI', 'CARD'],
     };
 }

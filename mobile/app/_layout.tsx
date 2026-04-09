@@ -5,9 +5,12 @@ import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppPersistence } from '../hooks/useAppPersistence';
+import useNotificationHandler from '../hooks/useNotificationHandler';
 import { Colors } from '../constants/theme';
 import SplashScreen from '../components/SplashScreen';
 import { ToastProvider } from '../context/ToastContext';
+import OfflineBanner from '../components/shared/OfflineBanner';
+import SessionExpiredModal from '../components/shared/SessionExpiredModal';
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isInitialized, user, hasVisitedOnboarding } = useAuthStore();
@@ -88,6 +91,7 @@ export default function RootLayout() {
   }, []);
 
   useAppPersistence();
+  useNotificationHandler();
 
   return (
     <SafeAreaProvider>
@@ -96,6 +100,8 @@ export default function RootLayout() {
         <AuthGate>
           <Slot />
         </AuthGate>
+        <OfflineBanner />
+        <SessionExpiredModal />
       </ToastProvider>
     </SafeAreaProvider>
   );

@@ -1,31 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    View, 
-    Text, 
-    StyleSheet, 
-    FlatList, 
-    Pressable, 
-    RefreshControl, 
+import {
+    View,
+    Text,
+    StyleSheet,
+    FlatList,
+    Pressable,
+    RefreshControl,
     ActivityIndicator,
-    Platform 
+    Platform
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { 
-    FadeInUp, 
-    FadeInDown, 
+import Animated, {
+    FadeInUp,
+    FadeInDown,
     FadeInRight,
 } from 'react-native-reanimated';
-import { 
-    Bell, 
-    ChevronLeft, 
-    Calendar, 
-    MessageSquare, 
-    Ticket, 
-    Wallet, 
+import {
+    Bell,
+    ChevronLeft,
+    Calendar,
+    MessageSquare,
+    Ticket,
+    Wallet,
     BellOff,
     Sparkles,
     CheckCheck,
@@ -37,12 +37,13 @@ import { format } from 'date-fns';
 import { Colors, Spacing } from '../../../constants/theme';
 import { customerApi, type Notification } from '../../../lib/marketplace';
 import { useToast } from '../../../context/ToastContext';
+import EmptyState from '../../../components/shared/EmptyState';
 
 export default function NotificationsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const { showSuccess, showInfo } = useToast();
-    
+
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -116,7 +117,7 @@ export default function NotificationsScreen() {
                     onPress={() => handleNotificationPress(item)}
                 >
                     {isUnread && <View style={styles.unreadAccent} />}
-                    
+
                     <View style={[styles.iconBox, { backgroundColor: color + '10' }]}>
                         <Icon size={20} color={color} strokeWidth={2.5} />
                     </View>
@@ -129,7 +130,7 @@ export default function NotificationsScreen() {
                             <Text style={styles.timeText}>{format(new Date(item.createdAt), 'h:mm a')}</Text>
                         </View>
                         <Text style={styles.bodyText} numberOfLines={2}>{item.body}</Text>
-                        
+
                         <View style={styles.footerRow}>
                             <View style={styles.typeBadge}>
                                 <Text style={[styles.typeText, { color }]}>{item.type.replace('_', ' ')}</Text>
@@ -145,7 +146,7 @@ export default function NotificationsScreen() {
     return (
         <View style={styles.container}>
             <StatusBar style="dark" translucent />
-            
+
             {/* Sticky Oracle Header */}
             <View style={[styles.stickyHeader, { height: insets.top + 60 }]}>
                 <BlurView intensity={100} tint="light" style={StyleSheet.absoluteFill} />
@@ -186,13 +187,11 @@ export default function NotificationsScreen() {
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
                     }
                     ListEmptyComponent={
-                        <Animated.View entering={FadeInDown} style={styles.emptyState}>
-                            <View style={styles.emptyIconBox}>
-                                <BellOff size={48} color="#CBD5E1" strokeWidth={1} />
-                            </View>
-                            <Text style={styles.emptyText}>SILENCE REGIMEN</Text>
-                            <Text style={styles.emptySubText}>No intelligence reports currently available.</Text>
-                        </Animated.View>
+                        <EmptyState
+                            icon="notifications-off-outline"
+                            title="No notifications yet"
+                            subtitle="You're all caught up! New alerts will appear here."
+                        />
                     }
                 />
             )}
@@ -203,7 +202,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F8FAFC' },
     centerBox: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    
+
     // Sticky Header
     stickyHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100 },
     headerContent: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20 },
@@ -218,36 +217,36 @@ const styles = StyleSheet.create({
     listContent: { paddingHorizontal: 20 },
 
     // Notification Cards
-    notificationCard: { 
-        flexDirection: 'row', 
-        backgroundColor: '#FFF', 
-        borderRadius: 28, 
-        padding: 18, 
-        marginBottom: 12, 
-        borderWidth: 1.5, 
-        borderColor: '#F1F5F9', 
-        shadowColor: '#000', 
-        shadowOffset: { width: 0, height: 8 }, 
-        shadowOpacity: 0.04, 
-        shadowRadius: 15, 
+    notificationCard: {
+        flexDirection: 'row',
+        backgroundColor: '#FFF',
+        borderRadius: 28,
+        padding: 18,
+        marginBottom: 12,
+        borderWidth: 1.5,
+        borderColor: '#F1F5F9',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.04,
+        shadowRadius: 15,
         elevation: 2,
         overflow: 'hidden',
         position: 'relative'
     },
-    unreadCard: { 
-        backgroundColor: '#FFF', 
+    unreadCard: {
+        backgroundColor: '#FFF',
         borderColor: Colors.primary + '20',
         elevation: 4
     },
-    unreadAccent: { 
-        position: 'absolute', 
-        left: 0, 
-        top: 20, 
-        bottom: 20, 
-        width: 4, 
-        backgroundColor: Colors.primary, 
-        borderTopRightRadius: 4, 
-        borderBottomRightRadius: 4 
+    unreadAccent: {
+        position: 'absolute',
+        left: 0,
+        top: 20,
+        bottom: 20,
+        width: 4,
+        backgroundColor: Colors.primary,
+        borderTopRightRadius: 4,
+        borderBottomRightRadius: 4
     },
     iconBox: { width: 48, height: 48, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
     contentBox: { flex: 1, marginLeft: 15 },

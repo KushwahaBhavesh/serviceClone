@@ -4,6 +4,7 @@ import {
     Text,
     StyleSheet,
     FlatList,
+    ScrollView,
     Pressable,
     ActivityIndicator,
     RefreshControl,
@@ -16,18 +17,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { 
-    FadeInUp, 
-    FadeInDown, 
+import Animated, {
+    FadeInUp,
+    FadeInDown,
     FadeInRight,
 } from 'react-native-reanimated';
-import { 
-    ChevronLeft, 
-    Plus, 
-    Wallet, 
-    ArrowUpRight, 
-    ArrowDownLeft, 
-    RefreshCcw, 
+import {
+    ChevronLeft,
+    Plus,
+    Wallet,
+    ArrowUpRight,
+    ArrowDownLeft,
+    RefreshCcw,
     History,
     Sparkles,
     Check,
@@ -38,7 +39,7 @@ import {
 import * as Haptics from 'expo-haptics';
 
 import { Colors, Spacing } from '../../../constants/theme';
-import { customerApi, type WalletTransaction } from '../../../lib/marketplace';
+import { customerApi, paymentApi, type WalletTransaction } from '../../../lib/marketplace';
 import { useToast } from '../../../context/ToastContext';
 import { Input } from '../../../components/ui/Input';
 
@@ -48,7 +49,7 @@ export default function WalletScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
     const { showSuccess, showError, showInfo } = useToast();
-    
+
     const [balance, setBalance] = useState<number>(0);
     const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -89,24 +90,51 @@ export default function WalletScreen() {
 
     const handleAddBalance = async () => {
         const amount = parseFloat(addAmount);
-        if (isNaN(amount) || amount <= 0) {
-            showInfo('Please enter a valid amount.');
+        if (isNaN(amount) || amount < 100) {
+            showInfo('Minimum top-up amount is ₹100.');
             return;
         }
 
         try {
             setIsSaving(true);
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            // Simulate API call for balance update if it were an endpoint
-            // For now, let's just show success since the real API might handle this differently
-            showSuccess(`Infrastructure credit of ${formatCurrency(amount)} initiated.`);
-            setTimeout(() => {
+
+            // Create gateway order for wallet top-up
+            const { data: topupData } = await paymentApi.walletTopup({ amount });
+
+            if (topupData.gatewayConfig) {
+                const config = topupData.gatewayConfig;
+                const RazorpayCheckout = (await import('react-native-razorpay')).default;
+                const sdkResult = await RazorpayCheckout.open({
+                    key: config.key,
+                    amount: config.amount,
+                    currency: config.currency,
+                    name: config.name,
+                    description: config.description,
+                    order_id: config.orderId,
+                    theme: { color: '#FF5722' },
+                });
+
+                // Verify payment and credit wallet
+                const { data: confirmData } = await paymentApi.walletConfirm({
+                    transactionId: topupData.transactionId,
+                    razorpay_payment_id: sdkResult.razorpay_payment_id,
+                    razorpay_order_id: sdkResult.razorpay_order_id,
+                    razorpay_signature: sdkResult.razorpay_signature,
+                });
+
+                setBalance(confirmData.newBalance);
+                showSuccess(`${formatCurrency(amount)} added to your wallet!`);
                 setIsAddModalVisible(false);
                 setAddAmount('');
-                fetchWalletData();
-            }, 1000);
-        } catch (err) {
-            showError('Global payment gateway unavailable.');
+                fetchWalletData(); // Refresh transactions list
+            }
+        } catch (err: any) {
+            if (err?.code === 'PAYMENT_CANCELLED') {
+                showInfo('Top-up cancelled.');
+            } else {
+                showError(err?.description || err?.message || 'Top-up failed. Please try again.');
+            }
         } finally {
             setIsSaving(false);
         }
@@ -115,8 +143,8 @@ export default function WalletScreen() {
     const renderTransaction = ({ item, index }: { item: WalletTransaction, index: number }) => {
         const isCredit = ['TOPUP', 'REFUND'].includes(item.type);
         const Icon = item.type === 'TOPUP' ? ArrowUpRight :
-                   item.type === 'PAYMENT' ? ArrowDownLeft :
-                   item.type === 'REFUND' ? RefreshCcw : History;
+            item.type === 'PAYMENT' ? ArrowDownLeft :
+                item.type === 'REFUND' ? RefreshCcw : History;
         const color = isCredit ? '#10B981' : '#64748B';
 
         return (
@@ -145,7 +173,7 @@ export default function WalletScreen() {
     return (
         <View style={styles.container}>
             <StatusBar style="dark" translucent />
-            
+
             {/* Sticky Oracle Header */}
             <View style={[styles.stickyHeader, { height: insets.top + 60 }]}>
                 <BlurView intensity={100} tint="light" style={StyleSheet.absoluteFill} />
@@ -164,7 +192,7 @@ export default function WalletScreen() {
                 </View>
             </View>
 
-            <ScrollView 
+            <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={[
                     styles.scrollContent,
@@ -198,7 +226,7 @@ export default function WalletScreen() {
                                 <ShieldCheck size={12} color="#FFF" strokeWidth={2.5} />
                                 <Text style={styles.verifiedText}>SECURE ORACLE VAULT</Text>
                             </View>
-                            <Pressable 
+                            <Pressable
                                 onPress={() => setIsAddModalVisible(true)}
                                 style={({ pressed }) => [
                                     styles.cardActionBtn,
@@ -279,7 +307,7 @@ export default function WalletScreen() {
 
                             <View style={styles.quickAmounts}>
                                 {[500, 1000, 2000, 5000].map(amt => (
-                                    <Pressable 
+                                    <Pressable
                                         key={amt}
                                         onPress={() => {
                                             setAddAmount(amt.toString());
@@ -325,7 +353,7 @@ export default function WalletScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F8FAFC' },
-    
+
     // Sticky Header
     stickyHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100 },
     headerContent: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 15, paddingHorizontal: 20 },

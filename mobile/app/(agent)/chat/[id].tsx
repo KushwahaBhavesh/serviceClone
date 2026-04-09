@@ -5,119 +5,113 @@ import {
     StyleSheet,
     FlatList,
     TextInput,
-    TouchableOpacity,
+    Pressable,
     ActivityIndicator,
     KeyboardAvoidingView,
     Platform,
-    Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../../../lib/api';
+import { Send, ChevronLeft } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+
 import { Colors, Spacing, FontSize, BorderRadius } from '../../../constants/theme';
+import { agentApi } from '../../../lib/agent';
+import { useAuthStore } from '../../../store/useAuthStore';
+import { useSocket } from '../../../hooks/useSocket';
+import EmptyState from '../../../components/shared/EmptyState';
 
-const AGENT_API = '/api/v1/agent';
-
-interface Sender {
-    id: string;
-    name: string | null;
-    avatarUrl: string | null;
-    role: string;
-}
-
-interface Message {
-    id: string;
-    content: string;
-    type: string;
-    createdAt: string;
-    sender: Sender;
-}
-
-interface Participant {
-    id: string;
-    userId: string;
-    user: Sender;
-}
-
-interface Chat {
-    id: string;
-    bookingId: string;
-    messages: Message[];
-    participants: Participant[];
-}
+interface Sender { id: string; name: string | null; avatarUrl: string | null; role: string; }
+interface Message { id: string; content: string; type: string; createdAt: string; sender: Sender; chatId?: string; }
 
 export default function AgentChatScreen() {
     const { id: bookingId } = useLocalSearchParams<{ id: string }>();
-    const [chat, setChat] = useState<Chat | null>(null);
+    const insets = useSafeAreaInsets();
+    const user = useAuthStore((s) => s.user);
+
+    const [chat, setChat] = useState<any>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [loading, setLoading] = useState(true);
     const [text, setText] = useState('');
     const [sending, setSending] = useState(false);
+    const [othersTyping, setOthersTyping] = useState(false);
+
     const flatListRef = useRef<FlatList>(null);
-    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const { joinChat, leaveChat, onChatMessage, onTyping, sendTyping } = useSocket();
 
     const initChat = useCallback(async () => {
         try {
-            const res = await api.post<{ chat: Chat }>(AGENT_API + `/chat/open/${bookingId}`);
+            const res = await agentApi.openChat(bookingId);
             const c = res.data.chat;
             setChat(c);
-            // Reverse messages for standard chat display (bottom up)
             setMessages((c.messages ?? []).reverse());
-        } catch (error) {
-            console.error('Chat init error:', error);
-            Alert.alert('Error', 'Could not open chat');
-        } finally {
-            setLoading(false);
-        }
+        } catch {
+            console.error('Chat init error');
+        } finally { setLoading(false); }
     }, [bookingId]);
 
-    const pollMessages = useCallback(async () => {
-        if (!chat) return;
-        try {
-            const res = await api.get<{ messages: Message[] }>(AGENT_API + `/chat/${chat.id}/messages`);
-            setMessages(res.data.messages);
-        } catch { /* silent polling */ }
-    }, [chat]);
-
+    // Init + join socket room
     useEffect(() => { initChat(); }, [initChat]);
 
     useEffect(() => {
         if (!chat) return;
-        pollRef.current = setInterval(pollMessages, 5000);
-        return () => { if (pollRef.current) clearInterval(pollRef.current); };
-    }, [chat, pollMessages]);
+        joinChat(chat.id);
+        return () => { leaveChat(chat.id); };
+    }, [chat?.id]);
+
+    // Real-time message + typing listeners
+    useEffect(() => {
+        if (!chat) return;
+        const cleanupMsg = onChatMessage((msg: Message) => {
+            if (msg.sender?.id !== user?.id) {
+                setMessages(prev => [...prev, msg]);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }
+        });
+        const cleanupTyping = onTyping((data) => {
+            if (data.chatId === chat.id && data.userId !== user?.id) {
+                setOthersTyping(data.isTyping);
+            }
+        });
+        return () => { cleanupMsg(); cleanupTyping(); };
+    }, [chat?.id, user?.id]);
+
+    const handleTextChange = (value: string) => {
+        setText(value);
+        if (chat) sendTyping(chat.id, true);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => {
+            if (chat) sendTyping(chat.id, false);
+        }, 1500);
+    };
 
     const handleSend = async () => {
         if (!text.trim() || !chat) return;
         setSending(true);
         const msgText = text.trim();
         setText('');
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         try {
-            const res = await api.post<{ message: Message }>(AGENT_API + `/chat/${chat.id}/messages`, { content: msgText });
+            const res = await agentApi.sendMessage(chat.id, msgText);
             setMessages(prev => [...prev, res.data.message]);
             setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
         } catch {
             setText(msgText);
-            Alert.alert('Error', 'Failed to send message');
-        } finally {
-            setSending(false);
-        }
+        } finally { setSending(false); }
     };
 
     const renderMessage = ({ item }: { item: Message }) => {
-        // Find if this message is from the current user (Agent)
-        // Note: sender.id should be the current user's ID. 
-        // For now, simpler heuristic: if role is AGENT, it's "mine" (or use user store if available)
-        const isMe = item.sender.role === 'AGENT';
-
+        const isMine = item.sender.id === user?.id;
         return (
-            <View style={[styles.bubble, isMe ? styles.myBubble : styles.otherBubble]}>
-                {!isMe && (
+            <View style={[styles.bubble, isMine ? styles.myBubble : styles.otherBubble]}>
+                {!isMine && (
                     <Text style={styles.senderName}>{item.sender.name ?? item.sender.role}</Text>
                 )}
-                <Text style={[styles.messageText, isMe && styles.myMessageText]}>{item.content}</Text>
-                <Text style={[styles.messageTime, isMe && styles.myMessageTime]}>
+                <Text style={[styles.messageText, isMine && styles.myMessageText]}>{item.content}</Text>
+                <Text style={[styles.messageTime, isMine && styles.myMessageTime]}>
                     {new Date(item.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                 </Text>
             </View>
@@ -126,30 +120,37 @@ export default function AgentChatScreen() {
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
-            </SafeAreaView>
+            <View style={[styles.center, { paddingTop: insets.top }]}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
         );
     }
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
-            <Stack.Screen
-                options={{
-                    title: 'Chat',
-                    headerLeft: () => (
-                        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
-                            <Ionicons name="arrow-back" size={24} color={Colors.text} />
-                        </TouchableOpacity>
-                    ),
-                    headerShadowVisible: false,
-                    headerStyle: { backgroundColor: Colors.background },
-                }}
-            />
+        <View style={styles.container}>
+            <Stack.Screen options={{ headerShown: false }} />
+
+            {/* Header */}
+            <View style={[styles.header, { paddingTop: insets.top + Spacing.sm }]}>
+                <Pressable
+                    onPress={() => router.back()}
+                    style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
+                >
+                    <ChevronLeft size={22} color="#1E293B" />
+                </Pressable>
+                <View style={styles.headerInfo}>
+                    <Text style={styles.headerTitle}>Job Chat</Text>
+                    {othersTyping && (
+                        <Text style={styles.typingText}>typing...</Text>
+                    )}
+                </View>
+                <View style={{ width: 44 }} />
+            </View>
+
             <KeyboardAvoidingView
                 style={styles.flex}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+                keyboardVerticalOffset={0}
             >
                 <FlatList
                     ref={flatListRef}
@@ -159,60 +160,82 @@ export default function AgentChatScreen() {
                     contentContainerStyle={styles.messageList}
                     onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
                     ListEmptyComponent={
-                        <View style={styles.empty}>
-                            <Ionicons name="chatbubbles-outline" size={48} color={Colors.textMuted} />
-                            <Text style={styles.emptyText}>Start the conversation</Text>
-                        </View>
+                        <EmptyState
+                            icon="chatbubbles-outline"
+                            title="Start the conversation"
+                            subtitle="Send a message to begin"
+                        />
                     }
                 />
-                <View style={styles.inputBar}>
+                <View style={[styles.inputBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
                     <TextInput
                         style={styles.input}
                         placeholder="Type a message..."
                         value={text}
-                        onChangeText={setText}
+                        onChangeText={handleTextChange}
                         multiline
                         maxLength={2000}
                         placeholderTextColor={Colors.textMuted}
                     />
-                    <TouchableOpacity
+                    <Pressable
                         style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
                         onPress={handleSend}
                         disabled={!text.trim() || sending}
                     >
                         {sending ? (
-                            <ActivityIndicator size="small" color={Colors.textOnPrimary} />
+                            <ActivityIndicator size="small" color="#FFF" />
                         ) : (
-                            <Ionicons name="send" size={18} color={Colors.textOnPrimary} />
+                            <Send size={18} color="#FFF" strokeWidth={2.5} />
                         )}
-                    </TouchableOpacity>
+                    </Pressable>
                 </View>
             </KeyboardAvoidingView>
-        </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.backgroundAlt },
+    container: { flex: 1, backgroundColor: '#F8FAFC' },
     flex: { flex: 1 },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    headerBtn: { paddingHorizontal: Spacing.sm },
-    messageList: { padding: Spacing.md, paddingBottom: Spacing.sm, flexGrow: 1, justifyContent: 'flex-end' },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
 
-    bubble: { maxWidth: '80%', padding: Spacing.sm, borderRadius: BorderRadius.md, marginBottom: Spacing.xs },
+    header: {
+        flexDirection: 'row', alignItems: 'center',
+        paddingHorizontal: Spacing.lg, paddingBottom: 14, gap: 10,
+        backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+    },
+    backBtn: {
+        width: 44, height: 44, borderRadius: 14, backgroundColor: '#F8FAFC',
+        borderWidth: 1, borderColor: '#F1F5F9',
+        justifyContent: 'center', alignItems: 'center',
+    },
+    headerInfo: { flex: 1 },
+    headerTitle: { fontSize: 17, fontWeight: '800', color: '#0F172A', textAlign: 'center' },
+    typingText: { fontSize: 12, fontWeight: '600', color: Colors.primary, textAlign: 'center', marginTop: 2 },
+
+    messageList: { padding: Spacing.lg, paddingBottom: Spacing.sm, flexGrow: 1, justifyContent: 'flex-end' },
+
+    bubble: { maxWidth: '80%', padding: 14, borderRadius: 18, marginBottom: 6 },
     myBubble: { alignSelf: 'flex-end', backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
-    otherBubble: { alignSelf: 'flex-start', backgroundColor: Colors.surface, borderBottomLeftRadius: 4 },
-    senderName: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary, marginBottom: 2 },
-    messageText: { fontSize: FontSize.sm, color: Colors.text, lineHeight: 20 },
-    myMessageText: { color: Colors.textOnPrimary },
-    messageTime: { fontSize: 10, color: Colors.textMuted, marginTop: 4, alignSelf: 'flex-end' },
-    myMessageTime: { color: Colors.textOnPrimary + '80' },
+    otherBubble: { alignSelf: 'flex-start', backgroundColor: '#FFF', borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#F1F5F9' },
+    senderName: { fontSize: 11, fontWeight: '700', color: Colors.primary, marginBottom: 3 },
+    messageText: { fontSize: 14, color: '#0F172A', lineHeight: 20, fontWeight: '500' },
+    myMessageText: { color: '#FFF' },
+    messageTime: { fontSize: 10, color: '#94A3B8', marginTop: 6, alignSelf: 'flex-end' },
+    myMessageTime: { color: 'rgba(255,255,255,0.6)' },
 
-    inputBar: { flexDirection: 'row', alignItems: 'flex-end', padding: Spacing.sm, gap: Spacing.xs, backgroundColor: Colors.surface, borderTopWidth: 1, borderTopColor: Colors.border },
-    input: { flex: 1, backgroundColor: Colors.backgroundAlt, borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, fontSize: FontSize.sm, color: Colors.text, maxHeight: 100, minHeight: 40 },
-    sendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
-    sendBtnDisabled: { opacity: 0.4 },
-
-    empty: { alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.xxl, gap: Spacing.sm },
-    emptyText: { fontSize: FontSize.sm, color: Colors.textMuted },
+    inputBar: {
+        flexDirection: 'row', alignItems: 'flex-end', padding: 12, gap: 8,
+        backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#F1F5F9',
+    },
+    input: {
+        flex: 1, backgroundColor: '#F8FAFC', borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12,
+        fontSize: 14, color: '#0F172A', fontWeight: '500', maxHeight: 100, minHeight: 44,
+        borderWidth: 1, borderColor: '#F1F5F9',
+    },
+    sendBtn: {
+        width: 44, height: 44, borderRadius: 14, backgroundColor: Colors.primary,
+        justifyContent: 'center', alignItems: 'center',
+    },
+    sendBtnDisabled: { opacity: 0.35 },
 });

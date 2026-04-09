@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from '../middleware/auth';
 import { sendSuccess, sendCreated } from '../utils/response';
 import * as bookingService from '../services/booking.service';
 import * as customerService from '../services/customer.service';
+import * as pushTemplates from '../utils/pushTemplates';
 
 // ─── ADDRESSES ───
 
@@ -36,6 +37,12 @@ export async function createBooking(req: Request, res: Response) {
     const { id } = (req as AuthenticatedRequest).user;
     const booking = await bookingService.createBooking(id, req.body);
     sendCreated(res, { booking });
+
+    // Fire-and-forget push
+    try {
+        const serviceName = (booking as any).items?.[0]?.service?.name || 'Service';
+        pushTemplates.bookingCreated(id, booking.id, serviceName).catch(() => { });
+    } catch { }
 }
 
 export async function listBookings(req: Request, res: Response) {
@@ -63,6 +70,14 @@ export async function updateBookingStatus(req: Request, res: Response) {
     const { id: userId } = (req as AuthenticatedRequest).user;
     const booking = await bookingService.updateBookingStatus(String(req.params.id), userId, req.body);
     sendSuccess(res, { booking });
+
+    // Fire-and-forget push
+    try {
+        const customerId = (booking as any).customerId || (booking as any).userId;
+        if (customerId && req.body.status) {
+            pushTemplates.jobStatusChanged(customerId, req.body.status, booking.id).catch(() => { });
+        }
+    } catch { }
 }
 
 // ─── REVIEWS ───

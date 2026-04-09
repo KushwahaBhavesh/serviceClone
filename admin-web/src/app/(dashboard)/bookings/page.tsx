@@ -9,6 +9,7 @@ import { Search, CalendarDays, Loader2, ChevronLeft, ChevronRight, Eye, MapPin, 
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { Badge } from '@/components/ui/badge';
 import { Modal } from '@/components/ui/modal';
@@ -47,6 +48,7 @@ const STATUS_TABS = [
 ];
 
 export default function BookingsPage() {
+  const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -271,7 +273,7 @@ export default function BookingsPage() {
                         variant="outline"
                         size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-primary transition-all shadow-sm"
-                        onClick={() => { setSelectedBooking(booking); setShowDetails(true); }}
+                        onClick={() => router.push(`/bookings/${booking.id}`)}
                       >
                         <Eye size={14} />
                       </Button>

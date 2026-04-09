@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import api from '../../lib/api';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../constants/theme';
+import EmptyState from '../../components/shared/EmptyState';
 
 const AGENT_API = '/api/v1/agent';
 
@@ -110,10 +111,11 @@ export default function AgentNotificationsScreen() {
                     contentContainerStyle={styles.list}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} />}
                     ListEmptyComponent={
-                        <View style={styles.empty}>
-                            <Ionicons name="notifications-off-outline" size={48} color={Colors.textMuted} />
-                            <Text style={styles.emptyText}>No notifications yet</Text>
-                        </View>
+                        <EmptyState
+                            icon="notifications-off-outline"
+                            title="No notifications yet"
+                            subtitle="Job updates and messages will appear here"
+                        />
                     }
                 />
             )}

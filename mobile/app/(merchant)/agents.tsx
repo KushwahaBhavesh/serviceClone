@@ -18,6 +18,7 @@ import { Colors, Spacing } from '../../constants/theme';
 import { merchantApi } from '../../lib/merchant';
 import { useToast } from '../../context/ToastContext';
 import type { Agent } from '../../lib/merchant';
+import EmptyState from '../../components/shared/EmptyState';
 
 const STATUS_COLOR: Record<string, string> = {
     AVAILABLE: Colors.primary,
@@ -176,13 +177,13 @@ export default function AgentManagementScreen() {
                     windowSize={5}
                     initialNumToRender={8}
                     ListEmptyComponent={
-                        <View style={styles.empty}>
-                            <View style={styles.emptyIconBox}>
-                                <Users size={32} color="#CBD5E1" strokeWidth={1.5} />
-                            </View>
-                            <Text style={styles.emptyTitle}>No agents yet</Text>
-                            <Text style={styles.emptyHint}>Add field agents to assign them to jobs</Text>
-                        </View>
+                        <EmptyState
+                            icon="people-outline"
+                            title="No agents added yet"
+                            subtitle="Add your first agent to start assigning jobs"
+                            ctaLabel="Add Agent"
+                            onCta={() => setShowAddModal(true)}
+                        />
                     }
                 />
             )}

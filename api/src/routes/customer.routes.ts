@@ -35,4 +35,7 @@ router.post('/chats/open/:bookingId', authenticate, asyncHandler(cc.openChat as 
 router.get('/chats/:chatId/messages', authenticate, asyncHandler(cc.getChatMessages as any));
 router.post('/chats/:chatId/messages', authenticate, validate(sendMessageSchema), asyncHandler(cc.sendChatMessage as any));
 
+// ─── PUSH TOKEN ───
+router.post('/push-token', authenticate, asyncHandler(cc.updatePushToken as any));
+
 export default router;

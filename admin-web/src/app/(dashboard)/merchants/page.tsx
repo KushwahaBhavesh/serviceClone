@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { Modal } from '@/components/ui/modal';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -322,6 +324,12 @@ export default function MerchantsPage() {
                         <Eye size={14} />
                         <span>Review</span>
                       </Button>
+                      <Link href={`/merchants/${merchant.id}`}>
+                        <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs">
+                          <Info size={12} />
+                          Details
+                        </Button>
+                      </Link>
                       <Button
                         variant="default" size="sm"
                         className="h-8"

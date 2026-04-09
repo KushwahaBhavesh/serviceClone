@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 const NAV_ITEMS = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/analytics', label: 'Analytics', icon: BarChart3 },
   { href: '/merchants', label: 'Merchants & KYC', icon: Store, badge: '12' },
   { href: '/agents', label: 'Service Agents', icon: ShieldCheck },

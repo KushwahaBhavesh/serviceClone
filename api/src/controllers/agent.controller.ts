@@ -5,6 +5,7 @@ import { BadRequestError, NotFoundError } from '../middleware/error-handler';
 import * as agentService from '../services/agent.service';
 import * as chatService from '../services/chat.service';
 import * as notificationService from '../services/notification.service';
+import * as pushTemplates from '../utils/pushTemplates';
 import prisma from '../lib/prisma';
 
 // ─── Helpers ───
@@ -44,6 +45,15 @@ export async function updateJobStatus(req: Request, res: Response) {
     if (!status) throw new BadRequestError('Status is required');
     const updatedJob = await agentService.updateJobStatus(userId, String(req.params.id), status);
     sendSuccess(res, updatedJob);
+
+    // Fire-and-forget push to customer
+    try {
+        const customerId = (updatedJob as any)?.booking?.customerId || (updatedJob as any)?.customerId;
+        const bookingId = (updatedJob as any)?.booking?.id || String(req.params.id);
+        if (customerId) {
+            pushTemplates.jobStatusChanged(customerId, status, bookingId).catch(() => { });
+        }
+    } catch { }
 }
 
 export async function getJobHistory(req: Request, res: Response) {
@@ -76,6 +86,12 @@ export async function updateLocation(req: Request, res: Response) {
 
 // ─── CHAT ───
 
+export async function listChats(req: Request, res: Response) {
+    const { id } = (req as AuthenticatedRequest).user;
+    const chats = await chatService.listChats(id);
+    sendSuccess(res, { chats });
+}
+
 export async function openChat(req: Request, res: Response) {
     const { id } = (req as AuthenticatedRequest).user;
     const chat = await chatService.getOrCreateChat(id, String(req.params.bookingId), 'AGENT');
@@ -98,6 +114,16 @@ export async function sendChatMessage(req: Request, res: Response) {
     if (!content) throw new BadRequestError('Content is required');
     const message = await chatService.sendChatMessage(id, String(req.params.chatId), content);
     sendCreated(res, { message });
+
+    // Fire-and-forget push to recipient
+    try {
+        const chat = await prisma.chat.findUnique({ where: { id: String(req.params.chatId) }, include: { participants: true } });
+        const sender = await prisma.user.findUnique({ where: { id }, select: { name: true } });
+        const recipient = chat?.participants?.find((p: any) => p.userId !== id);
+        if (recipient?.userId && sender?.name) {
+            pushTemplates.newMessage(recipient.userId, sender.name, content, String(req.params.chatId)).catch(() => { });
+        }
+    } catch { }
 }
 
 // ─── NOTIFICATIONS ───

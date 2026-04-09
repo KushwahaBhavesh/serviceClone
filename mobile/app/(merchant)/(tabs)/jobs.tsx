@@ -31,6 +31,7 @@ import { Colors, Spacing } from '../../../constants/theme';
 import { merchantApi } from '../../../lib/merchant';
 import type { Booking } from '../../../lib/marketplace';
 import { useToast } from '../../../context/ToastContext';
+import EmptyState from '../../../components/shared/EmptyState';
 
 type TabKey = 'PENDING' | 'ACTIVE' | 'COMPLETED';
 
@@ -207,7 +208,7 @@ export default function MerchantJobsScreen() {
     return (
         <View style={styles.container}>
             <StatusBar style="dark" translucent />
-            
+
             {/* ─── Sticky Header ─── */}
             <View style={[styles.stickyHeader, { height: insets.top + 60 }]}>
                 <BlurView intensity={100} tint="light" style={styles.absoluteFill} />
@@ -247,10 +248,10 @@ export default function MerchantJobsScreen() {
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.list}
                     refreshControl={
-                        <RefreshControl 
-                            refreshing={refreshing} 
-                            onRefresh={onRefresh} 
-                            colors={[Colors.primary]} 
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={[Colors.primary]}
                             progressViewOffset={insets.top + 60}
                         />
                     }
@@ -259,13 +260,11 @@ export default function MerchantJobsScreen() {
                     windowSize={5}
                     initialNumToRender={8}
                     ListEmptyComponent={
-                        <View style={styles.empty}>
-                            <View style={styles.emptyIconBox}>
-                                <ClipboardList size={32} color="#CBD5E1" strokeWidth={1.5} />
-                            </View>
-                            <Text style={styles.emptyTitle}>No {activeTab.toLowerCase()} orders</Text>
-                            <Text style={styles.emptyHint}>New bookings will appear here</Text>
-                        </View>
+                        <EmptyState
+                            icon="briefcase-outline"
+                            title={`No ${activeTab.toLowerCase()} orders`}
+                            subtitle="Share your services to start receiving bookings"
+                        />
                     }
                 />
             )}

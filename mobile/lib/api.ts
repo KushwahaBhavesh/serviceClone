@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import ENV from '../constants/config';
 import { getAccessToken, getRefreshToken, saveTokens, clearAll } from './storage';
+import { useAuthStore } from '../store/useAuthStore';
 
 export const API_BASE_URL = ENV.API_URL;
 
@@ -101,6 +102,8 @@ api.interceptors.response.use(
             } catch (refreshError) {
                 processQueue(refreshError, null);
                 await clearAll();
+                // Trigger session expired modal instead of silent failure
+                useAuthStore.getState().setSessionExpired(true);
                 return Promise.reject(refreshError);
             } finally {
                 isRefreshing = false;

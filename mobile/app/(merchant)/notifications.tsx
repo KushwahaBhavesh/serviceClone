@@ -14,6 +14,7 @@ import {
 import { Colors, Spacing } from '../../constants/theme';
 import { merchantApi } from '../../lib/merchant';
 import type { MerchantNotification } from '../../lib/merchant';
+import EmptyState from '../../components/shared/EmptyState';
 
 
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -60,7 +61,7 @@ export default function NotificationsScreen() {
             await merchantApi.markNotificationRead(id);
             setNotifications(prev => prev.map(n => n.id === id ? { ...n, readAt: new Date().toISOString() } : n));
             setUnreadCount(prev => Math.max(0, prev - 1));
-        } catch {}
+        } catch { }
     };
 
     const handleMarkAllRead = async () => {
@@ -68,7 +69,7 @@ export default function NotificationsScreen() {
             await merchantApi.markAllNotificationsRead();
             setNotifications(prev => prev.map(n => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })));
             setUnreadCount(0);
-        } catch {}
+        } catch { }
     };
 
     const handlePress = (item: MerchantNotification) => {
@@ -146,13 +147,11 @@ export default function NotificationsScreen() {
                             colors={[Colors.primary]} />
                     }
                     ListEmptyComponent={
-                        <View style={styles.empty}>
-                            <View style={styles.emptyIconBox}>
-                                <BellOff size={32} color="#CBD5E1" strokeWidth={1.5} />
-                            </View>
-                            <Text style={styles.emptyTitle}>All caught up!</Text>
-                            <Text style={styles.emptyHint}>You have no notifications at the moment</Text>
-                        </View>
+                        <EmptyState
+                            icon="notifications-off-outline"
+                            title="All caught up!"
+                            subtitle="You have no notifications at the moment"
+                        />
                     }
                 />
             )}

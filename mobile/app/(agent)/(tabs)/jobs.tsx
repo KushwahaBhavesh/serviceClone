@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors, Spacing, FontSize, BorderRadius } from '../../../constants/theme';
 import { agentApi, AgentJob } from '../../../lib/agent';
+import EmptyState from '../../../components/shared/EmptyState';
 
 type TabKey = 'ACTIVE' | 'UPCOMING' | 'HISTORY';
 
@@ -162,18 +163,17 @@ export default function AgentJobsScreen() {
                         />
                     }
                     ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Ionicons name="calendar-outline" size={64} color={Colors.border} />
-                            <Text style={styles.emptyTitle}>No Jobs Found</Text>
-                            <Text style={styles.emptySubtitle}>
-                                {activeTab === 'ACTIVE'
-                                    ? "You don't have any active jobs right now."
+                        <EmptyState
+                            icon="map-outline"
+                            title="No jobs assigned yet"
+                            subtitle={
+                                activeTab === 'ACTIVE'
+                                    ? 'Toggle your availability to start receiving jobs'
                                     : activeTab === 'UPCOMING'
-                                        ? "No upcoming jobs assigned yet."
-                                        : "You haven't completed any jobs yet."
-                                }
-                            </Text>
-                        </View>
+                                        ? 'No upcoming jobs assigned yet'
+                                        : 'You haven\'t completed any jobs yet'
+                            }
+                        />
                     }
                 />
             )}

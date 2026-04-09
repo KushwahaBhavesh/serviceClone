@@ -115,7 +115,15 @@ export default function AgentJobDetailScreen() {
         switch (job.status) {
             case 'ACCEPTED':
             case 'AGENT_ASSIGNED':
-                return <Button title="Mark En Route" onPress={() => handleStatusUpdate('EN_ROUTE')} loading={updating} />;
+                return (
+                    <View style={{ gap: Spacing.sm }}>
+                        <Button
+                            title="▶ Start Execution"
+                            onPress={() => router.push(`/(agent)/jobs/${id}/execute` as any)}
+                        />
+                        <Button title="Mark En Route" onPress={() => handleStatusUpdate('EN_ROUTE')} loading={updating} />
+                    </View>
+                );
             case 'EN_ROUTE':
                 return <Button title="I have Arrived" onPress={() => handleStatusUpdate('ARRIVED')} loading={updating} />;
             case 'ARRIVED':

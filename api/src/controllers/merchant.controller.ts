@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { sendSuccess, sendCreated } from '../utils/response';
 import * as merchantService from '../services/merchant.service';
+import * as pushTemplates from '../utils/pushTemplates';
+import prisma from '../lib/prisma';
 
 // ─── DASHBOARD ───
 
@@ -78,6 +80,15 @@ export async function assignAgent(req: Request, res: Response) {
     const { id: userId } = (req as AuthenticatedRequest).user;
     const booking = await merchantService.assignAgent(userId, String(req.params.id), req.body);
     sendSuccess(res, { booking });
+
+    // Fire-and-forget push to customer
+    try {
+        const customerId = (booking as any).customerId || (booking as any).userId;
+        const agentName = (booking as any).agent?.user?.name || 'An agent';
+        if (customerId) {
+            pushTemplates.agentAssigned(customerId, agentName, booking.id).catch(() => { });
+        }
+    } catch { }
 }
 
 // ─── AGENTS ───
@@ -243,6 +254,16 @@ export async function sendChatMessage(req: Request, res: Response) {
     const { id } = (req as AuthenticatedRequest).user;
     const message = await merchantService.sendChatMessage(id, String(req.params.chatId), req.body.content);
     sendCreated(res, { message });
+
+    // Fire-and-forget push to recipient
+    try {
+        const chat = await prisma.chat.findUnique({ where: { id: String(req.params.chatId) }, include: { participants: true } });
+        const sender = await prisma.user.findUnique({ where: { id }, select: { name: true } });
+        const recipient = chat?.participants?.find((p: any) => p.userId !== id);
+        if (recipient?.userId && sender?.name) {
+            pushTemplates.newMessage(recipient.userId, sender.name, req.body.content, String(req.params.chatId)).catch(() => { });
+        }
+    } catch { }
 }
 
 // ─── NOTIFICATIONS ───

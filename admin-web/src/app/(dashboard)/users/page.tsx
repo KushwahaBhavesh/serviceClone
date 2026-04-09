@@ -11,6 +11,7 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
+import { useRouter } from 'next/navigation';
 import { AlertDialog } from '@/components/ui/alert-dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -43,6 +44,7 @@ const ROLES = [
 ];
 
 export default function UsersPage() {
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [loading, setLoading] = useState(true);
@@ -301,6 +303,7 @@ export default function UsersPage() {
                       <Button
                         variant="ghost" size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/5"
+                        onClick={() => router.push(`/users/${user.id}`)}
                       >
                         <MoreVertical size={14} />
                       </Button>

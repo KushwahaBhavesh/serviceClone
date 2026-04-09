@@ -11,6 +11,7 @@ interface AuthState {
     accessToken: string | null;
     error: string | null;
     hasVisitedOnboarding: boolean;
+    sessionExpired: boolean;
 
     // Actions
     initialize: () => Promise<void>;
@@ -24,6 +25,7 @@ interface AuthState {
     logout: () => Promise<void>;
     updateLocation: (latitude: number, longitude: number, locationName: string) => Promise<void>;
     updateProfile: (data: { name?: string; email?: string; avatarUrl?: string }) => Promise<void>;
+    setSessionExpired: (expired: boolean) => void;
     clearError: () => void;
 }
 
@@ -35,6 +37,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     accessToken: null,
     error: null,
     hasVisitedOnboarding: false,
+    sessionExpired: false,
 
     initialize: async () => {
         try {
@@ -156,10 +159,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 await saveTokens((response as any).accessToken, (response as any).refreshToken);
             }
             await saveUser(response.user);
-            set({ 
-                user: response.user, 
+            set({
+                user: response.user,
                 isLoading: false,
-                ...( (response as any).accessToken && { accessToken: (response as any).accessToken, isAuthenticated: true } )
+                ...((response as any).accessToken && { accessToken: (response as any).accessToken, isAuthenticated: true })
             });
         } catch (err: any) {
             const message = err.response?.data?.message || 'Onboarding failed';
@@ -192,9 +195,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             // Server logout can fail silently
         } finally {
             await clearAll();
-            set({ user: null, isAuthenticated: false, error: null, accessToken: null });
+            set({ user: null, isAuthenticated: false, error: null, accessToken: null, sessionExpired: false });
         }
     },
+
+    setSessionExpired: (expired: boolean) => set({ sessionExpired: expired }),
 
     clearError: () => set({ error: null }),
 

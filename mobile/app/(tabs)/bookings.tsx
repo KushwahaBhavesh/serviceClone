@@ -40,6 +40,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors, Spacing } from '../../constants/theme';
 import { bookingApi, type Booking } from '../../lib/marketplace';
 import { useToast } from '../../context/ToastContext';
+import EmptyState from '../../components/shared/EmptyState';
 
 const { width } = Dimensions.get('window');
 
@@ -237,17 +238,15 @@ export default function BookingsScreen() {
                     <ActivityIndicator size="large" color={Colors.primary} />
                 </View>
             ) : filtered.length === 0 ? (
-                <Animated.View entering={FadeInDown} style={styles.emptyState}>
-                    <View style={styles.emptyIconBox}>
-                        <Calendar size={48} color="#CBD5E1" strokeWidth={1} />
-                    </View>
-                    <Text style={styles.emptyText}>{activeTab === 'upcoming' ? 'NO UPCOMING BOOKINGS' : 'NO PAST BOOKINGS'}</Text>
-                    <Text style={styles.emptySubText}>
-                        {activeTab === 'upcoming'
-                            ? 'Book a new service from the explorer.'
-                            : 'Historical data will be logged here.'}
-                    </Text>
-                </Animated.View>
+                <EmptyState
+                    icon="calendar-outline"
+                    title={activeTab === 'upcoming' ? 'No upcoming bookings' : 'No past bookings'}
+                    subtitle={activeTab === 'upcoming'
+                        ? 'Book your first service and it\'ll show up here'
+                        : 'Historical bookings will appear here'}
+                    ctaLabel={activeTab === 'upcoming' ? 'Explore Services' : undefined}
+                    onCta={activeTab === 'upcoming' ? () => router.push('/(tabs)/explore' as any) : undefined}
+                />
             ) : (
                 <FlatList
                     data={filtered}

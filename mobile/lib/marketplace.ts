@@ -285,7 +285,12 @@ export const paymentApi = {
             };
         }>(PAYMENTS + '/initiate', data),
 
-    confirm: (data: { transactionId: string; gatewayPaymentId: string; gatewaySignature?: string }) =>
+    confirm: (data: {
+        transactionId: string;
+        razorpay_payment_id: string;
+        razorpay_order_id: string;
+        razorpay_signature: string;
+    }) =>
         api.post<{ status: string; transactionId: string }>(PAYMENTS + '/confirm', data),
 
     refund: (data: { bookingId: string; reason?: string }) =>
@@ -293,6 +298,23 @@ export const paymentApi = {
 
     listMethods: () =>
         api.get<{ wallet: { balance: number }; savedMethods: any[]; available: string[] }>(PAYMENTS + '/methods'),
+
+    walletTopup: (data: { amount: number }) =>
+        api.post<{
+            status: string; orderId: string; transactionId: string;
+            gatewayConfig: {
+                key: string; amount: number; currency: string;
+                name: string; description: string; orderId: string;
+            };
+        }>(PAYMENTS + '/wallet/topup', data),
+
+    walletConfirm: (data: {
+        transactionId: string;
+        razorpay_payment_id: string;
+        razorpay_order_id: string;
+        razorpay_signature: string;
+    }) =>
+        api.post<{ status: string; transactionId: string; amount: number; newBalance: number }>(PAYMENTS + '/wallet/confirm', data),
 };
 
 // ─── Customer API ───

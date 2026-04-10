@@ -14,9 +14,9 @@ export default function AgentProfileScreen() {
     const router = useRouter();
 
     const menuItems = [
-        { icon: 'person-outline', label: 'Edit Profile', onPress: () => { } },
+        { icon: 'calendar-outline', label: 'Schedule & Availability', onPress: () => router.push('/(agent)/schedule' as any) },
+        { icon: 'time-outline', label: 'Job History', onPress: () => router.push('/(agent)/job-history' as any) },
         { icon: 'help-buoy-outline', label: 'Help & Support', onPress: () => router.push('/(agent)/support') },
-        { icon: 'settings-outline', label: 'Settings', onPress: () => { } },
         { icon: 'shield-checkmark-outline', label: 'Privacy Policy', onPress: () => { } },
     ] as const;
 

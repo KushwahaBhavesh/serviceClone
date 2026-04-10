@@ -242,9 +242,14 @@ export default function WalletScreen() {
 
                 {/* Transaction History Section */}
                 <View style={styles.historySection}>
-                    <View style={styles.sectionHeader}>
-                        <History size={16} color="#94A3B8" strokeWidth={2.5} />
-                        <Text style={styles.sectionTitle}>TRANSACTION LOGS</Text>
+                    <View style={[styles.sectionHeader, { justifyContent: 'space-between' }]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <History size={16} color="#94A3B8" strokeWidth={2.5} />
+                            <Text style={styles.sectionTitle}>TRANSACTION LOGS</Text>
+                        </View>
+                        <Pressable onPress={() => router.push('/(customer)/profile/transactions' as any)}>
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.primary }}>VIEW ALL</Text>
+                        </Pressable>
                     </View>
 
                     {isLoading ? (

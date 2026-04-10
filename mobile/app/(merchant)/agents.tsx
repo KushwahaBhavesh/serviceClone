@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
     View, Text, StyleSheet, FlatList, Pressable,
     RefreshControl, ActivityIndicator, Alert,
-    Modal, TextInput, ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack, useFocusEffect } from 'expo-router';
@@ -11,7 +10,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import {
     ChevronLeft, UserPlus, Star, Users, Phone,
-    Mail, Check, X, Wrench,
+    Mail, Wrench,
 } from 'lucide-react-native';
 
 import { Colors, Spacing } from '../../constants/theme';
@@ -35,9 +34,6 @@ export default function AgentManagementScreen() {
     const [agents, setAgents] = useState<Agent[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [form, setForm] = useState({ name: '', phone: '', email: '', skills: [] as string[] });
 
     const fetchAgents = useCallback(async () => {
         try {
@@ -53,29 +49,9 @@ export default function AgentManagementScreen() {
         }, [fetchAgents])
     );
 
-    const toggleSkill = (skill: string) => {
-        setForm((f) => ({
-            ...f,
-            skills: f.skills.includes(skill) ? f.skills.filter((s) => s !== skill) : [...f.skills, skill],
-        }));
-    };
 
-    const handleAdd = async () => {
-        if (!form.name.trim() || !form.phone.trim()) {
-            showInfo('Name and phone are required');
-            return;
-        }
-        setSaving(true);
-        try {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            await merchantApi.createAgent({ name: form.name, phone: form.phone, email: form.email || undefined, skills: form.skills });
-            showSuccess('Agent created successfully');
-            setShowAddModal(false);
-            setForm({ name: '', phone: '', email: '', skills: [] });
-            fetchAgents();
-        } catch { showError('Failed to create agent'); }
-        finally { setSaving(false); }
-    };
+
+
 
     const handleToggle = async (agent: Agent) => {
         try {
@@ -89,48 +65,53 @@ export default function AgentManagementScreen() {
         const statusColor = STATUS_COLOR[item.status] || '#94A3B8';
         return (
             <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 60).springify()}>
-                <View style={styles.agentCard}>
-                    <View style={styles.agentRow}>
-                        <View style={styles.avatarWrap}>
-                            <View style={styles.avatar}>
-                                <Text style={styles.avatarText}>
-                                    {(item.user?.name ?? 'A')[0].toUpperCase()}
-                                </Text>
-                            </View>
-                            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-                        </View>
-
-                        <View style={styles.agentInfo}>
-                            <Text style={styles.agentName}>{item.user?.name ?? 'Agent'}</Text>
-                            <Text style={styles.agentPhone}>{item.user?.phone ?? ''}</Text>
-                        </View>
-
-                        <View style={styles.agentMeta}>
-                            <View style={styles.ratingPill}>
-                                <Star size={11} color="#F59E0B" fill="#F59E0B" />
-                                <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
-                            </View>
-                            <Pressable
-                                onPress={() => handleToggle(item)}
-                                style={[styles.toggleBtn, { backgroundColor: item.isActive ? Colors.success + '14' : '#F1F5F9' }]}
-                            >
-                                <Text style={[styles.toggleText, { color: item.isActive ? Colors.primary : '#94A3B8' }]}>
-                                    {item.isActive ? 'Active' : 'Inactive'}
-                                </Text>
-                            </Pressable>
-                        </View>
-                    </View>
-
-                    {item.skills.length > 0 && (
-                        <View style={styles.skills}>
-                            {item.skills.map((s) => (
-                                <View key={s} style={styles.skillChip}>
-                                    <Text style={styles.skillText}>{s}</Text>
+                <Pressable
+                    onPress={() => router.push({ pathname: '/(merchant)/add-edit-agent', params: { agentId: item.id } } as any)}
+                    style={({ pressed }) => [pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
+                >
+                    <View style={styles.agentCard}>
+                        <View style={styles.agentRow}>
+                            <View style={styles.avatarWrap}>
+                                <View style={styles.avatar}>
+                                    <Text style={styles.avatarText}>
+                                        {(item.user?.name ?? 'A')[0].toUpperCase()}
+                                    </Text>
                                 </View>
-                            ))}
+                                <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                            </View>
+
+                            <View style={styles.agentInfo}>
+                                <Text style={styles.agentName}>{item.user?.name ?? 'Agent'}</Text>
+                                <Text style={styles.agentPhone}>{item.user?.phone ?? ''}</Text>
+                            </View>
+
+                            <View style={styles.agentMeta}>
+                                <View style={styles.ratingPill}>
+                                    <Star size={11} color="#F59E0B" fill="#F59E0B" />
+                                    <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+                                </View>
+                                <Pressable
+                                    onPress={() => handleToggle(item)}
+                                    style={[styles.toggleBtn, { backgroundColor: item.isActive ? Colors.success + '14' : '#F1F5F9' }]}
+                                >
+                                    <Text style={[styles.toggleText, { color: item.isActive ? Colors.primary : '#94A3B8' }]}>
+                                        {item.isActive ? 'Active' : 'Inactive'}
+                                    </Text>
+                                </Pressable>
+                            </View>
                         </View>
-                    )}
-                </View>
+
+                        {item.skills.length > 0 && (
+                            <View style={styles.skills}>
+                                {item.skills.map((s) => (
+                                    <View key={s} style={styles.skillChip}>
+                                        <Text style={styles.skillText}>{s}</Text>
+                                    </View>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+                </Pressable>
             </Animated.View>
         );
     }, [handleToggle, router]);
@@ -149,7 +130,7 @@ export default function AgentManagementScreen() {
                 </Pressable>
                 <Text style={styles.title}>Field Agents</Text>
                 <Pressable
-                    onPress={() => { setShowAddModal(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                    onPress={() => { router.push('/(merchant)/add-edit-agent' as any); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
                     style={({ pressed }) => [styles.addBtn, pressed && { transform: [{ scale: 0.95 }] }]}
                 >
                     <LinearGradient
@@ -182,86 +163,13 @@ export default function AgentManagementScreen() {
                             title="No agents added yet"
                             subtitle="Add your first agent to start assigning jobs"
                             ctaLabel="Add Agent"
-                            onCta={() => setShowAddModal(true)}
+                            onCta={() => router.push('/(merchant)/add-edit-agent' as any)}
                         />
                     }
                 />
             )}
 
-            {/* Add Modal */}
-            <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
-                <View style={[styles.modalContainer, { paddingTop: insets.top }]}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Add New Agent</Text>
-                        <Pressable onPress={() => setShowAddModal(false)} style={styles.modalClose}>
-                            <X size={20} color="#64748B" strokeWidth={2} />
-                        </Pressable>
-                    </View>
-                    <ScrollView contentContainerStyle={styles.modalBody} showsVerticalScrollIndicator={false}>
-                        <Text style={styles.fieldLabel}>Full Name *</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={form.name}
-                            onChangeText={(t) => setForm((f) => ({ ...f, name: t }))}
-                            placeholder="Enter agent name"
-                            placeholderTextColor="#CBD5E1"
-                        />
 
-                        <Text style={styles.fieldLabel}>Phone *</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={form.phone}
-                            onChangeText={(t) => setForm((f) => ({ ...f, phone: t }))}
-                            placeholder="+91 9876543210"
-                            placeholderTextColor="#CBD5E1"
-                            keyboardType="phone-pad"
-                        />
-
-                        <Text style={styles.fieldLabel}>Email (optional)</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={form.email}
-                            onChangeText={(t) => setForm((f) => ({ ...f, email: t }))}
-                            placeholder="agent@email.com"
-                            placeholderTextColor="#CBD5E1"
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                        />
-
-                        <Text style={styles.fieldLabel}>Skills</Text>
-                        <View style={styles.skillsGrid}>
-                            {SKILLS_OPTIONS.map((skill) => {
-                                const selected = form.skills.includes(skill);
-                                return (
-                                    <Pressable
-                                        key={skill}
-                                        onPress={() => toggleSkill(skill)}
-                                        style={[styles.skillOption, selected && styles.skillOptionSelected]}
-                                    >
-                                        {selected && <Check size={14} color={Colors.primary} strokeWidth={2.5} />}
-                                        <Text style={[styles.skillOptionText, selected && { color: Colors.primary }]}>
-                                            {skill}
-                                        </Text>
-                                    </Pressable>
-                                );
-                            })}
-                        </View>
-
-                        <Pressable
-                            onPress={handleAdd} disabled={saving}
-                            style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.8 }, saving && { opacity: 0.5 }]}
-                        >
-                            <LinearGradient
-                                colors={[Colors.primary, Colors.primaryLight]}
-                                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                                style={styles.saveGradient}
-                            >
-                                {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveText}>Add Agent</Text>}
-                            </LinearGradient>
-                        </Pressable>
-                    </ScrollView>
-                </View>
-            </Modal>
         </View>
     );
 }
@@ -335,36 +243,4 @@ const styles = StyleSheet.create({
     emptyTitle: { fontSize: 16, fontWeight: '700', color: '#334155' },
     emptyHint: { fontSize: 13, color: '#94A3B8', fontWeight: '500', textAlign: 'center' },
 
-    // Modal
-    modalContainer: { flex: 1, backgroundColor: '#F8FAFC' },
-    modalHeader: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
-        borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
-    },
-    modalTitle: { fontSize: 20, fontWeight: '800', color: '#0F172A' },
-    modalClose: {
-        width: 36, height: 36, borderRadius: 12, backgroundColor: '#F1F5F9',
-        justifyContent: 'center', alignItems: 'center',
-    },
-    modalBody: { padding: Spacing.xl, gap: 8, paddingBottom: 40 },
-    fieldLabel: { fontSize: 13, fontWeight: '700', color: '#64748B', marginTop: 8 },
-    input: {
-        backgroundColor: '#FFF', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
-        fontSize: 15, color: '#0F172A', fontWeight: '600',
-        borderWidth: 1, borderColor: '#F1F5F9',
-    },
-
-    skillsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-    skillOption: {
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
-        borderWidth: 1.5, borderColor: '#E2E8F0', backgroundColor: '#FFF',
-    },
-    skillOptionSelected: { borderColor: Colors.primary, backgroundColor: Colors.primary + '08' },
-    skillOptionText: { fontSize: 13, fontWeight: '700', color: '#334155' },
-
-    saveBtn: { marginTop: 20, borderRadius: 16, overflow: 'hidden' },
-    saveGradient: { alignItems: 'center', justifyContent: 'center', paddingVertical: 16 },
-    saveText: { fontSize: 16, fontWeight: '800', color: '#FFF' },
 });

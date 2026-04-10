@@ -7,14 +7,14 @@ import Animated, {
     FadeInUp,
     FadeInDown,
 } from 'react-native-reanimated';
-import { 
-    User, 
-    Settings, 
-    ShieldCheck, 
-    LogOut, 
-    ChevronRight, 
-    Bell, 
-    HelpCircle, 
+import {
+    User,
+    Settings,
+    ShieldCheck,
+    LogOut,
+    ChevronRight,
+    Bell,
+    HelpCircle,
     MapPin,
     Wallet,
     Share2
@@ -61,7 +61,7 @@ export default function ProfileScreen() {
             icon: HelpCircle,
             title: 'Help & Support',
             subtitle: 'FAQs and assistance',
-            route: '',
+            route: '/(customer)/support',
         },
     ] as const;
 

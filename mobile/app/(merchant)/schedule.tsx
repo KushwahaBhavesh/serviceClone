@@ -4,12 +4,12 @@ import {
     ActivityIndicator, Alert, ScrollView, RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import {
-    CheckCircle, Circle, PlusCircle, Plus,
+    CheckCircle, Circle, PlusCircle, Plus, Calendar as CalendarIcon,
 } from 'lucide-react-native';
 
 import { Colors, Spacing } from '../../constants/theme';
@@ -32,6 +32,7 @@ function toISODate(d: Date) { return d.toISOString().split('T')[0]; }
 
 export default function ScheduleScreen() {
     const insets = useSafeAreaInsets();
+    const router = useRouter();
     const { showSuccess, showError, showInfo } = useToast();
     const [dayOffset, setDayOffset] = useState(0);
     const [slots, setSlots] = useState<Slot[]>([]);
@@ -87,7 +88,16 @@ export default function ScheduleScreen() {
         <View style={[styles.container, { paddingTop: insets.top }]}>
             <Stack.Screen options={{ headerShown: false }} />
 
-            <Text style={styles.screenTitle}>Schedule</Text>
+            <View style={styles.headerRow}>
+                <Text style={styles.screenTitle}>Schedule</Text>
+                <Pressable
+                    onPress={() => router.push('/(merchant)/slot-calendar' as any)}
+                    style={({ pressed }) => [styles.calendarBtn, pressed && { opacity: 0.7 }]}
+                >
+                    <CalendarIcon size={16} color={Colors.primary} strokeWidth={2} />
+                    <Text style={styles.calendarBtnText}>Calendar</Text>
+                </Pressable>
+            </View>
 
             {/* Day Picker */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayPicker}>
@@ -208,7 +218,16 @@ export default function ScheduleScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F8FAFC' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    screenTitle: { fontSize: 24, fontWeight: '900', color: '#0F172A', paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm },
+    screenTitle: { fontSize: 24, fontWeight: '900', color: '#0F172A', flex: 1 },
+    headerRow: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingHorizontal: Spacing.lg, paddingTop: Spacing.sm,
+    },
+    calendarBtn: {
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        backgroundColor: Colors.primary + '12', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12,
+    },
+    calendarBtnText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
 
     dayPicker: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, gap: 8 },
     dayBtn: {

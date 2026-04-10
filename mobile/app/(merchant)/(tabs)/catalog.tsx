@@ -83,55 +83,60 @@ export default function MerchantCatalogScreen() {
 
     const renderServiceCard = useCallback(({ item, index }: { item: MerchantService; index: number }) => (
         <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 60).springify()}>
-            <View style={[styles.card, !item.isActive && styles.cardInactive]}>
-                {/* Header */}
-                <View style={styles.cardHeader}>
-                    <View style={styles.serviceInfo}>
-                        <Text style={styles.serviceName}>{item.service.name}</Text>
-                        <View style={[styles.categoryBadge, { backgroundColor: Colors.primary + '12' }]}>
-                            <Layers size={10} color={Colors.primary} strokeWidth={2.5} />
-                            <Text style={[styles.categoryText, { color: Colors.primary }]}>{item.service.category?.name}</Text>
+            <Pressable
+                onPress={() => router.push(`/(merchant)/edit-service/${item.id}` as any)}
+                style={({ pressed }) => [pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
+            >
+                <View style={[styles.card, !item.isActive && styles.cardInactive]}>
+                    {/* Header */}
+                    <View style={styles.cardHeader}>
+                        <View style={styles.serviceInfo}>
+                            <Text style={styles.serviceName}>{item.service.name}</Text>
+                            <View style={[styles.categoryBadge, { backgroundColor: Colors.primary + '12' }]}>
+                                <Layers size={10} color={Colors.primary} strokeWidth={2.5} />
+                                <Text style={[styles.categoryText, { color: Colors.primary }]}>{item.service.category?.name}</Text>
+                            </View>
                         </View>
-                    </View>
-                    <Switch
-                        value={item.isActive}
-                        onValueChange={() => handleToggle(item.id, item.isActive)}
-                        trackColor={{ false: '#E2E8F0', true: Colors.primary + '40' }}
-                        thumbColor={item.isActive ? Colors.primary : '#94A3B8'}
-                    />
-                </View>
-
-                {/* Divider */}
-                <View style={styles.divider} />
-
-                {/* Price row */}
-                <View style={styles.priceRow}>
-                    <Text style={styles.priceLabel}>Your Price</Text>
-                    <View style={styles.priceInputWrap}>
-                        <Text style={styles.currency}>₹</Text>
-                        <TextInput
-                            style={styles.priceField}
-                            defaultValue={item.price.toString()}
-                            keyboardType="numeric"
-                            onEndEditing={(e) => handlePriceUpdate(item.id, e.nativeEvent.text)}
-                            placeholder="0"
-                            placeholderTextColor="#CBD5E1"
+                        <Switch
+                            value={item.isActive}
+                            onValueChange={() => handleToggle(item.id, item.isActive)}
+                            trackColor={{ false: '#E2E8F0', true: Colors.primary + '40' }}
+                            thumbColor={item.isActive ? Colors.primary : '#94A3B8'}
                         />
                     </View>
-                </View>
 
-                {/* Meta */}
-                <View style={styles.metaRow}>
-                    <View style={styles.metaItem}>
-                        <Clock size={12} color="#94A3B8" strokeWidth={2} />
-                        <Text style={styles.metaText}>{item.service.duration ?? 60} min</Text>
+                    {/* Divider */}
+                    <View style={styles.divider} />
+
+                    {/* Price row */}
+                    <View style={styles.priceRow}>
+                        <Text style={styles.priceLabel}>Your Price</Text>
+                        <View style={styles.priceInputWrap}>
+                            <Text style={styles.currency}>₹</Text>
+                            <TextInput
+                                style={styles.priceField}
+                                defaultValue={item.price.toString()}
+                                keyboardType="numeric"
+                                onEndEditing={(e) => handlePriceUpdate(item.id, e.nativeEvent.text)}
+                                placeholder="0"
+                                placeholderTextColor="#CBD5E1"
+                            />
+                        </View>
                     </View>
-                    <View style={styles.metaItem}>
-                        <IndianRupee size={12} color="#94A3B8" strokeWidth={2} />
-                        <Text style={styles.metaText}>Base: ₹{item.service.basePrice}</Text>
+
+                    {/* Meta */}
+                    <View style={styles.metaRow}>
+                        <View style={styles.metaItem}>
+                            <Clock size={12} color="#94A3B8" strokeWidth={2} />
+                            <Text style={styles.metaText}>{item.service.duration ?? 60} min</Text>
+                        </View>
+                        <View style={styles.metaItem}>
+                            <IndianRupee size={12} color="#94A3B8" strokeWidth={2} />
+                            <Text style={styles.metaText}>Base: ₹{item.service.basePrice}</Text>
+                        </View>
                     </View>
                 </View>
-            </View>
+            </Pressable>
         </Animated.View>
     ), [handleToggle, handlePriceUpdate]);
 
@@ -146,7 +151,7 @@ export default function MerchantCatalogScreen() {
     return (
         <View style={styles.container}>
             <StatusBar style="dark" translucent />
-            
+
             {/* ─── Sticky Header ─── */}
             <View style={[styles.stickyHeader, { height: insets.top + 60 }]}>
                 <BlurView intensity={100} tint="light" style={styles.absoluteFill} />
@@ -167,10 +172,10 @@ export default function MerchantCatalogScreen() {
                     { paddingTop: insets.top + 70 }
                 ]}
                 refreshControl={
-                    <RefreshControl 
-                        refreshing={refreshing} 
-                        onRefresh={onRefresh} 
-                        colors={[Colors.primary]} 
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[Colors.primary]}
                         progressViewOffset={insets.top + 60}
                     />
                 }
@@ -218,7 +223,7 @@ const styles = StyleSheet.create({
         right: 0,
         bottom: 0,
     },
-    
+
     // Header
     stickyHeader: {
         position: 'absolute',

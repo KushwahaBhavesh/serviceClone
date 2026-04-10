@@ -122,7 +122,7 @@ export default function BookingsScreen() {
                         if (isActive) {
                             router.push(`/(booking)/tracking/${item.id}` as any);
                         } else {
-                            router.push(`/(booking)/${item.id}` as any);
+                            router.push(`/(customer)/orders/${item.id}` as any);
                         }
                     }}
                 >

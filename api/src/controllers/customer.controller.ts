@@ -62,7 +62,17 @@ export async function listChats(req: AuthenticatedRequest, res: Response) {
 }
 
 export async function openChat(req: AuthenticatedRequest, res: Response) {
-    const chat = await chatService.getOrCreateChat(req.user.id, String(req.params.bookingId), 'CUSTOMER');
+    const { bookingId } = req.params;
+    const { merchantId, bookingId: bodyBookingId } = req.body;
+    
+    const bId = bookingId || bodyBookingId;
+    
+    const chat = await chatService.getOrCreateChat(
+        req.user.id, 
+        bId, 
+        'CUSTOMER', 
+        merchantId
+    );
     sendSuccess(res, { chat });
 }
 
@@ -76,7 +86,15 @@ export async function getChatMessages(req: AuthenticatedRequest, res: Response) 
 }
 
 export async function sendChatMessage(req: AuthenticatedRequest, res: Response) {
-    const message = await chatService.sendChatMessage(req.user.id, String(req.params.chatId), req.body.content);
+    const { content, type, fileUrl, fileName } = req.body;
+    const message = await chatService.sendChatMessage(
+        req.user.id,
+        String(req.params.chatId),
+        content,
+        type,
+        fileUrl,
+        fileName
+    );
     sendCreated(res, { message });
 }
 

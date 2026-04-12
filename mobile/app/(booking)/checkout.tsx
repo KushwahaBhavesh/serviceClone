@@ -236,6 +236,21 @@ export default function CheckoutScreen() {
 
             {isFetchingAddresses ? (
                 <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
+            ) : addresses.length === 0 ? (
+                <View style={styles.emptyAddressBox}>
+                    <View style={styles.emptyAddrIcon}>
+                        <MapPin size={24} color="#CBD5E1" strokeWidth={2.5} />
+                    </View>
+                    <Text style={styles.emptyAddrTitle}>NO ADDRESSES FOUND</Text>
+                    <Text style={styles.emptyAddrSub}>Add your service location to proceed with the booking.</Text>
+                    <Pressable
+                        style={styles.emptyAddBtn}
+                        onPress={() => router.push('/(customer)/profile/addresses')}
+                    >
+                        <Plus size={16} color="#FFF" strokeWidth={3} />
+                        <Text style={styles.emptyAddBtnText}>ADD YOUR FIRST ADDRESS</Text>
+                    </Pressable>
+                </View>
             ) : (
                 <View style={styles.addressList}>
                     {addresses.map((addr) => {
@@ -452,6 +467,13 @@ const styles = StyleSheet.create({
 
     // Address
     addressList: { gap: 12 },
+    emptyAddressBox: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, paddingHorizontal: 40 },
+    emptyAddrIcon: { width: 64, height: 64, borderRadius: 24, backgroundColor: '#FAFAFA', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+    emptyAddrTitle: { fontSize: 13, fontWeight: '800', color: '#111', letterSpacing: 1 },
+    emptyAddrSub: { fontSize: 12, color: '#AAA', fontWeight: '500', textAlign: 'center', marginTop: 8, lineHeight: 18, marginBottom: 25 },
+    emptyAddBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.primary, paddingHorizontal: 20, paddingVertical: 14, borderRadius: 16, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
+    emptyAddBtnText: { fontSize: 11, fontWeight: '800', color: '#FFF', letterSpacing: 0.5 },
+
     addressCard: { flexDirection: 'row', alignItems: 'center', gap: 18, padding: 20, borderRadius: 28, backgroundColor: '#FAFAFA', borderWidth: 1, borderColor: '#F0F0F0' },
     addressCardActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
     addrIconBox: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10 },

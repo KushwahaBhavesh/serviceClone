@@ -110,6 +110,8 @@ export function emitChatMessage(chatId: string, message: {
     senderId: string;
     content: string;
     type: string;
+    fileUrl?: string | null;
+    fileName?: string | null;
     createdAt: string;
     sender: { id: string; name: string | null; avatarUrl: string | null; role: string };
 }) {

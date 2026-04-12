@@ -88,6 +88,7 @@ export interface Promotion {
 
 export interface MerchantProfileData {
     id: string;
+    userId: string;
     businessName: string;
     businessCategory: string | null;
     description: string | null;
@@ -356,7 +357,9 @@ export interface ChatMessage {
     id: string;
     chatId: string;
     content: string;
-    type?: string;
+    type: 'TEXT' | 'IMAGE' | 'DOCUMENT';
+    fileUrl?: string;
+    fileName?: string;
     createdAt: string;
     sender: {
         id: string;
@@ -368,10 +371,10 @@ export interface ChatMessage {
 
 export interface Chat {
     id: string;
-    bookingId: string;
+    bookingId: string | null;
     isActive: boolean;
     updatedAt: string;
-    booking: Booking;
+    booking?: Booking | null;
     messages: { id: string; content: string; createdAt: string }[];
     participants?: { userId: string; user: { id: string; name: string | null; avatarUrl: string | null; role: string } }[];
 }
@@ -410,13 +413,16 @@ export const customerApi = {
     openChat: (bookingId: string) =>
         api.post<{ chat: Chat }>(CUSTOMER + `/chats/open/${bookingId}`),
 
+    initDirectChat: (merchantId: string) =>
+        api.post<{ chat: Chat }>(CUSTOMER + '/chats/init', { merchantId }),
+
     getChatMessages: (chatId: string, params?: { page?: number; limit?: number }) =>
         api.get<{ messages: ChatMessage[]; total: number; page: number; totalPages: number }>(
             CUSTOMER + `/chats/${chatId}/messages`, { params },
         ),
 
-    sendMessage: (chatId: string, content: string) =>
-        api.post<{ message: ChatMessage }>(CUSTOMER + `/chats/${chatId}/messages`, { content }),
+    sendMessage: (chatId: string, content: string, type: string = 'TEXT', fileUrl?: string, fileName?: string) =>
+        api.post<{ message: ChatMessage }>(CUSTOMER + `/chats/${chatId}/messages`, { content, type, fileUrl, fileName }),
 
     aiAssistant: {
         chat: (content: string, context?: any) =>

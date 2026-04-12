@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { User, RegisterRequest, LoginRequest, CompleteOnboardingRequest } from '../types/auth';
 import { authApi } from '../lib/auth';
 import { saveTokens, saveUser, clearAll, getAccessToken, getRefreshToken, getUser, getVisitedOnboarding, setVisitedOnboarding } from '../lib/storage';
+import { authEvents, AUTH_EVENTS } from '../lib/events';
 
 interface AuthState {
     user: User | null;
@@ -226,3 +227,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
     },
 }));
+
+// ─── Event Subscriptions ───
+// Listen for session expiration signals from lib/api.ts (prevents circular dependency)
+authEvents.on(AUTH_EVENTS.SESSION_EXPIRED, () => {
+    useAuthStore.getState().setSessionExpired(true);
+});

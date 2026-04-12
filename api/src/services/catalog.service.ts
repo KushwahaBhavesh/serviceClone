@@ -335,6 +335,7 @@ export async function getMerchantProfileById(merchantId: string) {
 
     return {
         id: merchant.id,
+        userId: merchant.userId,
         businessName: merchant.businessName,
         businessCategory: merchant.businessCategory,
         description: merchant.description,

@@ -6,7 +6,7 @@ export default function MerchantLayout() {
     usePushToken('merchant');
 
     return (
-        <RoleGuard allowedRoles={['MERCHANT']} requireApproved>
+        <RoleGuard allowedRoles={['MERCHANT']}>
             <Stack
                 screenOptions={{
                     headerShown: false,

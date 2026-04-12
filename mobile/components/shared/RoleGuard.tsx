@@ -57,20 +57,6 @@ export default function RoleGuard({
         );
     }
 
-    // Merchant verification check
-    if (u.role === 'MERCHANT' && requireApproved && u.verificationStatus !== 'APPROVED') {
-        return (
-            <GuardScreen
-                icon="hourglass"
-                iconColor="#F59E0B"
-                iconBg="#FFFBEB"
-                title="Verification Pending"
-                subtitle="Your account is under review. We'll notify you once your documents are verified and approved."
-                ctaLabel="Check Status"
-                onCta={() => router.push('/(merchant)/verification' as any)}
-            />
-        );
-    }
 
     // Agent merchant linkage check
     if (u.role === 'AGENT' && requireMerchant && !u.merchantId) {

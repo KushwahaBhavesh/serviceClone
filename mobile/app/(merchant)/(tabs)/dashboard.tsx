@@ -1,27 +1,32 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
     View,
     Text,
     StyleSheet,
-    ScrollView,
-    RefreshControl,
+    FlatList,
     Pressable,
     ActivityIndicator,
     Dimensions,
+    Platform,
+    RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import Animated, { 
-    FadeInDown, 
-    FadeIn, 
+import Animated, {
+    FadeInDown,
+    FadeInUp,
     FadeInRight,
+    useSharedValue,
+    useAnimatedStyle,
+    interpolate,
+    Extrapolate,
+    withSpring
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import {
-    TrendingUp,
     Zap,
     Clock,
     Users,
@@ -31,35 +36,281 @@ import {
     Map,
     CalendarDays,
     Wallet,
-    Tag,
     BarChart3,
     CheckCircle,
-    AlertCircle,
-    ArrowUpRight,
     Activity,
+    ArrowUpRight,
+    Bell,
+    Settings,
+    ShieldCheck
 } from 'lucide-react-native';
 
-import { Colors, Spacing } from '../../../constants/theme';
+import { Colors } from '../../../constants/theme';
 import { useAuthStore } from '../../../store/useAuthStore';
-import { merchantApi, MerchantDashboard } from '../../../lib/merchant';
-import type { Agent } from '../../../lib/merchant';
+import { merchantApi, type MerchantDashboard, type Agent } from '../../../lib/merchant';
 
 const { width: SCREEN_W } = Dimensions.get('window');
+
+// ─── Constants ───
+const DASHBOARD_SECTIONS = [
+    { id: 'HERO', type: 'hero' },
+    { id: 'REVENUE', type: 'revenue' },
+    { id: 'STATS', type: 'stats' },
+    { id: 'ACTIONS', type: 'actions' },
+    { id: 'NETWORK', type: 'network' },
+];
+
+// ─── Modular Components ───
+
+const ImmersiveHero = React.memo(({ user, dashboard, insets }: any) => {
+    const isVerified = dashboard?.verificationStatus === 'APPROVED';
+
+    return (
+        <View style={[styles.heroContainer, { paddingTop: insets.top + 20 }]}>
+            <LinearGradient
+                colors={[Colors.primary, '#FF8533', '#FFF']}
+                style={styles.heroGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+            />
+
+            <View style={styles.heroContent}>
+                <Animated.View entering={FadeInDown.duration(800).springify()}>
+                    <View style={styles.greetingHeader}>
+                        <View>
+                            <Text style={styles.greetingLabel}>{getTimeOfDay().toUpperCase()}</Text>
+                            <Text style={styles.businessName}>{user?.name || 'Partner'}</Text>
+                        </View>
+                        <Pressable
+                            onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                router.push('/(merchant)/settings');
+                            }}
+                            style={styles.profileBtn}
+                        >
+                            <View style={styles.avatarPlaceholder}>
+                                <Text style={styles.avatarInitial}>{user?.name?.[0] || 'M'}</Text>
+                            </View>
+                            {isVerified && (
+                                <View style={styles.verifiedBadge}>
+                                    <ShieldCheck size={10} color="#FFF" fill={Colors.primary} />
+                                </View>
+                            )}
+                        </Pressable>
+                    </View>
+                </Animated.View>
+
+                <Animated.View entering={FadeInUp.delay(300).duration(800).springify()} style={styles.quickStatusBox}>
+                    <BlurView intensity={60} tint="light" style={styles.glassCard}>
+                        <View style={styles.statusItem}>
+                            <View style={[styles.statusIndicator, { backgroundColor: '#10B981' }]} />
+                            <Text style={styles.statusVal}>{dashboard?.agentCount || 0}</Text>
+                            <Text style={styles.statusLab}>AGENTS LIVE</Text>
+                        </View>
+                        <View style={styles.statusDivider} />
+                        <View style={styles.statusItem}>
+                            <View style={[styles.statusIndicator, { backgroundColor: Colors.primary }]} />
+                            <Text style={styles.statusVal}>{dashboard?.activeOrders || 0}</Text>
+                            <Text style={styles.statusLab}>JOBS ACTIVE</Text>
+                        </View>
+                        <View style={styles.statusDivider} />
+                        <View style={styles.statusItem}>
+                            <View style={[styles.statusIndicator, { backgroundColor: '#F59E0B' }]} />
+                            <Text style={styles.statusVal}>{dashboard?.pendingOrders || 0}</Text>
+                            <Text style={styles.statusLab}>WAITING</Text>
+                        </View>
+                    </BlurView>
+                </Animated.View>
+            </View>
+        </View>
+    );
+});
+
+const RevenuePro = React.memo(({ dashboard }: any) => {
+    return (
+        <Animated.View entering={FadeInDown.delay(500).springify()} style={styles.revCardContainer}>
+            <LinearGradient
+                colors={[Colors.primary, '#FF8533']}
+                style={styles.revCard}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+            >
+                <View style={styles.revHeader}>
+                    <View style={styles.revLabelBox}>
+                        <Activity size={12} color={Colors.primary} />
+                        <Text style={styles.revLabel}>Live Revenue</Text>
+                    </View>
+                    <View style={styles.pulseDot} />
+                </View>
+
+                <View style={styles.revMain}>
+                    <Text style={styles.currencySymbol}>₹</Text>
+                    <Text style={styles.revVal}>{(dashboard?.todayRevenue ?? 0).toLocaleString('en-IN')}</Text>
+                </View>
+
+                <View style={styles.revFooter}>
+                    <View style={styles.trendStat}>
+                        <ArrowUpRight size={14} color="#10B981" />
+                        <Text style={styles.trendVal}>+24%</Text>
+                        <Text style={styles.trendLab}>vs Yesterday</Text>
+                    </View>
+                    <Pressable
+                        onPress={() => router.push('/(merchant)/earnings')}
+                        style={styles.viewDetailedBtn}
+                    >
+                        <Text style={styles.detailedText}>DETAILS</Text>
+                        <ChevronRight size={14} color="rgba(255,255,255,0.5)" />
+                    </Pressable>
+                </View>
+
+                {/* Visual Accent */}
+                <View style={styles.revMesh} />
+            </LinearGradient>
+        </Animated.View>
+    );
+});
+
+const BentoStatsGrid = React.memo(({ dashboard }: any) => {
+    return (
+        <View style={styles.bentoGrid}>
+            <View style={styles.bentoRow}>
+                <BentoCard
+                    label="Customer Rating"
+                    value={dashboard?.rating?.toFixed(1) || "4.8"}
+                    icon={<Star size={18} color="#F59E0B" fill="#F59E0B" />}
+                    delay={600}
+                />
+                <BentoCard
+                    label="Active Agents"
+                    value={dashboard?.agentCount || 0}
+                    icon={<Users size={18} color={Colors.primary} />}
+                    delay={700}
+                />
+            </View>
+            <View style={styles.bentoRow}>
+                <BentoCard
+                    label="Success Rate"
+                    value="98.2%"
+                    icon={<CheckCircle size={18} color="#10B981" />}
+                    delay={800}
+                />
+                <BentoCard
+                    label="Avg. Duration"
+                    value="42m"
+                    icon={<Clock size={18} color="#6366F1" />}
+                    delay={900}
+                />
+            </View>
+        </View>
+    );
+});
+
+const BentoCard = ({ label, value, icon, delay }: any) => (
+    <Animated.View entering={FadeInDown.delay(delay).springify()} style={styles.bentoCard}>
+        <View style={styles.bentoIconBox}>{icon}</View>
+        <Text style={styles.bentoVal}>{value}</Text>
+        <Text style={styles.bentoLab}>{label}</Text>
+    </Animated.View>
+);
+
+const SmartActionGrid = React.memo(() => {
+    const actions = [
+        { label: 'Catalog', color: '#6366F1', icon: BookOpen, path: '/(merchant)/(tabs)/catalog' },
+        { label: 'Team', color: Colors.primary, icon: Users, path: '/(merchant)/agents' },
+        { label: 'Map', color: '#10B981', icon: Map, path: '/(merchant)/agents/map' },
+        { label: 'Schedule', color: '#F59E0B', icon: CalendarDays, path: '/(merchant)/schedule' },
+        { label: 'Payouts', color: '#EC4899', icon: Wallet, path: '/(merchant)/earnings' },
+        { label: 'Analytics', color: '#111', icon: BarChart3, path: '/(merchant)/analytics' },
+    ];
+
+    return (
+        <View style={styles.actionGridContainer}>
+            <Text style={styles.sectionTitle}>SMART ACTIONS</Text>
+            <View style={styles.actionGrid}>
+                {actions.map((item, index) => (
+                    <Animated.View key={item.label} entering={FadeInRight.delay(1000 + index * 50).springify()}>
+                        <Pressable
+                            style={styles.actionItem}
+                            onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                router.push(item.path as any);
+                            }}
+                        >
+                            <View style={[styles.actionIconOuter, { backgroundColor: item.color + '15' }]}>
+                                <item.icon size={22} color={item.color} />
+                            </View>
+                            <Text style={styles.actionLabel}>{item.label}</Text>
+                        </Pressable>
+                    </Animated.View>
+                ))}
+            </View>
+        </View>
+    );
+});
+
+const NetworkPulse = React.memo(({ agents }: any) => {
+    return (
+        <View style={styles.networkContainer}>
+            <View style={styles.networkHeader}>
+                <Text style={styles.sectionTitle}>TEAM NETWORK</Text>
+                <Pressable onPress={() => router.push('/(merchant)/agents/map')}>
+                    <Text style={styles.seeAllText}>LIVE MAP</Text>
+                </Pressable>
+            </View>
+
+            <FlatList
+                data={agents}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.agentList}
+                renderItem={({ item, index }) => (
+                    <Animated.View entering={FadeInRight.delay(1300 + index * 100).springify()}>
+                        <Pressable
+                            style={styles.agentCard}
+                            onPress={() => router.push(`/(merchant)/agents/${item.id}` as any)}
+                        >
+                            <View style={styles.agentAvatar}>
+                                <Text style={styles.agentInit}>{item.user?.name?.[0]}</Text>
+                                <View style={[
+                                    styles.agentStatus,
+                                    { backgroundColor: item.status === 'AVAILABLE' ? '#10B981' : item.status === 'BUSY' ? '#F59E0B' : '#94A3B8' }
+                                ]} />
+                            </View>
+                            <Text style={styles.agentName} numberOfLines={1}>
+                                {item.user?.name?.split(' ')[0]}
+                            </Text>
+                            <Text style={styles.agentStatusText}>
+                                {item.status === 'AVAILABLE' ? 'Online' : item.status === 'BUSY' ? 'Active' : 'Offline'}
+                            </Text>
+                        </Pressable>
+                    </Animated.View>
+                )}
+                keyExtractor={(item) => item.id}
+                ListEmptyComponent={() => (
+                    <View style={styles.emptyAgents}>
+                        <Text style={styles.emptyText}>No active agents found</Text>
+                    </View>
+                )}
+            />
+        </View>
+    );
+});
 
 // ─── Main Screen ───
 
 export default function MerchantDashboardScreen() {
     const { user } = useAuthStore();
     const insets = useSafeAreaInsets();
+
     const [dashboard, setDashboard] = useState<MerchantDashboard | null>(null);
     const [agents, setAgents] = useState<Agent[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [error, setError] = useState(false);
+
+    const scrollY = useSharedValue(0);
 
     const fetchDashboard = useCallback(async () => {
         try {
-            setError(false);
             const [dashRes, agentsRes] = await Promise.all([
                 merchantApi.getDashboard(),
                 merchantApi.getAgentStatusGrid(),
@@ -68,7 +319,6 @@ export default function MerchantDashboardScreen() {
             setAgents(agentsRes.data.agents);
         } catch (err) {
             console.error('Error fetching dashboard:', err);
-            setError(true);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -80,29 +330,39 @@ export default function MerchantDashboardScreen() {
             fetchDashboard();
         }, [fetchDashboard])
     );
-    
-    const onRefresh = () => { setRefreshing(true); fetchDashboard(); };
 
-    if (loading) {
+    const onRefresh = () => {
+        setRefreshing(true);
+        fetchDashboard();
+    };
+
+    const headerAnimatedStyle = useAnimatedStyle(() => {
+        const opacity = interpolate(scrollY.value, [0, 50], [0, 1], Extrapolate.CLAMP);
+        const translateY = interpolate(scrollY.value, [0, 50], [-20, 0], Extrapolate.CLAMP);
+        return { opacity, transform: [{ translateY }] };
+    });
+
+    const renderItem = ({ item }: { item: typeof DASHBOARD_SECTIONS[0] }) => {
+        switch (item.type) {
+            case 'hero':
+                return <ImmersiveHero user={user} dashboard={dashboard} insets={insets} />;
+            case 'revenue':
+                return <RevenuePro dashboard={dashboard} />;
+            case 'stats':
+                return <BentoStatsGrid dashboard={dashboard} />;
+            case 'actions':
+                return <SmartActionGrid />;
+            case 'network':
+                return <NetworkPulse agents={agents} />;
+            default:
+                return null;
+        }
+    };
+
+    if (loading && !refreshing) {
         return (
-            <View style={[styles.loadingCenter, { paddingTop: insets.top }]}>
+            <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color={Colors.primary} />
-            </View>
-        );
-    }
-
-    if (error && !dashboard) {
-        return (
-            <View style={[styles.loadingCenter, { paddingTop: insets.top }]}>
-                <AlertCircle size={48} color="#CBD5E1" strokeWidth={1.5} />
-                <Text style={styles.errorTitle}>Failed to load dashboard</Text>
-                <Text style={styles.errorSub}>Check your connection and try again</Text>
-                <Pressable
-                    onPress={() => { setLoading(true); fetchDashboard(); }}
-                    style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.8 }]}
-                >
-                    <Text style={styles.retryBtnText}>Try Again</Text>
-                </Pressable>
             </View>
         );
     }
@@ -110,437 +370,132 @@ export default function MerchantDashboardScreen() {
     return (
         <View style={styles.container}>
             <StatusBar style="dark" translucent />
-            
-            {/* ─── Sticky Header ─── */}
-            <View style={[styles.stickyHeader, { height: insets.top + 60 }]}>
-                <BlurView intensity={100} tint="light" style={StyleSheet.absoluteFill} />
-                <View style={[styles.headerContent, { paddingTop: insets.top }]}>
-                    <View style={styles.headerLeft}>
-                        <View style={styles.liveIndicator} />
-                        <Text style={styles.headerTitle}>{user?.name?.split(' ')[0] || 'Merchant'}</Text>
-                    </View>
-                    <Pressable 
-                        onPress={() => router.push('/(merchant)/notifications')}
-                        style={styles.headerIcon}
-                    >
-                        <Zap size={20} color={Colors.primary} />
-                        <View style={styles.headerDot} />
-                    </Pressable>
-                </View>
-            </View>
 
-            <ScrollView
+            {/* Standardized Header (Glassy on scroll) */}
+            <Animated.View style={[styles.stickyHeader, { height: insets.top + 60 }, headerAnimatedStyle]}>
+                <BlurView intensity={80} tint="light" style={StyleSheet.absoluteFill} />
+                <View style={[styles.headerContent, { paddingTop: insets.top }]}>
+                    <Text style={styles.smallHeaderTitle}>COMMAND CENTER</Text>
+                    <View style={styles.headerIcons}>
+                        <Pressable
+                            style={styles.iconBtn}
+                            onPress={() => router.push('/(merchant)/notifications')}
+                        >
+                            <Bell size={20} color="#111" />
+                            <View style={styles.notifDot} />
+                        </Pressable>
+                    </View>
+                </View>
+            </Animated.View>
+
+            <FlatList
+                data={DASHBOARD_SECTIONS}
+                renderItem={renderItem}
+                keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
-                style={{ flex: 1 }}
+                contentContainerStyle={{ paddingBottom: 120 }}
                 refreshControl={
                     <RefreshControl
-                        refreshing={refreshing} 
-                        onRefresh={onRefresh} 
-                        colors={[Colors.primary]} 
-                        tintColor="#FFF"
-                        progressViewOffset={insets.top + 60}
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[Colors.primary]}
+                        tintColor={Colors.primary}
+                        progressViewOffset={insets.top + 20}
                     />
                 }
-                contentContainerStyle={{
-                    paddingTop: insets.top + 60,
-                    paddingBottom: insets.bottom + 120
+                onScroll={(e) => {
+                    scrollY.value = e.nativeEvent.contentOffset.y;
                 }}
-            >
-                <PrismHero
-                    user={user}
-                    dashboard={dashboard}
-                />
-
-                <PremiumRevenue
-                    dashboard={dashboard}
-                />
-
-                <StatsBentoGrid
-                    dashboard={dashboard}
-                />
-
-                <QuickActions />
-
-                <TeamStatus agents={agents} />
-            </ScrollView>
-        </View>
-    );
-}
-
-// ─── Modular Components ───
-
-function PrismHero({ user, dashboard }: any) {
-    const isVerified = dashboard?.verificationStatus === 'APPROVED';
-    const rating = dashboard?.rating ?? 0;
-
-    return (
-        <View style={styles.prismHero}>
-            <View style={styles.heroContent}>
-                <Animated.View entering={FadeInDown.delay(200).springify()}>
-                    <Text style={styles.welcomeText}>WELCOME BACK</Text>
-                    <Text style={styles.heroBusinessName}>{user?.name || 'Dashboard'}</Text>
-                </Animated.View>
-
-                <Animated.View entering={FadeInRight.delay(400).springify()} style={styles.heroBadges}>
-                    <View style={[styles.statusBadge, isVerified ? styles.statusApproved : styles.statusPending]}>
-                        <CheckCircle size={10} color={isVerified ? '#10B981' : '#F59E0B'} />
-                        <Text style={[styles.statusText, { color: isVerified ? '#10B981' : '#F59E0B' }]}>
-                            {isVerified ? 'VERIFIED' : 'PENDING'}
-                        </Text>
-                    </View>
-                    <View style={styles.heroRating}>
-                        <Star size={10} color="#F59E0B" fill="#F59E0B" />
-                        <Text style={styles.ratingValue}>{rating.toFixed(1)}</Text>
-                    </View>
-                </Animated.View>
-            </View>
-
-            <Animated.View entering={FadeInDown.delay(500).springify()} style={styles.heroQuickPulse}>
-                <BlurView intensity={20} tint="light" style={styles.pulseInner}>
-                    <View style={styles.pulseItem}>
-                        <Activity size={14} color="#64748B" />
-                        <Text style={styles.pulseLabel}>Active Now</Text>
-                        <Text style={styles.pulseValue}>{dashboard?.agentCount || 0} Agents</Text>
-                    </View>
-                    <View style={styles.pulseDivider} />
-                    <View style={styles.pulseItem}>
-                        <Clock size={14} color="#64748B" />
-                        <Text style={styles.pulseLabel}>Avg. Wait</Text>
-                        <Text style={styles.pulseValue}>12.5m</Text>
-                    </View>
-                </BlurView>
-            </Animated.View>
-        </View>
-    );
-}
-
-function PremiumRevenue({ dashboard }: any) {
-    return (
-        <Animated.View entering={FadeInDown.delay(600).springify()} style={styles.prismRevenueBox}>
-            <LinearGradient
-                colors={[Colors.primary, '#FF8533']}
-                style={styles.revenuePrismGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-            >
-                <View style={styles.revMainHeader}>
-                    <View>
-                        <Text style={styles.revTitle}>TODAY'S REVENUE</Text>
-                        <Text style={styles.revAmount}>₹{(dashboard?.todayRevenue ?? 0).toLocaleString('en-IN')}</Text>
-                    </View>
-                    <View style={styles.revTrendPill}>
-                        <ArrowUpRight size={12} color="#FFF" />
-                        <Text style={styles.revTrendText}>+18.5%</Text>
-                    </View>
-                </View>
-
-                <View style={styles.revStatsRow}>
-                    <View style={styles.revStatCol}>
-                        <Text style={styles.revStatLab}>ORDERS</Text>
-                        <Text style={styles.revStatVal}>{dashboard?.todayOrders || 0}</Text>
-                    </View>
-                    <View style={styles.revStatCol}>
-                        <Text style={styles.revStatLab}>PENDING</Text>
-                        <Text style={styles.revStatVal}>{dashboard?.pendingOrders || 0}</Text>
-                    </View>
-                    <View style={styles.revStatCol}>
-                        <Text style={styles.revStatLab}>RATING</Text>
-                        <Text style={styles.revStatVal}>{dashboard?.rating?.toFixed(1) || '0.0'}</Text>
-                    </View>
-                </View>
-
-                {/* Decorative Accents */}
-                <View style={styles.prismGlassOverlay} />
-                <View style={[styles.prismGlowCircle, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
-            </LinearGradient>
-        </Animated.View>
-    );
-}
-
-function StatsBentoGrid({ dashboard }: any) {
-    return (
-        <View style={styles.statsBentoGrid}>
-            <BentoItem
-                icon={<Activity size={20} color={Colors.primary} />}
-                label="Efficiency"
-                value="94%"
-                trend="+2%"
-                delay={500}
-            />
-            <BentoItem
-                icon={<Clock size={20} color="#F59E0B" />}
-                label="Avg. Wait"
-                value="14m"
-                trend="-3m"
-                delay={550}
-            />
-            <BentoItem
-                icon={<Star size={20} color="#8B5CF6" />}
-                label="Rating"
-                value={dashboard?.rating?.toFixed(1) || "4.8"}
-                delay={600}
-            />
-            <BentoItem
-                icon={<Users size={20} color="#10B981" />}
-                label="Satisfaction"
-                value="98%"
-                delay={650}
+                scrollEventThrottle={16}
             />
         </View>
     );
 }
 
-function QuickActions() {
-    return (
-        <View style={styles.quickActionsSection}>
-            <View style={styles.sectionHeading}>
-                <Text style={styles.sectionHeaderTitle}>Manage Operations</Text>
-            </View>
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.actionsScroller}
-            >
-                <ActionItem icon={<BookOpen size={20} color="#FFF" />} label="Catalog" color="#6366F1" onPress={() => router.push('/(merchant)/(tabs)/catalog')} delay={700} />
-                <ActionItem icon={<Users size={20} color="#FFF" />} label="Team" color="#8B5CF6" onPress={() => router.push('/(merchant)/agents')} delay={730} />
-                <ActionItem icon={<Map size={20} color="#FFF" />} label="Map" color="#10B981" onPress={() => router.push('/(merchant)/agents/map')} delay={760} />
-                <ActionItem icon={<CalendarDays size={20} color="#FFF" />} label="Schedule" color="#F59E0B" onPress={() => router.push('/(merchant)/schedule')} delay={790} />
-                <ActionItem icon={<Wallet size={20} color="#FFF" />} label="Payouts" color="#EC4899" onPress={() => router.push('/(merchant)/earnings')} delay={820} />
-                <ActionItem icon={<BarChart3 size={20} color="#FFF" />} label="Analytics" color={Colors.primary} onPress={() => router.push('/(merchant)/analytics')} delay={850} />
-            </ScrollView>
-        </View>
-    );
-}
-
-function TeamStatus({ agents }: any) {
-    return (
-        <View style={styles.teamSection}>
-            <View style={styles.sectionHeading}>
-                <Text style={styles.sectionHeaderTitle}>Real-time Network</Text>
-                <Pressable onPress={() => router.push('/(merchant)/agents/map')}>
-                    <Text style={styles.linkText}>View Global Map</Text>
-                </Pressable>
-            </View>
-
-            {agents.length === 0 ? (
-                <View style={styles.emptyAgents}>
-                    <BlurView intensity={10} tint="dark" style={styles.emptyBlur}>
-                        <Users size={32} color="#94A3B8" strokeWidth={1.5} />
-                        <Text style={styles.emptyText}>No active agents found</Text>
-                    </BlurView>
-                </View>
-            ) : (
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.agentsList}
-                >
-                    {agents.map((agent: any, i: number) => {
-                        const isOnline = agent.status !== 'OFFLINE';
-                        const isBusy = agent.bookings && agent.bookings.length > 0;
-                        const statusColor = !isOnline ? '#94A3B8' : isBusy ? '#F59E0B' : '#10B981';
-
-                        return (
-                            <Animated.View key={agent.id} entering={FadeIn.delay(950 + i * 50)}>
-                                <Pressable
-                                    onPress={() => router.push(`/(merchant)/agents/${agent.id}` as any)}
-                                    style={styles.agentCard}
-                                >
-                                    <View style={styles.agentAvatarBox}>
-                                        <View style={styles.agentAvatarPlaceholder}>
-                                            <Text style={styles.agentInitial}>{agent.user?.name?.[0] || 'A'}</Text>
-                                        </View>
-                                        <View style={[styles.agentStatusIndicator, { backgroundColor: statusColor }]} />
-                                    </View>
-                                    <Text style={styles.agentName} numberOfLines={1}>
-                                        {agent.user?.name?.split(' ')[0]}
-                                    </Text>
-                                    <Text style={styles.agentSubText}>{isBusy ? 'Busy' : 'Available'}</Text>
-                                </Pressable>
-                            </Animated.View>
-                        );
-                    })}
-                </ScrollView>
-            )}
-        </View>
-    );
-}
-
-// ─── Internal Atomic Components ───
-
-function BentoItem({ icon, label, value, trend, delay }: any) {
-    return (
-        <Animated.View entering={FadeInDown.delay(delay).springify()} style={styles.bentoItem}>
-            <View style={styles.bentoHeader}>
-                <View style={styles.bentoIconBox}>{icon}</View>
-                {trend && (
-                    <View style={[styles.trendBadge, { backgroundColor: trend.startsWith('+') ? '#10B98120' : '#F59E0B20' }]}>
-                        <Text style={[styles.trendText, { color: trend.startsWith('+') ? '#10B981' : '#F59E0B' }]}>{trend}</Text>
-                    </View>
-                )}
-            </View>
-            <View style={styles.bentoBody}>
-                <Text style={styles.bentoVal}>{value}</Text>
-                <Text style={styles.bentoLab}>{label}</Text>
-            </View>
-        </Animated.View>
-    );
-}
-
-function ActionItem({ icon, label, color, onPress, delay }: any) {
-    return (
-        <Animated.View entering={FadeIn.delay(delay)}>
-            <Pressable
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPress(); }}
-                style={({ pressed }) => [styles.actionBtn, pressed && { opacity: 0.8, transform: [{ scale: 0.95 }] }]}
-            >
-                <View style={[styles.actionIconOuter, { backgroundColor: color }]}>
-                    {icon}
-                </View>
-                <Text style={styles.actionLabel}>{label}</Text>
-            </Pressable>
-        </Animated.View>
-    );
-}
-
+// ─── Helpers ───
 function getTimeOfDay() {
     const hr = new Date().getHours();
     return hr < 12 ? 'Good Morning' : hr < 17 ? 'Good Afternoon' : 'Good Evening';
 }
 
-// ═══════════════════════════════════════
-// STYLES
-// ═══════════════════════════════════════
+// ─── Styles ───
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F8FAFC' },
-    loadingCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
-    errorTitle: { fontSize: 16, fontWeight: '700', color: '#0F172A', marginTop: 12 },
-    errorSub: { fontSize: 13, color: '#64748B', marginTop: 4 },
-    retryBtn: { marginTop: 20, backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 16 },
-    retryBtnText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
+    container: { flex: 1, backgroundColor: '#FFF' },
+    loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' },
 
-    // ─── Sticky Header ───
-    stickyHeader: {
-        position: 'absolute', top: 0, left: 0, right: 0,
-        zIndex: 100, overflow: 'hidden',
-    },
-    headerContent: {
-        flex: 1, flexDirection: 'row', alignItems: 'center',
-        justifyContent: 'space-between', paddingHorizontal: 24,
-    },
-    headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    liveIndicator: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' },
-    headerTitle: { fontSize: 18, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
-    headerIcon: {
-        width: 40, height: 40, borderRadius: 12,
-        backgroundColor: 'rgba(0,0,0,0.03)',
-        justifyContent: 'center', alignItems: 'center',
-        borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)',
-    },
-    headerDot: {
-        position: 'absolute', top: 10, right: 10, width: 6, height: 6,
-        borderRadius: 3, backgroundColor: Colors.primary, borderWidth: 1.5, borderColor: '#FFF',
-    },
+    // Header
+    stickyHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100 },
+    headerContent: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24 },
+    smallHeaderTitle: { fontSize: 13, fontWeight: '900', color: '#111', letterSpacing: 1.5 },
+    headerIcons: { flexDirection: 'row', alignItems: 'center', gap: 15 },
+    iconBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+    notifDot: { position: 'absolute', top: 10, right: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary, borderWidth: 2, borderColor: '#FFF' },
 
-    // ─── Prism Hero ───
-    prismHero: { paddingHorizontal: 24, paddingBottom: 24, marginTop: 20 },
-    heroContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    welcomeText: { fontSize: 11, fontWeight: '800', color: Colors.primary, letterSpacing: 1.5 },
-    heroBusinessName: { fontSize: 32, fontWeight: '900', color: '#0F172A', marginTop: 4, letterSpacing: -1 },
-    heroBadges: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
-    statusBadge: {
-        flexDirection: 'row', alignItems: 'center', gap: 4,
-        paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1
-    },
-    statusApproved: { backgroundColor: '#10B98110', borderColor: '#10B98130' },
-    statusPending: { backgroundColor: '#F59E0B10', borderColor: '#F59E0B30' },
-    statusText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
-    heroRating: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F59E0B10', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-    ratingValue: { fontSize: 11, fontWeight: '800', color: '#F59E0B' },
+    // Hero
+    heroContainer: { minHeight: 280, paddingHorizontal: 24, paddingBottom: 30, position: 'relative' },
+    heroGradient: { ...StyleSheet.absoluteFillObject, opacity: 0.15 },
+    heroContent: { gap: 20 },
+    greetingHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    greetingLabel: { fontSize: 11, fontWeight: '800', color: Colors.primary, letterSpacing: 2 },
+    businessName: { fontSize: 34, fontWeight: '900', color: '#111', letterSpacing: -1, marginTop: 4 },
+    profileBtn: { position: 'relative' },
+    avatarPlaceholder: { width: 52, height: 52, borderRadius: 18, backgroundColor: '#111', justifyContent: 'center', alignItems: 'center' },
+    avatarInitial: { color: '#FFF', fontSize: 20, fontWeight: '900' },
+    verifiedBadge: { position: 'absolute', bottom: -4, right: -4, width: 22, height: 22, borderRadius: 11, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
 
-    heroQuickPulse: { marginTop: 24, borderRadius: 20, overflow: 'hidden' },
-    pulseInner: {
-        flexDirection: 'row', padding: 16,
-        backgroundColor: 'rgba(255,255,255,0.7)',
-        borderWidth: 1, borderColor: '#F1F5F9',
-    },
-    pulseItem: { flex: 1, gap: 2 },
-    pulseLabel: { fontSize: 9, color: '#64748B', fontWeight: '700', textTransform: 'uppercase' },
-    pulseValue: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
-    pulseDivider: { width: 1, backgroundColor: '#F1F5F9', marginHorizontal: 16 },
+    quickStatusBox: { marginTop: 10 },
+    glassCard: { flexDirection: 'row', padding: 20, borderRadius: 28, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.7)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)' },
+    statusItem: { flex: 1, alignItems: 'center', gap: 4 },
+    statusIndicator: { width: 5, height: 5, borderRadius: 2.5, marginBottom: 2 },
+    statusVal: { fontSize: 22, fontWeight: '900', color: '#111' },
+    statusLab: { fontSize: 8, fontWeight: '800', color: '#64748B', letterSpacing: 0.5 },
+    statusDivider: { width: 1, height: '60%', backgroundColor: '#E2E8F0', alignSelf: 'center' },
 
-    // ─── Premium Revenue ───
-    prismRevenueBox: { marginHorizontal: 20, marginTop: 12, borderRadius: 28, overflow: 'hidden', elevation: 8 },
-    revenuePrismGradient: { padding: 24, minHeight: 180 },
-    revMainHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-    revTitle: { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.8)', letterSpacing: 2 },
-    revAmount: { fontSize: 38, fontWeight: '900', color: '#FFF', marginTop: 6, letterSpacing: -1.5 },
-    revTrendPill: {
-        flexDirection: 'row', alignItems: 'center', gap: 4,
-        backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12
-    },
-    revTrendText: { fontSize: 11, fontWeight: '900', color: '#FFF' },
-    revStatsRow: { flexDirection: 'row', marginTop: 32, gap: 20 },
-    revStatCol: { flex: 1 },
-    revStatLab: { fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.7)', letterSpacing: 1 },
-    revStatVal: { fontSize: 18, fontWeight: '900', color: '#FFF', marginTop: 2 },
-    prismGlassOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.05)' },
-    prismGlowCircle: {
-        position: 'absolute', top: -50, right: -50, width: 150, height: 150,
-        borderRadius: 75, backgroundColor: 'rgba(255,255,255,0.1)'
-    },
+    // Revenue Card
+    revCardContainer: { paddingHorizontal: 24, marginTop: -20 },
+    revCard: { borderRadius: 32, padding: 30, overflow: 'hidden', elevation: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20 },
+    revHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    revLabelBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+    revLabel: { fontSize: 9, fontWeight: '900', color: '#FFF', letterSpacing: 1.5 },
+    pulseDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.primary },
+    revMain: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 30 },
+    currencySymbol: { fontSize: 24, fontWeight: '900', color: Colors.primary, marginTop: 8, marginRight: 4 },
+    revVal: { fontSize: 56, fontWeight: '900', color: '#FFF', letterSpacing: -2 },
+    revFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
+    trendStat: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    trendVal: { fontSize: 15, fontWeight: '900', color: '#10B981' },
+    trendLab: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
+    viewDetailedBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    detailedText: { fontSize: 11, fontWeight: '800', color: '#FFF', letterSpacing: 1 },
+    revMesh: { position: 'absolute', top: -100, right: -100, width: 300, height: 300, borderRadius: 150, backgroundColor: Colors.primary, opacity: 0.05 },
 
-    // ─── Bento Grid ───
-    statsBentoGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20, gap: 12, marginTop: 24 },
-    bentoItem: {
-        width: (SCREEN_W - 40 - 12) / 2,
-        backgroundColor: '#FFF', borderRadius: 24, padding: 20,
-        borderWidth: 1, borderColor: '#F1F5F9',
-        shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.03, shadowRadius: 10,
-    },
-    bentoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-    bentoIconBox: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' },
-    trendBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-    trendText: { fontSize: 10, fontWeight: '800' },
-    bentoBody: { gap: 2 },
-    bentoVal: { fontSize: 24, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
-    bentoLab: { fontSize: 12, fontWeight: '600', color: '#64748B' },
+    // Bento Grid
+    bentoGrid: { paddingHorizontal: 24, gap: 12, marginTop: 32 },
+    bentoRow: { flexDirection: 'row', gap: 12 },
+    bentoCard: { flex: 1, backgroundColor: '#F8FAFC', borderRadius: 28, padding: 24, gap: 4, borderWidth: 1, borderColor: '#F1F5F9' },
+    bentoIconBox: { width: 44, height: 44, borderRadius: 16, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4 },
+    bentoVal: { fontSize: 24, fontWeight: '900', color: '#111' },
+    bentoLab: { fontSize: 11, fontWeight: '700', color: '#64748B' },
 
-    // ─── Quick Actions ───
-    quickActionsSection: { marginTop: 32 },
-    sectionHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, marginBottom: 16 },
-    sectionHeaderTitle: { fontSize: 18, fontWeight: '900', color: '#0F172A', letterSpacing: -0.5 },
-    actionsScroller: { paddingHorizontal: 20, gap: 12 },
-    actionBtn: { width: 90, alignItems: 'center', gap: 10 },
-    actionIconOuter: {
-        width: 64, height: 64, borderRadius: 24,
-        justifyContent: 'center', alignItems: 'center',
-        shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1, shadowRadius: 8, elevation: 4,
-    },
+    // Action Grid
+    actionGridContainer: { marginTop: 40, paddingHorizontal: 24 },
+    sectionTitle: { fontSize: 12, fontWeight: '900', color: '#111', letterSpacing: 2, marginBottom: 20 },
+    actionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+    actionItem: { width: (SCREEN_W - 48 - 24) / 3, alignItems: 'center', gap: 10, marginBottom: 10 },
+    actionIconOuter: { width: 68, height: 68, borderRadius: 24, justifyContent: 'center', alignItems: 'center' },
     actionLabel: { fontSize: 11, fontWeight: '800', color: '#64748B' },
 
-    // ─── Team Section ───
-    teamSection: { marginTop: 40 },
-    linkText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
-    agentsList: { paddingHorizontal: 20, gap: 16, marginTop: 4 },
-    agentCard: {
-        backgroundColor: '#FFF', borderRadius: 20, padding: 16, alignItems: 'center',
-        width: 110, borderWidth: 1, borderColor: '#F1F5F9',
-        shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.03, shadowRadius: 10,
-    },
-    agentAvatarBox: { position: 'relative', marginBottom: 12 },
-    agentAvatarPlaceholder: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' },
-    agentInitial: { fontSize: 20, fontWeight: '900', color: Colors.primary },
-    agentStatusIndicator: { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, borderWidth: 3, borderColor: '#FFF' },
-    agentName: { fontSize: 13, fontWeight: '800', color: '#0F172A' },
-    agentSubText: { fontSize: 10, color: '#64748B', fontWeight: '600', marginTop: 2 },
-    emptyAgents: { paddingHorizontal: 20, marginTop: 4 },
-    emptyBlur: {
-        padding: 40, alignItems: 'center', gap: 12, borderRadius: 24, overflow: 'hidden',
-        borderWidth: 1, borderColor: '#F1F5F9', backgroundColor: 'rgba(255,255,255,0.5)'
-    },
-    emptyText: { fontSize: 14, color: '#64748B', fontWeight: '600' },
+    // Network Pulse
+    networkContainer: { marginTop: 40, paddingBottom: 20 },
+    networkHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, marginBottom: 15 },
+    seeAllText: { fontSize: 11, fontWeight: '900', color: Colors.primary, letterSpacing: 1 },
+    agentList: { paddingHorizontal: 24, gap: 15 },
+    agentCard: { width: 100, backgroundColor: '#F8FAFC', borderRadius: 24, padding: 16, alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#F1F5F9' },
+    agentAvatar: { width: 52, height: 52, borderRadius: 18, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', position: 'relative' },
+    agentInit: { fontSize: 18, fontWeight: '900', color: '#111' },
+    agentStatus: { position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: 7, borderWidth: 3, borderColor: '#F8FAFC' },
+    agentName: { fontSize: 12, fontWeight: '800', color: '#111' },
+    agentStatusText: { fontSize: 10, fontWeight: '700', color: '#94A3B8' },
+    emptyAgents: { paddingVertical: 20, alignItems: 'center' },
+    emptyText: { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
 });

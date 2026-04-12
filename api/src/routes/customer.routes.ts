@@ -31,7 +31,8 @@ router.get('/reviews', authenticate, asyncHandler(cc.listReviews as any));
 router.get('/notifications', authenticate, asyncHandler(cc.listNotifications as any));
 router.post('/notifications/read-all', authenticate, asyncHandler(cc.markAllNotificationsRead as any));
 router.get('/chats', authenticate, asyncHandler(cc.listChats as any));
-router.post('/chats/open/:bookingId', authenticate, asyncHandler(cc.openChat as any));
+router.post('/chats/init', authenticate, asyncHandler(cc.openChat as any)); // Direct chat
+router.post('/chats/open/:bookingId', authenticate, asyncHandler(cc.openChat as any)); // Legacy booking-based
 router.get('/chats/:chatId/messages', authenticate, asyncHandler(cc.getChatMessages as any));
 router.post('/chats/:chatId/messages', authenticate, validate(sendMessageSchema), asyncHandler(cc.sendChatMessage as any));
 

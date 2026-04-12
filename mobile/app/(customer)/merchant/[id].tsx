@@ -1,23 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    Pressable,
-    Image,
-    ActivityIndicator,
-    Dimensions,
-    Linking,
-    Platform,
-    Share,
-} from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image, ActivityIndicator, Linking, Platform, Share } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
-    FadeInDown,
     FadeInUp,
     FadeInRight,
     useSharedValue,
@@ -42,11 +29,9 @@ import {
 import * as Haptics from 'expo-haptics';
 
 import { Colors } from '../../../constants/theme';
-import { catalogApi, type MerchantProfileData } from '../../../lib/marketplace';
+import { catalogApi, customerApi, type MerchantProfileData } from '../../../lib/marketplace';
 import { getImageUrl } from '../../../lib/api';
 import { isFavorite, toggleFavorite } from '../../../lib/storage';
-
-const { width } = Dimensions.get('window');
 
 export default function MerchantDetailScreen() {
     const router = useRouter();
@@ -257,14 +242,14 @@ export default function MerchantDetailScreen() {
                                     <Pressable
                                         key={idx}
                                         style={styles.serviceItem}
-                                        onPress={() => router.push({ 
-                                            pathname: '/(booking)/checkout', 
-                                            params: { 
-                                                serviceId: svc.id, 
-                                                serviceName: svc.name, 
-                                                price: String(svc.price), 
-                                                qty: '1' 
-                                            } 
+                                        onPress={() => router.push({
+                                            pathname: '/(booking)/checkout',
+                                            params: {
+                                                serviceId: svc.id,
+                                                serviceName: svc.name,
+                                                price: String(svc.price),
+                                                qty: '1'
+                                            }
                                         })}
                                     >
                                         <View style={styles.svcMeta}>
@@ -365,8 +350,15 @@ export default function MerchantDetailScreen() {
                 <View style={styles.bottomBarContent}>
                     <Pressable
                         style={styles.chatBtn}
-                        onPress={() => {
-                            if (merchant.id) router.push(`/(customer)/chat/${merchant.id}`);
+                        onPress={async () => {
+                            if (!merchant.userId) return;
+                            try {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                const res = await customerApi.initDirectChat(merchant.userId);
+                                router.push(`/(customer)/chat/${res.data.chat.id}`);
+                            } catch (err) {
+                                // Silent fail or toast
+                            }
                         }}
                     >
                         <MessageSquare size={22} color="#111" />
@@ -375,14 +367,14 @@ export default function MerchantDetailScreen() {
                         style={styles.mainCta}
                         onPress={() => {
                             if (merchant.services.length > 0) {
-                                router.push({ 
-                                    pathname: '/(booking)/checkout', 
-                                    params: { 
-                                        serviceId: merchant.services[0].id, 
-                                        serviceName: merchant.services[0].name, 
-                                        price: String(merchant.services[0].price), 
-                                        qty: '1' 
-                                    } 
+                                router.push({
+                                    pathname: '/(booking)/checkout',
+                                    params: {
+                                        serviceId: merchant.services[0].id,
+                                        serviceName: merchant.services[0].name,
+                                        price: String(merchant.services[0].price),
+                                        qty: '1'
+                                    }
                                 });
                             }
                         }}
@@ -414,7 +406,7 @@ const styles = StyleSheet.create({
     actionCircle: { width: 44, height: 44, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
     actionBlur: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
 
-    hero: { height: 400, position: 'relative' },
+    hero: { height: 400, position: 'relative', marginBottom: 20 },
     heroImg: { width: '100%', height: '100%' },
     heroOverlay: { ...StyleSheet.absoluteFillObject },
     heroInfo: { position: 'absolute', bottom: 40, left: 25, right: 25, flexDirection: 'row', alignItems: 'center', gap: 20 },
@@ -430,7 +422,7 @@ const styles = StyleSheet.create({
     ratingInline: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
     ratingText: { fontSize: 11, fontWeight: '800', color: '#FFF' },
 
-    statsContainer: { paddingHorizontal: 20, marginTop: -40 },
+    statsContainer: { paddingHorizontal: 20, marginTop: -50 },
     statsBento: { flexDirection: 'row', backgroundColor: '#FFF', borderRadius: 24, padding: 25, borderWidth: 1, borderColor: '#F0F0F0', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.05, shadowRadius: 20, elevation: 5 },
     statBox: { flex: 1, alignItems: 'center', gap: 6 },
     statValue: { fontSize: 18, fontWeight: '800', color: '#111', letterSpacing: -0.5 },

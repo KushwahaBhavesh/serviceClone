@@ -2,10 +2,10 @@ import React from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { Hero } from "@/components/sections/Hero";
+import { HowItWorks } from "@/components/sections/HowItWorks";
 import { ServicesGrid } from "@/components/sections/ServicesGrid";
-import { FeaturedServices } from "@/components/sections/FeaturedServices";
-import { WhyChooseUs } from "@/components/sections/WhyChooseUs";
-import { Stats } from "@/components/sections/Stats";
+import { TrustSection } from "@/components/sections/TrustSection";
+import { AppShowcase } from "@/components/sections/AppShowcase";
 import { Testimonials } from "@/components/sections/Testimonials";
 import { CTA } from "@/components/sections/CTA";
 
@@ -14,11 +14,11 @@ export default function LandingPage() {
         <main className="min-h-screen">
             <Navbar />
             <Hero />
+            <HowItWorks />
             <ServicesGrid />
-            <FeaturedServices />
-            <WhyChooseUs />
-            <Stats />
+            <TrustSection />
             <Testimonials />
+            <AppShowcase />
             <CTA />
             <Footer />
         </main>

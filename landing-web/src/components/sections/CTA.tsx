@@ -1,19 +1,57 @@
-import React from "react";
+"use client";
+
+import React, { useRef } from "react";
+import { ArrowRight, Gift } from "lucide-react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+if (typeof window !== "undefined") {
+    gsap.registerPlugin(ScrollTrigger);
+}
 
 export const CTA = () => {
-    return (
-        <section id="cta" className="py-20 px-6 bg-primary w-full text-white">
-            <div className="max-w-4xl mx-auto text-center space-y-8 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl opacity-50" />
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary-light/20 rounded-full -ml-32 -mb-32 blur-3xl opacity-30" />
+    const container = useRef<HTMLDivElement>(null);
 
-                <div className="relative space-y-8">
-                    <h2 className="text-4xl md:text-6xl font-bold leading-tight">Ready to elevate your <br /> home living?</h2>
-                    <p className="text-xl text-white/80 max-w-2xl mx-auto">Book your first service today and experience the ServeIQ difference. New users get 20% off their first booking.</p>
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-                        <button className="bg-white text-primary text-xl px-12 py-5 rounded-xl font-bold hover:bg-secondary transition-colors w-full sm:w-auto shadow-xl">Book Service Now</button>
-                        <button className="bg-white/10 backdrop-blur-md text-white border border-white/20 text-xl px-12 py-5 rounded-xl font-bold hover:bg-white/20 transition-colors w-full sm:w-auto">View Pricing</button>
-                    </div>
+    useGSAP(() => {
+        gsap.from(".cta-content", {
+            opacity: 0,
+            y: 40,
+            duration: 1,
+            ease: "power3.out",
+            scrollTrigger: {
+                trigger: container.current,
+                start: "top 80%",
+            }
+        });
+    }, { scope: container });
+
+    return (
+        <section id="cta" ref={container} className="py-32 px-6 bg-slate-900 w-full text-white relative overflow-hidden">
+            {/* Background Effects */}
+            <div className="absolute top-0 left-0 w-full h-full opacity-20 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')]" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/10 rounded-full blur-[120px] -z-0" />
+
+            <div className="max-w-5xl mx-auto text-center relative z-10 cta-content">
+                <div className="inline-flex items-center gap-3 px-6 py-2 bg-primary/20 text-primary rounded-full text-sm font-black border border-primary/30 mb-10 uppercase tracking-widest animate-pulse">
+                    <Gift size={20} /> Limited Time Offer
+                </div>
+
+                <h2 className="text-5xl md:text-8xl font-black leading-none tracking-tight mb-10">
+                    Your Dream Home <br /> <span className="text-primary italic">Just 1 Click Away</span>
+                </h2>
+
+                <p className="text-xl md:text-2xl text-slate-300 max-w-2xl mx-auto font-medium leading-relaxed mb-12">
+                    Book your first service today and experience the ServeIQ difference. New users get <span className="text-white font-black underline underline-offset-8 decoration-primary decoration-4">20% OFF</span> their first booking.
+                </p>
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-6">
+                    <button className="btn-primary text-2xl px-14 py-6 shadow-primary">
+                        Book Service Now
+                    </button>
+                    <button className="px-14 py-6 rounded-2xl font-black text-2xl border-2 border-slate-700 hover:bg-slate-800 transition-all flex items-center gap-3">
+                        View Rates <ArrowRight size={24} />
+                    </button>
                 </div>
             </div>
         </section>

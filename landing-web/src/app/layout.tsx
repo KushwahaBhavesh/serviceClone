@@ -14,15 +14,19 @@ export const metadata: Metadata = {
     description: "Book professional cleaning, plumbing, repair, and other home services with trust and ease. Modern solutions for a premium home lifestyle.",
 };
 
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
+
 export default function RootLayout({
     children,
 }: Readonly<{
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="en" className={`${inter.variable} ${poppins.variable}`}>
+        <html lang="en" className={`${inter.variable} ${poppins.variable}`} suppressHydrationWarning>
             <body className="bg-background text-text-primary font-sans antialiased">
-                {children}
+                <ThemeProvider>
+                    {children}
+                </ThemeProvider>
             </body>
         </html>
     );
